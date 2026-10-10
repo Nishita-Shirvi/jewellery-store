@@ -187,7 +187,7 @@ export async function applyTrackingUpdate(
 
   const latest = mapShiprocketStatus(update.statusId, update.statusLabel);
 
-  return db.$transaction(async (tx) => {
+  const outcome = await db.$transaction(async (tx) => {
     const inserted = await tx.shipmentEvent.createMany({
       data: events.map((e) => ({
         shipmentId: shipment.id,
@@ -208,23 +208,34 @@ export async function applyTrackingUpdate(
       moved = res.count > 0;
     }
 
+    let orderEvent: "shipped" | "delivered" | null = null;
     if (latest && ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(latest)) {
-      await tx.order.updateMany({
+      const moved = await tx.order.updateMany({
         where: { id: shipment.orderId, status: "PAID" },
         data: { status: "SHIPPED" },
       });
+      if (moved.count > 0) orderEvent = "shipped";
     }
     if (latest === "DELIVERED") {
-      await tx.order.updateMany({
+      const done = await tx.order.updateMany({
         where: { id: shipment.orderId, status: { in: ["PAID", "SHIPPED"] } },
-        data: { status: "DELIVERED" },
+        data: { status: "DELIVERED", deliveredAt: update.occurredAt },
       });
+      if (done.count > 0) orderEvent = "delivered";
     }
     if (latest === "RTO")
       logger.warn("shipment.rto", { orderId: shipment.orderId, awb: update.awb });
 
-    return inserted.count > 0 || moved ? "applied" : "no_change";
+    return {
+      result: inserted.count > 0 || moved ? ("applied" as const) : ("no_change" as const),
+      orderEvent,
+    };
   });
+  if (outcome.orderEvent) {
+    const { notifyOrder } = await import("@/services/notification.service");
+    await notifyOrder(shipment.orderId, outcome.orderEvent);
+  }
+  return outcome.result;
 }
 
 export async function getShipmentForOrder(orderId: string) {

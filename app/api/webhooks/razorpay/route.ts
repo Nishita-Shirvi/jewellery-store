@@ -6,6 +6,7 @@ import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { markOrderPaid, markPaymentFailed } from "@/services/order.service";
+import { markRefundFailed, markRefundProcessed } from "@/services/refund.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,9 +23,22 @@ const paymentEntity = z.object({
   error_reason: z.string().nullable().optional(),
 });
 
+const refundEntity = z.object({
+  id: z.string().startsWith("rfnd_"),
+  payment_id: z.string(),
+  amount: z.number().int(),
+  status: z.string(),
+  notes: z.union([z.record(z.string(), z.string()), z.array(z.unknown())]).optional(),
+});
+
 const webhookSchema = z.object({
   event: z.string(),
-  payload: z.object({ payment: z.object({ entity: paymentEntity }).optional() }).passthrough(),
+  payload: z
+    .object({
+      payment: z.object({ entity: paymentEntity }).optional(),
+      refund: z.object({ entity: refundEntity }).optional(),
+    })
+    .passthrough(),
 });
 
 /**
@@ -93,6 +107,27 @@ export async function POST(request: Request) {
         eventId,
         outcome: result.outcome,
       });
+    } else if (
+      (event.event === "refund.processed" || event.event === "refund.failed") &&
+      event.payload.refund
+    ) {
+      const refund = event.payload.refund.entity;
+      const refundRef =
+        refund.notes && !Array.isArray(refund.notes) ? refund.notes.refundRef : undefined;
+      const outcome =
+        event.event === "refund.processed"
+          ? await markRefundProcessed({
+              razorpayRefundId: refund.id,
+              refundRef,
+              raw: JSON.parse(rawBody),
+            })
+          : await markRefundFailed({
+              razorpayRefundId: refund.id,
+              refundRef,
+              reason: "Refund failed at the bank",
+              raw: JSON.parse(rawBody),
+            });
+      logger.info("webhook.razorpay_processed", { event: event.event, eventId, outcome });
     } else {
       logger.info("webhook.razorpay_ignored", { event: event.event, eventId });
     }

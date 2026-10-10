@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-10-08
-**Current phase:** Phase 10 — Shipping (done and tested in the sandbox with a stand-in Shiprocket; needs `npx prisma migrate dev --name phase10_shipping` locally and Shiprocket keys). Next: Phase 11 — Cancellations, returns, refunds.
+**Current phase:** Frontend design (storefront redesign in progress). Phase 13 (coupons + wishlist) is built but its browser test is unfinished — see note D-91. Needs `npx prisma migrate dev --name phase13_coupons_wishlist` locally.
 
 ---
 
@@ -11,40 +11,40 @@
 
 Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked · ⏭️ Deferred
 
-| Phase | Name                            | Status | Started    | Finished   | Notes                                                                       |
-| ----- | ------------------------------- | ------ | ---------- | ---------- | --------------------------------------------------------------------------- |
-| 0     | Planning and Docs folder        | ✅     | 2026-10-08 | 2026-10-08 | Docs created                                                                |
-| 1     | Project setup                   | ✅     | 2026-10-08 | 2026-10-08 | Health check verified against real PostgreSQL (200 when up, 503 when down)  |
-| 2     | Database schema                 | ✅     | 2026-10-08 | 2026-10-09 | Migrated and seeded on Neon (Singapore) by the client                       |
-| 3     | Authentication                  | ✅     | 2026-10-09 | 2026-10-09 | 24/24 browser checks in the sandbox; Google login waits for keys (B-06)     |
-| 4     | Catalog                         | ✅     | 2026-10-09 | 2026-10-09 | 25/25 browser checks in the sandbox                                         |
-| 5     | Cart                            | ✅     | 2026-10-09 | 2026-10-09 | 20/20 browser checks + unit tests                                           |
-| 6     | Checkout and payments           | ✅     | 2026-10-09 | 2026-10-09 | 27/27 payment scenarios + race test; needs real test keys locally (B-01)    |
-| 7     | Account and admin panel         | ✅     | 2026-10-09 | 2026-10-09 | 38/38 browser checks + admin-security unit tests                            |
-| 8     | Hardening and deployment        | ✅     | 2026-10-09 | 2026-10-09 | Code + CI done; going live waits on client accounts (DEPLOY.md)             |
-| 9     | Inventory reservation           | ✅     | 2026-10-09 | 2026-10-09 | 7 real-DB concurrency tests, 35/35 payment scenarios, full regression green |
-| 10    | Shipping (Shiprocket)           | ✅     | 2026-10-09 | 2026-10-09 | 21/21 shipping checks; full regression 163 browser + 86 unit + 7 DB tests   |
-| 11    | Cancellations, returns, refunds | ⬜     |            |            |                                                                             |
-| 12    | GST invoices and emails         | ⬜     |            |            | Needs GSTIN + seller state                                                  |
-| 13    | Coupons and wishlist            | ⬜     |            |            |                                                                             |
-| 14    | Reviews                         | ⬜     |            |            |                                                                             |
-| 15    | Search, SEO, performance        | ⬜     |            |            |                                                                             |
-| 16    | Analytics, reports, release     | ⬜     |            |            |                                                                             |
-| 17    | Product variants                | ⬜     |            |            |                                                                             |
-| 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                           |
-| 19    | Background jobs                 | ⬜     |            |            |                                                                             |
-| 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                             |
-| 21    | Staff roles and permissions     | ⬜     |            |            |                                                                             |
-| 22    | Customer support                | ⬜     |            |            |                                                                             |
-| 23    | Security, PWA, release          | ⬜     |            |            |                                                                             |
-| 24    | Merchandising and CMS           | ⬜     |            |            |                                                                             |
-| 25    | Recommendations                 | ⬜     |            |            |                                                                             |
-| 26    | Monitoring and alerts           | ⬜     |            |            |                                                                             |
-| 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                       |
-| 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                |
-| 29    | Accounting and integrations     | ⬜     |            |            |                                                                             |
-| 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                             |
-| F     | Final frontend design           | ⬜     |            |            | Waiting on client inputs                                                    |
+| Phase | Name                            | Status | Started    | Finished   | Notes                                                                                                            |
+| ----- | ------------------------------- | ------ | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
+| 0     | Planning and Docs folder        | ✅     | 2026-10-08 | 2026-10-08 | Docs created                                                                                                     |
+| 1     | Project setup                   | ✅     | 2026-10-08 | 2026-10-08 | Health check verified against real PostgreSQL (200 when up, 503 when down)                                       |
+| 2     | Database schema                 | ✅     | 2026-10-08 | 2026-10-09 | Migrated and seeded on Neon (Singapore) by the client                                                            |
+| 3     | Authentication                  | ✅     | 2026-10-09 | 2026-10-09 | 24/24 browser checks in the sandbox; Google login waits for keys (B-06)                                          |
+| 4     | Catalog                         | ✅     | 2026-10-09 | 2026-10-09 | 25/25 browser checks in the sandbox                                                                              |
+| 5     | Cart                            | ✅     | 2026-10-09 | 2026-10-09 | 20/20 browser checks + unit tests                                                                                |
+| 6     | Checkout and payments           | ✅     | 2026-10-09 | 2026-10-09 | 27/27 payment scenarios + race test; needs real test keys locally (B-01)                                         |
+| 7     | Account and admin panel         | ✅     | 2026-10-09 | 2026-10-09 | 38/38 browser checks + admin-security unit tests                                                                 |
+| 8     | Hardening and deployment        | ✅     | 2026-10-09 | 2026-10-09 | Code + CI done; going live waits on client accounts (DEPLOY.md)                                                  |
+| 9     | Inventory reservation           | ✅     | 2026-10-09 | 2026-10-09 | 7 real-DB concurrency tests, 35/35 payment scenarios, full regression green                                      |
+| 10    | Shipping (Shiprocket)           | ✅     | 2026-10-09 | 2026-10-09 | 21/21 shipping checks; full regression 163 browser + 86 unit + 7 DB tests                                        |
+| 11    | Cancellations, returns, refunds | ✅     | 2026-10-10 | 2026-10-10 | 34/34 refund checks; full regression 218 browser + 3 Playwright + 105 unit + 7 DB                                |
+| 12    | GST invoices and order emails   | ✅     | 2026-10-10 | 2026-10-10 | 20/20 invoice checks (PDF text verified) + 5 DB tests; full regression green                                     |
+| 13    | Coupons and wishlist            | 🟨     | 2026-10-10 |            | Built; unit + DB tests pass; browser test unfinished (paused for frontend)                                       |
+| 14    | Reviews                         | ⬜     |            |            |                                                                                                                  |
+| 15    | Search, SEO, performance        | ⬜     |            |            |                                                                                                                  |
+| 16    | Analytics, reports, release     | ⬜     |            |            |                                                                                                                  |
+| 17    | Product variants                | ⬜     |            |            |                                                                                                                  |
+| 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                                                                |
+| 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
+| 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
+| 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
+| 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
+| 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
+| 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
+| 25    | Recommendations                 | ⬜     |            |            |                                                                                                                  |
+| 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                  |
+| 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                                                            |
+| 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                     |
+| 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                  |
+| 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                                                                  |
+| F     | Final frontend design           | 🟨     | 2026-10-11 |            | Design system + header, footer, home, product card/page done; next: listing, cart, checkout, account, auth pages |
 
 ---
 
@@ -63,6 +63,24 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ```
 
 ---
+
+### Before Phase 12 — GST invoices and order emails (2026-10-10)
+
+**Done so far:** Phases 1–11 including automatic refunds and returns.
+**Not finished / carried over:** None.
+**Open blockers:** B-04 (GSTIN, business state), B-09 (CA to confirm GST rates/HSN), B-08 (MSG91 DLT for SMS).
+**Plan for this phase:** HSN + GST rate per product; tax split (CGST+SGST or IGST) frozen on each order line at checkout; gap-free invoice numbers per financial year; PDF tax invoice on payment; customer/admin download; React Email templates for confirmed/shipped/delivered/cancelled/refunded through one notification service; optional MSG91 SMS.
+**Risks:** Duplicate or skipped invoice numbers; tax totals not matching the order — both tested.
+**Git:** tag `phase-11` before starting.
+
+### Before Phase 11 — Cancellations, returns, refunds (2026-10-10)
+
+**Done so far:** Phases 1–10: store, Razorpay checkout, admin, deployment setup, stock holds, Shiprocket shipping.
+**Not finished / carried over:** Client to deploy and connect Razorpay/Shiprocket accounts.
+**Open blockers:** B-01 (Razorpay keys), B-05 (Shiprocket).
+**Plan for this phase:** One order state machine; customer cancel before shipping with automatic refund; returns within 7 days (items, reason, photo); admin approve (restock option) / reject; partial refunds per item; Razorpay Refunds API with duplicate protection; refund.processed / refund.failed webhooks; emails at each step; sold-out-after-payment refunded automatically.
+**Risks:** Double refunds (double clicks, retries, lost responses, repeated webhooks) — each covered by a test.
+**Git:** tag `phase-10` before starting.
 
 ### Before Phase 10 — Shipping (2026-10-09)
 

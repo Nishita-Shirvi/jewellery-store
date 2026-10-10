@@ -25,6 +25,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // react-pdf ships its own Node build; bundling it breaks font loading.
+  serverExternalPackages: ["@react-pdf/renderer"],
   images: {
     // Placeholder product images until real photos arrive (Docs/note.md, D-07).
     remotePatterns: [

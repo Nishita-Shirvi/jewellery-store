@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { INDIAN_STATES } from "./india";
 
 /**
  * Typed, validated environment variables.
@@ -48,6 +49,17 @@ const serverSchema = z.object({
   BUSINESS_EMAIL: z.email().default("support@example.com"),
   BUSINESS_PHONE: z.string().min(6).default("[+91 phone number]"),
   BUSINESS_GSTIN: z.string().default("[GSTIN]"),
+  /** Seller's state for GST: same state as the buyer → CGST + SGST, otherwise IGST. */
+  BUSINESS_STATE: z.enum(INDIAN_STATES).default("Telangana"),
+  /** Prefix for invoice numbers, e.g. INV → INV/2026-27/000001 */
+  INVOICE_PREFIX: z
+    .string()
+    .regex(/^[A-Z0-9-]{1,10}$/)
+    .default("INV"),
+  /** Optional SMS/WhatsApp (MSG91). Off unless FEATURE_SMS=true and the keys are set. */
+  FEATURE_SMS: z.enum(["true", "false"]).default("false"),
+  MSG91_AUTH_KEY: z.string().min(10).optional(),
+  MSG91_ORDER_FLOW_ID: z.string().min(5).optional(),
   GRIEVANCE_OFFICER_NAME: z.string().min(2).default("[Grievance officer name]"),
   GRIEVANCE_OFFICER_EMAIL: z.email().default("grievance@example.com"),
 

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AddressForm } from "./address-form";
 import { PayButton } from "./pay-button";
+import { CouponBox } from "./coupon-box";
+import { formatINR } from "@/lib/format";
 
 export interface AddressOption {
   id: string;
@@ -15,15 +17,20 @@ export interface AddressOption {
 
 export function CheckoutClient({
   addresses,
-  payLabel,
+  subtotalInPaise,
+  shippingInPaise,
   storeName,
   paymentsEnabled,
 }: {
   addresses: AddressOption[];
-  payLabel: string;
+  subtotalInPaise: number;
+  shippingInPaise: number;
   storeName: string;
   paymentsEnabled: boolean;
 }) {
+  const [coupon, setCoupon] = useState<{ code: string; discountInPaise: number } | null>(null);
+  const total = subtotalInPaise - (coupon?.discountInPaise ?? 0) + shippingInPaise;
+  const payLabel = `Pay ${formatINR(total)}`;
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(addresses[0]?.id ?? null);
   const [adding, setAdding] = useState(addresses.length === 0);
@@ -78,6 +85,24 @@ export function CheckoutClient({
         </div>
       </section>
 
+      <section aria-labelledby="coupon-heading">
+        <h2 id="coupon-heading" className="text-lg font-medium">
+          Coupon
+        </h2>
+        <div className="mt-3">
+          <CouponBox
+            onChange={(c) =>
+              setCoupon(c ? { code: c.code, discountInPaise: c.discountInPaise } : null)
+            }
+          />
+        </div>
+        {coupon && (
+          <p className="mt-2 text-sm" data-testid="checkout-discount">
+            Discount: −{formatINR(coupon.discountInPaise)} · New total {formatINR(total)}
+          </p>
+        )}
+      </section>
+
       <section aria-labelledby="payment-heading">
         <h2 id="payment-heading" className="text-lg font-medium">
           Payment
@@ -91,6 +116,7 @@ export function CheckoutClient({
               label={payLabel}
               storeName={storeName}
               addressId={selected}
+              couponCode={coupon?.code}
               disabled={!selected}
             />
           ) : (

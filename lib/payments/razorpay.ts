@@ -92,3 +92,71 @@ export function verifyWebhookSignature(
 ): boolean {
   return signaturesMatch(hmacHex(secret, rawBody), signature);
 }
+
+// ── Refunds (https://razorpay.com/docs/api/refunds/) ──
+
+export interface RazorpayRefund {
+  id: string;
+  payment_id: string;
+  amount: number;
+  status: "pending" | "processed" | "failed";
+  notes?: Record<string, string> | [];
+}
+
+async function razorpayCall<T>(
+  path: string,
+  init: { method: "GET" | "POST"; body?: unknown },
+): Promise<T> {
+  const { keyId, keySecret } = credentials();
+  const response = await fetch(`${env.RAZORPAY_API_BASE}${path}`, {
+    method: init.method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString("base64")}`,
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+    signal: AbortSignal.timeout(15_000),
+    cache: "no-store",
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    let description = text.slice(0, 200);
+    try {
+      description =
+        (JSON.parse(text) as { error?: { description?: string } }).error?.description ??
+        description;
+    } catch {}
+    throw new RazorpayError(description, response.status);
+  }
+  return JSON.parse(text) as T;
+}
+
+/** Refunds part or all of a captured payment. `refundRef` is our Refund.id, stored in Razorpay's notes. */
+export async function createRazorpayRefund(
+  paymentId: string,
+  amountInPaise: number,
+  refundRef: string,
+): Promise<RazorpayRefund> {
+  return razorpayCall<RazorpayRefund>(`/v1/payments/${encodeURIComponent(paymentId)}/refund`, {
+    method: "POST",
+    body: {
+      amount: amountInPaise,
+      speed: "normal",
+      receipt: refundRef.slice(0, 40),
+      notes: { refundRef },
+    },
+  });
+}
+
+/** Refunds already made for a payment (used to avoid creating a duplicate after a lost response). */
+export async function listRazorpayRefunds(paymentId: string): Promise<RazorpayRefund[]> {
+  const res = await razorpayCall<{ items: RazorpayRefund[] }>(
+    `/v1/payments/${encodeURIComponent(paymentId)}/refunds?count=100`,
+    { method: "GET" },
+  );
+  return res.items ?? [];
+}
+
+export function refundRefOf(refund: RazorpayRefund): string | undefined {
+  return !refund.notes || Array.isArray(refund.notes) ? undefined : refund.notes.refundRef;
+}

@@ -6,7 +6,10 @@ import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { verifyPaymentSignature } from "@/lib/payments/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
+import { getCartView } from "@/services/cart.service";
+import { checkCoupon } from "@/services/coupon.service";
 import {
+  couponCodeSchema,
   addressSchema,
   orderIdSchema,
   startCheckoutSchema,
@@ -47,6 +50,7 @@ export async function addAddressAction(
 export async function startCheckoutAction(input: {
   addressId: string;
   checkoutKey: string;
+  couponCode?: string;
 }): Promise<CheckoutResult> {
   const user = await requireUser();
   const parsed = startCheckoutSchema.safeParse(input);
@@ -117,4 +121,27 @@ export async function verifyPaymentAction(input: unknown): Promise<VerifyResult>
     return { ok: true, redirectTo: `/orders/${p.orderId}/success` };
   }
   return { ok: false, error: "We couldn't verify the payment." };
+}
+
+export type CouponCheck =
+  | { ok: true; code: string; discountInPaise: number; description: string }
+  | { ok: false; error: string };
+
+/** Preview a coupon against the current cart (the real check happens again at payment). */
+export async function applyCouponAction(code: string): Promise<CouponCheck> {
+  const user = await requireUser();
+  if (!rateLimit(`coupon:${user.id}`, 20, 10 * 60 * 1000).ok)
+    return { ok: false, error: "Too many attempts. Please wait a few minutes." };
+  const parsed = couponCodeSchema.safeParse(code);
+  if (!parsed.success || !parsed.data) return { ok: false, error: "Enter a coupon code." };
+  const cart = await getCartView(user.id);
+  const result = await checkCoupon(parsed.data, user.id, cart.subtotalInPaise);
+  return result.ok
+    ? {
+        ok: true,
+        code: result.code!,
+        discountInPaise: result.discountInPaise,
+        description: result.description!,
+      }
+    : result;
 }

@@ -1,11 +1,9 @@
 import "server-only";
-import { revalidateTag } from "next/cache";
 import type { OrderStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
-import { canTransition } from "@/lib/order-status";
+import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { AdminInputError, ADMIN_PAGE_SIZE } from "@/services/admin/product-admin.service";
-import { CATALOG_TAG } from "@/services/catalog.service";
 import { releaseReservation } from "@/services/inventory.service";
 
 const STATUSES: OrderStatus[] = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
@@ -63,6 +61,18 @@ export async function getOrderAdmin(id: string) {
 export async function updateOrderStatus(id: string, next: OrderStatus, adminId: string) {
   const order = await db.order.findUnique({ where: { id }, select: { status: true } });
   if (!order) throw new AdminInputError("Order not found.");
+
+  // Cancelling a paid order = refund in full + restock (handled by the returns service).
+  if (next === "CANCELLED" && order.status === "PAID") {
+    const { cancelPaidOrder, ReturnError } = await import("@/services/return.service");
+    try {
+      await cancelPaidOrder({ orderId: id, by: "admin", actorId: adminId });
+    } catch (error) {
+      if (error instanceof ReturnError) throw new AdminInputError(error.message);
+      throw error;
+    }
+    return;
+  }
   if (!canTransition(order.status, next)) {
     throw new AdminInputError(`Can't change an order from ${order.status} to ${next}.`);
   }
@@ -72,6 +82,7 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
       where: { id, status: order.status },
       data: {
         status: next,
+        ...(next === "DELIVERED" ? { deliveredAt: new Date() } : {}),
         ...(next === "CANCELLED"
           ? {
               cancellationReason:
@@ -102,6 +113,9 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
     }
   });
 
-  if (next === "CANCELLED" && order.status === "PAID") revalidateTag(CATALOG_TAG);
+  if (next === "SHIPPED" || next === "DELIVERED") {
+    const { notifyOrder } = await import("@/services/notification.service");
+    await notifyOrder(id, next === "SHIPPED" ? "shipped" : "delivered");
+  }
   logger.info("admin.order_status_changed", { adminId, orderId: id, from: order.status, to: next });
 }

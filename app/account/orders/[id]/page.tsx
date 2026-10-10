@@ -10,6 +10,17 @@ import { cn } from "@/lib/utils";
 import { getOrderForUser } from "@/services/order.service";
 import { getShipmentForOrder } from "@/services/shipment.service";
 import { TrackingTimeline } from "@/components/shipping/tracking-timeline";
+import { ConfirmSubmit } from "@/components/admin/confirm-submit";
+import { RefundList } from "@/components/returns/refund-list";
+import { Button } from "@/components/ui/button";
+import { RETURN_REASON_LABEL } from "@/lib/returns";
+import {
+  canCustomerCancel,
+  getReturnOptions,
+  getReturnsAndRefunds,
+} from "@/services/return.service";
+import { cancelOrderAction } from "../actions";
+import { hasInvoice } from "@/services/invoice.service";
 
 export const metadata: Metadata = { title: "Order details", robots: { index: false } };
 
@@ -24,12 +35,25 @@ const STEPS: { status: OrderStatus; label: string }[] = [
   { status: "DELIVERED", label: "Delivered" },
 ];
 
-export default async function AccountOrderPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AccountOrderPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string; cancelled?: string; returned?: string }>;
+}) {
   const { id } = await params;
+  const flash = await searchParams;
   const user = await requireUserPage(`/account/orders/${id}`);
   const order = await getOrderForUser(user.id, id);
   if (!order || !CUSTOMER_VISIBLE_STATUSES.includes(order.status)) notFound();
-  const shipment = await getShipmentForOrder(order.id);
+  const [shipment, { returns, refunds }, cancellable, returnOptions] = await Promise.all([
+    getShipmentForOrder(order.id),
+    getReturnsAndRefunds(order.id),
+    canCustomerCancel(order.id),
+    getReturnOptions(user.id, order.id),
+  ]);
+  const invoiceReady = await hasInvoice(order.id);
   const reached = STEPS.findIndex((s) => s.status === order.status);
 
   return (
@@ -43,7 +67,9 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ i
       </div>
       <p className="text-muted-foreground text-sm">Placed {dateFmt.format(order.createdAt)}</p>
 
-      {order.status === "CANCELLED" ? (
+      {order.status === "REFUND_PENDING" ||
+      order.status === "REFUNDED" ||
+      order.status === "RETURN_REQUESTED" ? null : order.status === "CANCELLED" ? (
         <p className="border-border bg-muted rounded-md border p-4 text-sm">
           This order was cancelled.
           {order.cancellationReason?.includes("refund")
@@ -65,6 +91,85 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ i
             </li>
           ))}
         </ol>
+      )}
+
+      {flash.error && (
+        <p
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          {flash.error.slice(0, 200)}
+        </p>
+      )}
+      {flash.cancelled && (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          Your order is cancelled. The full refund is on its way to your original payment method.
+        </p>
+      )}
+      {flash.returned && (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          Return request sent. We&apos;ll review it within 2 business days.
+        </p>
+      )}
+
+      {(cancellable || returnOptions?.eligibility.ok || invoiceReady) && (
+        <div className="flex flex-wrap gap-2">
+          {invoiceReady && (
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/invoices/${order.id}`}>Download invoice</a>
+            </Button>
+          )}
+          {cancellable && (
+            <form action={cancelOrderAction}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <ConfirmSubmit
+                label="Cancel order"
+                title="Cancel this order?"
+                description="You'll get a full refund to your original payment method, usually within 5–7 business days."
+                confirmLabel="Cancel order"
+              />
+            </form>
+          )}
+          {returnOptions?.eligibility.ok && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/account/orders/${order.id}/return`}>Return items</Link>
+            </Button>
+          )}
+        </div>
+      )}
+
+      {(returns.length > 0 || refunds.length > 0) && (
+        <section aria-labelledby="returns-heading" className="space-y-3">
+          <h2 id="returns-heading" className="font-medium">
+            Returns and refunds
+          </h2>
+          {returns.map((r) => (
+            <div key={r.id} className="border-border rounded-md border p-3 text-sm">
+              <p>
+                Return{" "}
+                {r.status === "REQUESTED"
+                  ? "requested"
+                  : r.status === "APPROVED"
+                    ? "approved"
+                    : "not approved"}{" "}
+                · {RETURN_REASON_LABEL[r.reason]}
+              </p>
+              <p className="text-muted-foreground text-xs">
+                {r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}
+              </p>
+              {r.status === "REJECTED" && r.adminNote && (
+                <p className="mt-1 text-xs">Reason: {r.adminNote}</p>
+              )}
+            </div>
+          ))}
+          <RefundList refunds={refunds} />
+        </section>
       )}
 
       {shipment?.awb && (
@@ -100,6 +205,12 @@ export default async function AccountOrderPage({ params }: { params: Promise<{ i
             <span>{formatINR(item.lineTotalInPaise)}</span>
           </li>
         ))}
+        {order.discountInPaise > 0 && (
+          <li className="flex justify-between p-4">
+            <span className="text-muted-foreground">Coupon {order.couponCode}</span>
+            <span>−{formatINR(order.discountInPaise)}</span>
+          </li>
+        )}
         <li className="flex justify-between p-4">
           <span className="text-muted-foreground">Shipping</span>
           <span>{order.shippingInPaise ? formatINR(order.shippingInPaise) : "Free"}</span>

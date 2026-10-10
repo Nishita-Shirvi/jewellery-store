@@ -40,7 +40,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+        <h1 className="text-3xl md:text-4xl">{heading}</h1>
         <p className="text-muted-foreground text-sm" aria-live="polite">
           {result.total} {result.total === 1 ? "piece" : "pieces"}
         </p>

@@ -33,7 +33,8 @@ export default async function CheckoutPage() {
               .filter(Boolean)
               .join(", "),
           }))}
-          payLabel={`Pay ${formatINR(total)}`}
+          subtotalInPaise={cart.subtotalInPaise}
+          shippingInPaise={shipping}
           storeName={publicEnv.NEXT_PUBLIC_SITE_NAME}
           paymentsEnabled={isRazorpayConfigured}
         />

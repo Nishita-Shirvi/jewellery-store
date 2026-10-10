@@ -25,6 +25,35 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   FAILED
+  RETURN_REQUESTED // customer asked to return delivered items
+  REFUND_PENDING // refund sent to Razorpay, waiting for confirmation
+  REFUNDED // everything paid has been refunded
+}
+
+enum CouponType {
+  PERCENT
+  FLAT
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+}
+
+enum ReturnReason {
+  DAMAGED
+  WRONG_ITEM
+  NOT_AS_DESCRIBED
+  SIZE_ISSUE
+  CHANGED_MIND
+  OTHER
+}
+
+enum RefundStatus {
+  PENDING // created here; Razorpay not called yet or still processing
+  PROCESSED
+  FAILED
 }
 
 enum PaymentProvider {
@@ -97,11 +126,13 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  accounts  Account[]
-  sessions  Session[]
-  cart      Cart?
-  addresses Address[]
-  orders    Order[]
+  accounts          Account[]
+  wishlist          WishlistItem[]
+  couponRedemptions CouponRedemption[]
+  sessions          Session[]
+  cart              Cart?
+  addresses         Address[]
+  orders            Order[]
 
   @@index([role])
 }
@@ -194,14 +225,18 @@ model Product {
   /// BIS hallmark unique ID (6 characters) where applicable.
   huid                String?
   makingChargeInPaise Int         @default(0)
+  /// GST: HSN code and rate in basis points (300 = 3%). Jewellery is usually HSN 7113 at 3% — confirm with your CA.
+  hsnCode             String      @default("7113")
+  gstRateBps          Int         @default(300)
   isReturnable        Boolean     @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  cartItems  CartItem[]
-  orderItems OrderItem[]
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  orderItems    OrderItem[]
 
   @@index([categoryId])
   @@index([isActive, isFeatured])
@@ -280,13 +315,25 @@ model Order {
   reservedUntil      DateTime?
   /// Set when an unpaid order is closed because its hold expired.
   expiredAt          DateTime?
+  deliveredAt        DateTime?
+  /// Sum of PROCESSED refunds, in paise.
+  refundedInPaise    Int              @default(0)
+  couponId           String?
+  couponCode         String?
+  /// Coupon discount on the items (never on shipping), in paise.
+  discountInPaise    Int              @default(0)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  user     User        @relation(fields: [userId], references: [id], onDelete: Restrict)
-  items    OrderItem[]
-  payments Payment[]
-  shipment Shipment?
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items            OrderItem[]
+  payments         Payment[]
+  shipment         Shipment?
+  returns          ReturnRequest[]
+  invoice          Invoice?
+  coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  couponRedemption CouponRedemption?
+  refunds          Refund[]
 
   @@index([userId, createdAt])
   @@index([status])
@@ -295,20 +342,32 @@ model Order {
 }
 
 model OrderItem {
-  id               String @id @default(cuid())
-  orderId          String
-  productId        String
+  id                  String @id @default(cuid())
+  orderId             String
+  productId           String
   /// Snapshots taken at purchase time so the order never changes when the product does.
-  productName      String
-  productSlug      String
-  priceInPaise     Int
-  quantity         Int
-  lineTotalInPaise Int
+  productName         String
+  productSlug         String
+  priceInPaise        Int
+  quantity            Int
+  lineTotalInPaise    Int
   /// Metal, purity, colour, weights, gemstone, HUID at purchase time.
-  productSnapshot  Json
+  productSnapshot     Json
+  /// Units already returned/refunded (a piece can't be refunded twice).
+  returnedQuantity    Int    @default(0)
+  /// Tax snapshot at purchase time (prices include GST). IGST for other states, CGST+SGST within the seller's state.
+  hsnCode             String @default("7113")
+  gstRateBps          Int    @default(300)
+  taxableValueInPaise Int    @default(0)
+  cgstInPaise         Int    @default(0)
+  sgstInPaise         Int    @default(0)
+  igstInPaise         Int    @default(0)
+  /// This line's share of the order's coupon discount (GST is worked out on the price after discount).
+  discountInPaise     Int    @default(0)
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  returnItems ReturnItem[]
 
   @@index([orderId])
   @@index([productId])
@@ -330,7 +389,150 @@ model Payment {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  refunds Refund[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// ─────────────────────── Coupons and wishlist ─────────────────────
+
+model Coupon {
+  id                 String     @id @default(cuid())
+  /// Stored in UPPER CASE; customers can type it in any case.
+  code               String     @unique
+  type               CouponType
+  /// PERCENT: whole percent (1–90). FLAT: paise.
+  value              Int
+  minOrderInPaise    Int        @default(0)
+  maxDiscountInPaise Int?
+  startsAt           DateTime?
+  endsAt             DateTime?
+  /// Total uses allowed (null = unlimited).
+  usageLimit         Int?
+  /// Uses per customer (null = unlimited).
+  perUserLimit       Int?       @default(1)
+  /// Paid orders that used this coupon (updated inside the payment transaction).
+  usedCount          Int        @default(0)
+  isActive           Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  orders      Order[]
+  redemptions CouponRedemption[]
+
+  @@index([isActive])
+}
+
+model CouponRedemption {
+  id              String   @id @default(cuid())
+  couponId        String
+  userId          String
+  orderId         String   @unique
+  discountInPaise Int
+  createdAt       DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([couponId, userId])
+}
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, createdAt])
+}
+
+// ─────────────────────────── Invoices ────────────────────────────
+
+/// Tax invoice. The snapshot is frozen at creation so the PDF never changes later.
+model Invoice {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  /// e.g. INV/2026-27/000123 — sequential per financial year, no gaps.
+  number        String   @unique
+  financialYear String
+  sequence      Int
+  snapshot      Json
+  createdAt     DateTime @default(now())
+
   order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([financialYear, sequence])
+}
+
+/// Last invoice number used in each financial year (row-locked while numbering).
+model InvoiceCounter {
+  financialYear String @id
+  lastNumber    Int    @default(0)
+}
+
+// ─────────────────────── Returns and refunds ──────────────────────
+
+model ReturnRequest {
+  id        String       @id @default(cuid())
+  orderId   String
+  userId    String
+  status    ReturnStatus @default(REQUESTED)
+  reason    ReturnReason
+  details   String?
+  photoUrl  String?
+  /// Put the items back in stock when approved.
+  restock   Boolean      @default(true)
+  adminNote String?
+  decidedAt DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  order   Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  items   ReturnItem[]
+  refunds Refund[]
+
+  @@index([orderId])
+  @@index([status, createdAt])
+}
+
+model ReturnItem {
+  id              String @id @default(cuid())
+  returnRequestId String
+  orderItemId     String
+  quantity        Int
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Restrict)
+
+  @@unique([returnRequestId, orderItemId])
+}
+
+model Refund {
+  id               String       @id @default(cuid())
+  orderId          String
+  returnRequestId  String?
+  paymentId        String
+  /// Set once Razorpay accepts the refund. Unique so a refund is never recorded twice.
+  razorpayRefundId String?      @unique
+  amountInPaise    Int
+  status           RefundStatus @default(PENDING)
+  reason           String
+  failureReason    String?
+  rawPayload       Json?
+  processedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  order         Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: Restrict)
+  payment       Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([status])

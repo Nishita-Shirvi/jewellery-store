@@ -11,6 +11,7 @@ export function getBusiness() {
     email: env.BUSINESS_EMAIL,
     phone: env.BUSINESS_PHONE,
     gstin: env.BUSINESS_GSTIN,
+    state: env.BUSINESS_STATE,
     grievanceName: env.GRIEVANCE_OFFICER_NAME,
     grievanceEmail: env.GRIEVANCE_OFFICER_EMAIL,
     /** True while any value is still a [placeholder]. */

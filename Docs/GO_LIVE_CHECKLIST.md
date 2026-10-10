@@ -21,7 +21,7 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 
 - [ ] In Razorpay switch to **Live Mode** → API Keys → generate live keys
 - [ ] On Vercel replace `RAZORPAY_KEY_ID` (`rzp_live_…`) and `RAZORPAY_KEY_SECRET` (Production only — keep test keys on Preview)
-- [ ] Live-mode webhook added: `https://<domain>/api/webhooks/razorpay`, events `payment.captured` + `payment.failed`, same secret as `RAZORPAY_WEBHOOK_SECRET`
+- [ ] Live-mode webhook added: `https://<domain>/api/webhooks/razorpay`, events `payment.captured`, `payment.failed`, `refund.processed`, `refund.failed`, same secret as `RAZORPAY_WEBHOOK_SECRET`
 - [ ] Payment capture set to **Automatic** in live mode
 - [ ] Redeploy (Vercel → Deployments → Redeploy)
 

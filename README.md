@@ -2,7 +2,7 @@
 
 Online jewellery store for India, built phase by phase. Project goals, progress, blockers and decisions live in [`Docs/`](./Docs/readme.md).
 
-**Current phase:** 10 — Shipping with Shiprocket (Week 2) (see `Docs/DEPLOY.md` and `Docs/GO_LIVE_CHECKLIST.md`) (backend first; the UI is a placeholder until the final design).
+**Current phase:** 12 — GST invoices and order emails (Week 2) (see `Docs/DEPLOY.md` and `Docs/GO_LIVE_CHECKLIST.md`) (backend first; the UI is a placeholder until the final design).
 
 ## Stack
 
@@ -99,6 +99,20 @@ All variables are validated in `lib/env.ts` when the app starts. If one is missi
 - `/products?q=jhumka` — search by name (the header search box uses this).
 - `/products/<slug>` — product details: price, stock, metal, purity, weight, stones, hallmark.
 - Catalog pages are cached for 5 minutes; Phase 7 admin edits refresh them instantly.
+
+## GST invoices and emails
+
+- Set `BUSINESS_GSTIN`, `BUSINESS_STATE` (e.g. Telangana) and `INVOICE_PREFIX` in `.env`. Same-state customers get CGST + SGST, others IGST.
+- Each product has an HSN code and GST rate (Admin → Products → edit). Prices include GST.
+- A tax invoice (`INV/2026-27/000001`) is created when an order is paid; customers download it from their order page, admins from the order in `/admin`. Older paid orders: **Generate invoice**.
+- Customers get emails when an order is confirmed, shipped, delivered, cancelled or refunded. Set `RESEND_API_KEY` to send them for real.
+
+## Cancellations, returns and refunds
+
+- **Cancel:** customers cancel paid orders that aren't packed yet (Account → Orders → Cancel order); admins can cancel any paid order. Stock goes back and a full refund is sent through Razorpay automatically.
+- **Return:** within 7 days of delivery, customers choose pieces, a reason and an optional photo. Admin → **Returns** → open the order → approve (optionally restock) or reject with a reason.
+- **Refunds:** sent through Razorpay's API; confirmed by the `refund.processed` webhook (add the events `refund.processed` and `refund.failed` to your Razorpay webhook). Failed refunds show a **Retry** button.
+- Customers get an email at every step.
 
 ## Shipping (Shiprocket)
 

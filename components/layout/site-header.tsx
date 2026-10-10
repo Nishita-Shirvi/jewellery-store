@@ -1,49 +1,88 @@
 import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Heart, ShoppingBag } from "lucide-react";
 import { SearchForm } from "@/components/layout/search-form";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getCurrentUser } from "@/lib/auth-guards";
-import { getCartView } from "@/services/cart.service";
 import { publicEnv } from "@/lib/env";
+import { getCategories } from "@/services/catalog.service";
+import { getCartView } from "@/services/cart.service";
 
-/**
- * Placeholder header (final design comes later — see Docs/note.md).
- */
 export async function SiteHeader() {
   const user = await getCurrentUser();
-  const cartCount = (await getCartView(user?.id ?? null)).itemCount;
+  const [cart, categories] = await Promise.all([getCartView(user?.id ?? null), getCategories()]);
+  const cartCount = cart.itemCount;
 
   return (
-    <header className="border-border bg-background/95 sticky top-0 z-40 border-b backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <Link href="/" className="shrink-0 text-lg font-semibold tracking-tight">
-          {publicEnv.NEXT_PUBLIC_SITE_NAME}
-        </Link>
+    <header className="bg-background/95 sticky top-0 z-40 backdrop-blur">
+      <p className="bg-primary text-primary-foreground px-4 py-1.5 text-center text-xs">
+        Free insured shipping on orders above ₹999. Every gold piece is BIS hallmarked.
+      </p>
+      <div className="border-border border-b">
+        <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
+          <Link
+            href="/"
+            className="font-display text-primary shrink-0 text-2xl tracking-wide"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {publicEnv.NEXT_PUBLIC_SITE_NAME}
+          </Link>
 
-        <SearchForm className="hidden flex-1 md:block md:max-w-md" />
+          <nav aria-label="Categories" className="hidden items-center gap-5 text-sm lg:flex">
+            {categories.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/products?category=${c.slug}`}
+                className="hover:text-primary underline-offset-8 hover:underline"
+              >
+                {c.name}
+              </Link>
+            ))}
+          </nav>
 
-        <nav aria-label="Account and cart" className="ml-auto flex items-center gap-1">
-          <Button asChild variant="ghost" size="icon" className="relative">
+          <SearchForm className="ml-auto hidden w-64 md:block" />
+
+          <nav aria-label="Account and cart" className="ml-auto flex items-center gap-1 md:ml-0">
+            <Link
+              href="/account/wishlist"
+              aria-label="Wishlist"
+              className="hover:bg-accent rounded-md p-2"
+            >
+              <Heart className="size-5" />
+            </Link>
             <Link
               href="/cart"
               aria-label={`Cart, ${cartCount} ${cartCount === 1 ? "item" : "items"}`}
+              className="hover:bg-accent relative rounded-md p-2"
             >
-              <ShoppingBag />
+              <ShoppingBag className="size-5" />
               {cartCount > 0 && (
                 <span className="bg-primary text-primary-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-[10px] font-medium">
                   {cartCount}
                 </span>
               )}
             </Link>
-          </Button>
-          <UserMenu user={user} />
-        </nav>
-      </div>
+            <UserMenu user={user} />
+          </nav>
+        </div>
 
-      {/* On small screens the search box gets its own row */}
-      <div className="mx-auto max-w-6xl px-4 pb-3 md:hidden">
-        <SearchForm />
+        {/* Small screens: search and categories get their own rows. */}
+        <div className="mx-auto max-w-6xl space-y-3 px-4 pb-3 md:hidden">
+          <SearchForm />
+        </div>
+        <nav
+          aria-label="Categories"
+          className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-4 pb-3 text-sm lg:hidden"
+        >
+          {categories.map((c) => (
+            <Link
+              key={c.slug}
+              href={`/products?category=${c.slug}`}
+              className="shrink-0 hover:underline"
+            >
+              {c.name}
+            </Link>
+          ))}
+        </nav>
       </div>
     </header>
   );

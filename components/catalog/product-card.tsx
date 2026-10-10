@@ -28,9 +28,11 @@ export function ProductCard({
           </span>
         )}
       </div>
-      <h3 className="mt-3 text-sm font-medium">{product.name}</h3>
+      <h3 className="mt-3 text-[15px] leading-snug" style={{ fontFamily: "var(--font-display)" }}>
+        {product.name}
+      </h3>
       <p className="text-muted-foreground mt-0.5 text-xs">{product.materialSummary}</p>
-      <p className="mt-1 text-sm font-semibold">{formatINR(product.priceInPaise)}</p>
+      <p className="mt-1.5 text-sm font-semibold">{formatINR(product.priceInPaise)}</p>
     </Link>
   );
 }

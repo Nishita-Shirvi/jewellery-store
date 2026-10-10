@@ -74,7 +74,7 @@ Razorpay Dashboard → **Account & Settings → Webhooks → Add New Webhook**
 
 - URL: `https://www.yourstore.in/api/webhooks/razorpay`
 - Secret: the same value as `RAZORPAY_WEBHOOK_SECRET`
-- Events: `payment.captured`, `payment.failed`
+- Events: `payment.captured`, `payment.failed`, `refund.processed`, `refund.failed`
 - Also check **Payment capture** is set to **Automatic** (Account & Settings → Payment Capture).
 
 Do this in **Test Mode** first, and again in **Live Mode** when you switch keys.

@@ -17,10 +17,18 @@ interface PayButtonProps {
   /** New checkout: needs an address. Retry: pass orderId instead. */
   addressId?: string | null;
   orderId?: string;
+  couponCode?: string;
   disabled?: boolean;
 }
 
-export function PayButton({ label, storeName, addressId, orderId, disabled }: PayButtonProps) {
+export function PayButton({
+  label,
+  storeName,
+  addressId,
+  orderId,
+  couponCode,
+  disabled,
+}: PayButtonProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
@@ -28,6 +36,13 @@ export function PayButton({ label, storeName, addressId, orderId, disabled }: Pa
   // One key per page visit: double clicks and retries reuse the same order.
   const checkoutKey = useRef<string>(crypto.randomUUID());
   const activeOrderId = useRef<string | undefined>(orderId);
+  // A different coupon means a different order: start a fresh checkout session.
+  const lastCoupon = useRef(couponCode);
+  if (lastCoupon.current !== couponCode && !orderId) {
+    lastCoupon.current = couponCode;
+    checkoutKey.current = crypto.randomUUID();
+    activeOrderId.current = undefined;
+  }
 
   function pay() {
     if (busy) return;
@@ -37,7 +52,7 @@ export function PayButton({ label, storeName, addressId, orderId, disabled }: Pa
       const result: CheckoutResult = activeOrderId.current
         ? await retryPaymentAction({ orderId: activeOrderId.current })
         : addressId
-          ? await startCheckoutAction({ addressId, checkoutKey: checkoutKey.current })
+          ? await startCheckoutAction({ addressId, checkoutKey: checkoutKey.current, couponCode })
           : { ok: false, error: "Please choose a delivery address." };
 
       if (!result.ok) {

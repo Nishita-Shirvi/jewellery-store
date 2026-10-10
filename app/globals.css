@@ -1,22 +1,25 @@
 @import "tailwindcss";
 
 /*
- * Placeholder theme (neutral). The real brand palette and fonts arrive with the
- * final frontend design. Dark mode is added in Phase 28.
+ * Jewellery-box palette: velvet maroon, pearl, aubergine ink, antique kundan gold, emerald.
+ * Display type: Marcellus (carved, temple-inscription feel). Text: Figtree.
+ * Signature shape: the jharokha arch (.arch). Dark mode arrives in Phase 28.
  */
 :root {
-  --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.18 0 0);
-  --muted: oklch(0.96 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.96 0 0);
-  --accent-foreground: oklch(0.18 0 0);
-  --primary: oklch(0.25 0 0);
-  --primary-foreground: oklch(0.98 0 0);
-  --border: oklch(0.91 0 0);
-  --input: oklch(0.88 0 0);
-  --ring: oklch(0.55 0 0);
+  --radius: 0.375rem;
+  --background: #fbf7f4; /* pearl */
+  --foreground: #241a1f; /* aubergine ink */
+  --muted: #ede4e0; /* mist */
+  --muted-foreground: #6b5a61;
+  --accent: #f3ebe7;
+  --accent-foreground: #241a1f;
+  --primary: #4a1528; /* velvet maroon */
+  --primary-foreground: #fbf7f4;
+  --gold: #a87a28; /* antique kundan gold */
+  --emerald: #1e5e4a;
+  --border: #e3d7d2;
+  --input: #d8c9c3;
+  --ring: #a87a28;
 }
 
 @theme inline {
@@ -28,16 +31,45 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-gold: var(--gold);
+  --color-emerald: var(--emerald);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius-md: var(--radius);
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", Arial, sans-serif;
+    "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+    sans-serif;
+  --font-display: "Marcellus", "Iowan Old Style", Georgia, serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  font-feature-settings: "kern", "liga";
+}
+
+/* Headings use the display face everywhere (storefront and admin). */
+h1,
+h2 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.005em;
+}
+
+/* Jharokha arch: rounded top, square base. */
+.arch {
+  /* 50% horizontal radii meet in the middle; vertical radii set how tall the arch rises. */
+  border-radius: 50% 50% 0.375rem 0.375rem / 36% 36% 0.375rem 0.375rem;
+  overflow: hidden;
+}
+
+::selection {
+  background: #e9cfa0;
+  color: #241a1f;
+}
+
+:focus-visible {
+  outline-color: var(--gold);
 }

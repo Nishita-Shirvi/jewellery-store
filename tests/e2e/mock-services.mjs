@@ -35,6 +35,33 @@ http
       return;
     }
 
+    // Razorpay refunds: create and list.
+    const refunds = (globalThis.__refunds ??= []);
+    let match = /^\/v1\/payments\/([^/]+)\/refunds$/.exec(url.pathname);
+    if (req.method === "GET" && match) {
+      return res
+        .writeHead(200, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ items: refunds.filter((r) => r.payment_id === match[1]) }));
+    }
+    match = /^\/v1\/payments\/([^/]+)\/refund$/.exec(url.pathname);
+    if (req.method === "POST" && match) {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const b = JSON.parse(body || "{}");
+        const refund = {
+          id: `rfnd_${randomBytes(7).toString("hex")}`,
+          payment_id: match[1],
+          amount: b.amount,
+          status: "pending",
+          notes: b.notes,
+        };
+        refunds.push(refund);
+        res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify(refund));
+      });
+      return;
+    }
+
     // Shiprocket: login, create order, AWB, label, pickup, serviceability (pincodes starting 79 = not serviceable).
     if (url.pathname.startsWith("/v1/external/")) {
       let body = "";

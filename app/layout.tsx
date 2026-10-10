@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { publicEnv } from "@/lib/env";
+import "@fontsource/marcellus/400.css";
+import "@fontsource-variable/figtree";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -10,7 +12,7 @@ export const metadata: Metadata = {
     default: publicEnv.NEXT_PUBLIC_SITE_NAME,
     template: `%s | ${publicEnv.NEXT_PUBLIC_SITE_NAME}`,
   },
-  description: "Gold, silver and diamond jewellery, delivered across India.",
+  description: "Hallmarked gold, silver and diamond jewellery, delivered insured across India.",
 };
 
 export const viewport: Viewport = {

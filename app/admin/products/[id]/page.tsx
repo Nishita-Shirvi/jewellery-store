@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ProductForm } from "@/components/admin/product-form";
 import { listCategoryOptions } from "@/services/admin/category-admin.service";
+import { formatRate } from "@/lib/gst";
 import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
@@ -68,6 +69,8 @@ export default async function EditProductPage({
             grossWeight: product.grossWeightMg ? mgToGramsInput(product.grossWeightMg) : "",
             gemstone: product.gemstone ?? "",
             huid: product.huid ?? "",
+            hsnCode: product.hsnCode,
+            gstRate: formatRate(product.gstRateBps).replace("%", ""),
             images: product.images,
             isActive: product.isActive,
             isFeatured: product.isFeatured,

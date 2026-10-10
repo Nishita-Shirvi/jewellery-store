@@ -77,6 +77,8 @@ function toData(input: ProductFormInput) {
     grossWeightMg: input.grossWeight,
     gemstone: input.gemstone,
     huid: input.huid,
+    hsnCode: input.hsnCode,
+    gstRateBps: input.gstRate,
     category: { connect: { id: input.categoryId } },
   };
 }

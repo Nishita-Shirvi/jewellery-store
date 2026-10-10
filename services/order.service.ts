@@ -9,6 +9,11 @@ import { addressSnapshot, getAddressForUser } from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
 import { sendOrderConfirmationEmail } from "@/services/email.service";
 import { getShippingRule } from "@/lib/shipping-config";
+import { getBusiness } from "@/lib/business";
+import { isIntraState, taxForLine } from "@/lib/gst";
+import { createInvoiceForOrder } from "@/services/invoice.service";
+import { allocateDiscount } from "@/lib/coupons";
+import { CouponLimitReached, checkCoupon, redeemCouponInTx } from "@/services/coupon.service";
 import { shippingFeeFor } from "@/lib/shipping-fee";
 import { checkPincode } from "@/services/shipment.service";
 import {
@@ -45,7 +50,7 @@ export type CheckoutResult = { ok: true; session: PaymentSession } | { ok: false
  */
 export async function startCheckout(
   user: { id: string; email: string | null; name: string | null },
-  input: { addressId: string; checkoutKey: string },
+  input: { addressId: string; checkoutKey: string; couponCode?: string },
 ): Promise<CheckoutResult> {
   if (!env.RAZORPAY_KEY_ID) return { ok: false, error: "Online payments are not set up yet." };
 
@@ -80,9 +85,26 @@ export async function startCheckout(
     };
   }
 
+  const intraState = isIntraState(getBusiness().state, address.state);
   const subtotal = cart.items.reduce((sum, item) => sum + item.unitPriceInPaise * item.quantity, 0);
+  // Free-shipping threshold uses the subtotal before any coupon.
   const shippingFee = shippingFeeFor(subtotal, getShippingRule());
-  const total = subtotal + shippingFee;
+
+  let discount = 0;
+  let couponId: string | null = null;
+  let couponCode: string | null = null;
+  if (input.couponCode) {
+    const coupon = await checkCoupon(input.couponCode, user.id, subtotal);
+    if (!coupon.ok) return { ok: false, error: coupon.error };
+    discount = coupon.discountInPaise;
+    couponId = coupon.couponId ?? null;
+    couponCode = coupon.code ?? null;
+  }
+  const lineShares = allocateDiscount(
+    cart.items.map((i) => i.unitPriceInPaise * i.quantity),
+    discount,
+  );
+  const total = subtotal - discount + shippingFee;
 
   let order: { id: string };
   try {
@@ -103,13 +125,15 @@ export async function startCheckout(
           grossWeightMg: true,
           gemstone: true,
           huid: true,
+          hsnCode: true,
+          gstRateBps: true,
         },
       });
       const byId = new Map(products.map((p) => [p.id, p]));
 
       const items: Prisma.OrderItemCreateWithoutOrderInput[] = [];
       let recomputed = 0;
-      for (const line of cart.items) {
+      for (const [index, line] of cart.items.entries()) {
         const p = byId.get(line.productId);
         if (!p || p.stock < line.quantity)
           throw new CheckoutConflict("Some items just sold out. Please review your cart.");
@@ -123,6 +147,14 @@ export async function startCheckout(
           priceInPaise: p.priceInPaise,
           quantity: line.quantity,
           lineTotalInPaise: p.priceInPaise * line.quantity,
+          hsnCode: p.hsnCode,
+          gstRateBps: p.gstRateBps,
+          discountInPaise: lineShares[index] ?? 0,
+          ...gstSnapshot(
+            p.priceInPaise * line.quantity - (lineShares[index] ?? 0),
+            p.gstRateBps,
+            intraState,
+          ),
           productSnapshot: {
             metalType: p.metalType,
             purity: p.purity,
@@ -149,6 +181,9 @@ export async function startCheckout(
           totalInPaise: total,
           addressSnapshot: addressSnapshot(address),
           checkoutKey: input.checkoutKey,
+          couponId,
+          couponCode,
+          discountInPaise: discount,
           items: { create: items },
         },
         select: { id: true },
@@ -198,6 +233,16 @@ export async function startCheckout(
 }
 
 class CheckoutConflict extends Error {}
+
+function gstSnapshot(totalInPaise: number, rateBps: number, intraState: boolean) {
+  const t = taxForLine(totalInPaise, rateBps, intraState);
+  return {
+    taxableValueInPaise: t.taxableInPaise,
+    cgstInPaise: t.cgstInPaise,
+    sgstInPaise: t.sgstInPaise,
+    igstInPaise: t.igstInPaise,
+  };
+}
 
 async function resumeByKey(
   user: { id: string; email: string | null; name: string | null },
@@ -337,6 +382,12 @@ export async function markOrderPaid(input: {
         where: { orderId: payment.orderId },
         select: { productId: true, quantity: true },
       });
+      const paidOrder = await tx.order.findUniqueOrThrow({
+        where: { id: payment.orderId },
+        select: { id: true, userId: true, couponId: true, discountInPaise: true },
+      });
+      await redeemCouponInTx(tx, paidOrder);
+
       try {
         await convertReservation(
           tx,
@@ -376,10 +427,19 @@ export async function markOrderPaid(input: {
     }
     logger.info("payment.order_paid", log);
     revalidateTag(CATALOG_TAG); // stock changed
+    await createInvoiceForOrder(payment.orderId).catch(() => null); // logged inside; never blocks payment
     await sendConfirmation(payment.orderId);
     return { outcome: "paid", orderId: payment.orderId };
   } catch (error) {
     if (error instanceof SoldOutAfterPayment) return handleSoldOut(payment, input, log);
+    if (error instanceof CouponLimitReached) {
+      return handleSoldOut(
+        payment,
+        input,
+        log,
+        "Coupon limit reached after payment — refunded in full",
+      );
+    }
     if ((error as { code?: string }).code === "P2002") {
       // providerPaymentId already stored on another row: duplicate delivery.
       logger.info("payment.duplicate_payment_id", log);
@@ -396,6 +456,7 @@ async function handleSoldOut(
   payment: { id: string; orderId: string },
   input: { razorpayPaymentId: string; method?: string; rawPayload: Prisma.InputJsonValue },
   log: Record<string, unknown>,
+  reason = "Sold out after payment — refunded in full",
 ) {
   const updated = await db.$transaction(async (tx) => {
     const result = await tx.order.updateMany({
@@ -409,7 +470,7 @@ async function handleSoldOut(
       data: {
         status: "CANCELLED",
         expiredAt: null,
-        cancellationReason: "Sold out after payment — full refund required",
+        cancellationReason: reason,
       },
     });
     await releaseReservation(tx, payment.orderId);
@@ -425,7 +486,9 @@ async function handleSoldOut(
         rawPayload: input.rawPayload,
       },
     });
-    logger.error("payment.sold_out_after_payment_refund_needed", log);
+    logger.error("payment.sold_out_after_payment_refunding", log);
+    const { refundSoldOutOrder } = await import("@/services/return.service");
+    await refundSoldOutOrder(payment.orderId);
   }
   return { outcome: "sold_out" as const, orderId: payment.orderId };
 }
@@ -470,28 +533,7 @@ export async function markPaymentFailed(input: {
 }
 
 async function sendConfirmation(orderId: string) {
-  const order = await db.order.findUnique({
-    where: { id: orderId },
-    select: {
-      id: true,
-      totalInPaise: true,
-      user: { select: { email: true, name: true } },
-      items: { select: { productName: true, quantity: true, lineTotalInPaise: true } },
-    },
-  });
-  if (!order) return;
-  await sendOrderConfirmationEmail({
-    orderId: order.id,
-    displayNumber: displayOrderNumber(order.id),
-    customerName: order.user.name,
-    email: order.user.email,
-    totalInPaise: order.totalInPaise,
-    items: order.items.map((i) => ({
-      name: i.productName,
-      quantity: i.quantity,
-      lineTotalInPaise: i.lineTotalInPaise,
-    })),
-  });
+  await sendOrderConfirmationEmail({ orderId });
 }
 
 export interface OrderSummary {
@@ -501,6 +543,8 @@ export interface OrderSummary {
   totalInPaise: number;
   subtotalInPaise: number;
   shippingInPaise: number;
+  discountInPaise: number;
+  couponCode: string | null;
   createdAt: Date;
   paidAt: Date | null;
   cancellationReason: string | null;
@@ -539,6 +583,8 @@ export async function getOrderForUser(
     totalInPaise: order.totalInPaise,
     subtotalInPaise: order.subtotalInPaise,
     shippingInPaise: order.shippingInPaise,
+    discountInPaise: order.discountInPaise,
+    couponCode: order.couponCode,
     createdAt: order.createdAt,
     paidAt: order.paidAt,
     cancellationReason: order.cancellationReason,

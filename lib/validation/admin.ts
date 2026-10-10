@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
+import { parseRatePercent } from "@/lib/gst";
 
 const id = z
   .string()
@@ -118,6 +119,23 @@ export const productFormSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(imageUrlSchema).min(1, { message: "Add at least one image" }).max(10)),
+    hsnCode: z
+      .string()
+      .trim()
+      .regex(/^\d{4,8}$/, { message: "HSN is 4–8 digits (jewellery: 7113)" })
+      .default("7113"),
+    gstRate: z
+      .string()
+      .trim()
+      .default("3")
+      .transform((v, ctx) => {
+        const bps = parseRatePercent(v);
+        if (bps === null) {
+          ctx.addIssue({ code: "custom", message: "Enter the GST rate in %, e.g. 3" });
+          return 300;
+        }
+        return bps;
+      }),
     isActive: checkbox,
     isFeatured: checkbox,
     isReturnable: checkbox,
@@ -176,3 +194,86 @@ export function slugify(value: string): string {
       .slice(0, 100) || "item"
   );
 }
+
+/** "2026-10-31T23:59" from <input type="datetime-local">, read as India time. */
+const istDateTime = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v, ctx) => {
+    if (!v) return null;
+    const m = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})$/.exec(v);
+    if (!m) {
+      ctx.addIssue({ code: "custom", message: "Choose a date and time" });
+      return null;
+    }
+    return new Date(`${m[1]}T${m[2]}:00+05:30`);
+  });
+
+const optionalCount = z
+  .string()
+  .trim()
+  .optional()
+  .transform((v, ctx) => {
+    if (!v) return null;
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 1 || n > 1_000_000) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Enter a whole number, or leave empty for no limit",
+      });
+      return null;
+    }
+    return n;
+  });
+
+export const couponFormSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(/^[A-Z0-9_-]{2,32}$/, { message: "2–32 letters, numbers, - or _" }),
+    type: z.enum(["PERCENT", "FLAT"]),
+    value: z.string().trim(),
+    minOrder: rupees("minimum order", { required: false }),
+    maxDiscount: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v, ctx) => {
+        if (!v) return null;
+        const paise = parseRupeesToPaise(v);
+        if (!paise) {
+          ctx.addIssue({ code: "custom", message: "Enter rupees, e.g. 2000" });
+          return null;
+        }
+        return paise;
+      }),
+    startsAt: istDateTime,
+    endsAt: istDateTime,
+    usageLimit: optionalCount,
+    perUserLimit: optionalCount,
+    isActive: checkbox,
+  })
+  .transform((d, ctx) => {
+    let value = 0;
+    if (d.type === "PERCENT") {
+      value = Number(d.value);
+      if (!Number.isInteger(value) || value < 1 || value > 90)
+        ctx.addIssue({ code: "custom", path: ["value"], message: "Percent must be 1–90" });
+    } else {
+      value = parseRupeesToPaise(d.value) ?? 0;
+      if (value <= 0)
+        ctx.addIssue({
+          code: "custom",
+          path: ["value"],
+          message: "Enter the amount off in rupees",
+        });
+    }
+    if (d.startsAt && d.endsAt && d.endsAt <= d.startsAt)
+      ctx.addIssue({ code: "custom", path: ["endsAt"], message: "End must be after start" });
+    return { ...d, value };
+  });
+
+export type CouponFormInput = z.infer<typeof couponFormSchema>;

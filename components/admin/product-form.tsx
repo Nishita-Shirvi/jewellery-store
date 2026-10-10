@@ -23,6 +23,8 @@ export interface ProductFormValues {
   grossWeight: string;
   gemstone: string;
   huid: string;
+  hsnCode: string;
+  gstRate: string;
   images: string[];
   isActive: boolean;
   isFeatured: boolean;
@@ -85,6 +87,9 @@ export function ProductForm({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const e = state.fieldErrors ?? {};
+  // After an error React resets the form; feeding back what was typed keeps the admin's input.
+  const typed = state.values ?? {};
+  const v = (key: keyof ProductFormValues) => typed[key] ?? String(values[key] ?? "");
 
   function upload(file: File) {
     setUploadError(null);
@@ -117,11 +122,11 @@ export function ProductForm({
       )}
 
       <section className="grid gap-4 md:grid-cols-2">
-        <FormField label="Name" name="name" defaultValue={values.name} errors={e.name} />
+        <FormField label="Name" name="name" defaultValue={v("name")} errors={e.name} />
         <FormField
           label="URL name (optional)"
           name="slug"
-          defaultValue={values.slug}
+          defaultValue={v("slug")}
           errors={e.slug}
           hint="Made from the name if left empty."
         />
@@ -130,7 +135,7 @@ export function ProductForm({
           <textarea
             id="description"
             name="description"
-            defaultValue={values.description}
+            defaultValue={v("description")}
             rows={4}
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             aria-invalid={e.description ? true : undefined}
@@ -140,7 +145,7 @@ export function ProductForm({
         <Select
           label="Category"
           name="categoryId"
-          value={values.categoryId}
+          value={v("categoryId")}
           options={categories.map((c) => [c.id, c.name])}
           error={e.categoryId}
         />
@@ -149,7 +154,7 @@ export function ProductForm({
           name="stock"
           type="number"
           min={0}
-          defaultValue={values.stock}
+          defaultValue={v("stock")}
           errors={e.stock}
         />
       </section>
@@ -159,21 +164,21 @@ export function ProductForm({
           label="Price (₹, incl. GST)"
           name="price"
           inputMode="decimal"
-          defaultValue={values.price}
+          defaultValue={v("price")}
           errors={e.price}
         />
         <FormField
           label="Making charge (₹, optional)"
           name="makingCharge"
           inputMode="decimal"
-          defaultValue={values.makingCharge}
+          defaultValue={v("makingCharge")}
           errors={e.makingCharge}
         />
         <div />
         <Select
           label="Metal"
           name="metalType"
-          value={values.metalType}
+          value={v("metalType")}
           options={[
             ["GOLD", "Gold"],
             ["SILVER", "Silver"],
@@ -184,7 +189,7 @@ export function ProductForm({
         <Select
           label="Purity"
           name="purity"
-          value={values.purity}
+          value={v("purity")}
           options={[
             ["K22", "22K"],
             ["K18", "18K"],
@@ -198,7 +203,7 @@ export function ProductForm({
         <Select
           label="Colour"
           name="metalColour"
-          value={values.metalColour}
+          value={v("metalColour")}
           options={[
             ["YELLOW", "Yellow"],
             ["WHITE", "White"],
@@ -211,28 +216,43 @@ export function ProductForm({
           label="Net weight (g)"
           name="netWeight"
           inputMode="decimal"
-          defaultValue={values.netWeight}
+          defaultValue={v("netWeight")}
           errors={e.netWeight}
         />
         <FormField
           label="Gross weight (g, optional)"
           name="grossWeight"
           inputMode="decimal"
-          defaultValue={values.grossWeight}
+          defaultValue={v("grossWeight")}
           errors={e.grossWeight}
         />
         <FormField
           label="BIS HUID (optional)"
           name="huid"
           maxLength={6}
-          defaultValue={values.huid}
+          defaultValue={v("huid")}
           errors={e.huid}
+        />
+        <FormField
+          label="HSN code"
+          name="hsnCode"
+          inputMode="numeric"
+          defaultValue={v("hsnCode")}
+          errors={e.hsnCode}
+        />
+        <FormField
+          label="GST rate (%)"
+          name="gstRate"
+          inputMode="decimal"
+          defaultValue={v("gstRate")}
+          errors={e.gstRate}
+          hint="Prices include GST. Jewellery: 3%."
         />
         <div className="md:col-span-3">
           <FormField
             label="Stones (optional)"
             name="gemstone"
-            defaultValue={values.gemstone}
+            defaultValue={v("gemstone")}
             errors={e.gemstone}
           />
         </div>

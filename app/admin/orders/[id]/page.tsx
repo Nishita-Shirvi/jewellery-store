@@ -9,7 +9,19 @@ import { ADMIN_TRANSITIONS, STATUS_LABEL } from "@/lib/order-status";
 import type { AddressSnapshot } from "@/services/address.service";
 import { getOrderAdmin } from "@/services/admin/order-admin.service";
 import { displayOrderNumber } from "@/services/order.service";
-import { createShipmentAction, updateOrderStatusAction } from "../../actions";
+import {
+  generateInvoiceAction,
+  approveReturnAction,
+  createShipmentAction,
+  rejectReturnAction,
+  retryRefundAction,
+  updateOrderStatusAction,
+} from "../../actions";
+import { RefundList } from "@/components/returns/refund-list";
+import { Input } from "@/components/ui/input";
+import { RETURN_REASON_LABEL } from "@/lib/returns";
+import { getReturnsAndRefunds } from "@/services/return.service";
+import { db } from "@/lib/db";
 import { SHIPMENT_LABEL, TrackingTimeline } from "@/components/shipping/tracking-timeline";
 import { isShiprocketConfigured } from "@/lib/env";
 import { getShipmentForOrder } from "@/services/shipment.service";
@@ -37,8 +49,16 @@ export default async function AdminOrderPage({
 }) {
   const { id } = await params;
   const { error, shipped } = await searchParams;
-  const [order, shipment] = await Promise.all([getOrderAdmin(id), getShipmentForOrder(id)]);
+  const [order, shipment, { returns, refunds }] = await Promise.all([
+    getOrderAdmin(id),
+    getShipmentForOrder(id),
+    getReturnsAndRefunds(id),
+  ]);
   if (!order) notFound();
+  const invoice = await db.invoice.findUnique({
+    where: { orderId: order.id },
+    select: { number: true },
+  });
   const canCreateShipment =
     order.status === "PAID" &&
     (!shipment || !shipment.awb || shipment.status === "AWB_ASSIGNED" || !shipment.labelUrl);
@@ -85,7 +105,7 @@ export default async function AdminOrderPage({
                   title="Cancel this order?"
                   description={
                     order.status === "PAID"
-                      ? "Stock will be put back. You must also refund the customer in the Razorpay dashboard (automatic refunds arrive in Phase 11)."
+                      ? "Stock goes back and the customer is refunded in full through Razorpay automatically."
                       : "The order will be closed. This can't be undone."
                   }
                   confirmLabel="Cancel order"
@@ -108,6 +128,108 @@ export default async function AdminOrderPage({
           Shipment created. Print the label and keep the parcel ready for pickup.
         </p>
       )}
+
+      {(returns.length > 0 || refunds.length > 0) && (
+        <section
+          aria-labelledby="returns-admin-heading"
+          className="border-border space-y-4 rounded-md border p-5"
+        >
+          <h2 id="returns-admin-heading" className="font-medium">
+            Returns and refunds
+          </h2>
+          {returns.map((r) => (
+            <div
+              key={r.id}
+              className="border-border space-y-2 rounded-md border p-4 text-sm"
+              data-testid="return-request"
+            >
+              <p className="font-medium">
+                {r.status} · {RETURN_REASON_LABEL[r.reason]}
+              </p>
+              <p>{r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}</p>
+              {r.details && <p className="text-muted-foreground">“{r.details}”</p>}
+              {r.photoUrl && (
+                <a href={r.photoUrl} target="_blank" rel="noreferrer" className="underline">
+                  View customer photo
+                </a>
+              )}
+              {r.adminNote && <p className="text-xs">Note: {r.adminNote}</p>}
+              {r.status === "REQUESTED" && (
+                <div className="flex flex-wrap items-end gap-6 pt-2">
+                  <form action={approveReturnAction} className="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="returnId" value={r.id} />
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <label className="flex items-center gap-1 text-xs">
+                      <input type="checkbox" name="restock" defaultChecked /> Put items back in
+                      stock
+                    </label>
+                    <ConfirmSubmit
+                      label="Approve and refund"
+                      variant="default"
+                      title="Approve this return?"
+                      description="The refund is sent to Razorpay straight away. Only approve once you're happy with the returned pieces."
+                      confirmLabel="Approve and refund"
+                    />
+                  </form>
+                  <form action={rejectReturnAction} className="flex flex-wrap items-center gap-2">
+                    <input type="hidden" name="returnId" value={r.id} />
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <Input
+                      name="note"
+                      placeholder="Reason for the customer"
+                      aria-label="Reason for rejecting"
+                      className="h-8 w-56"
+                    />
+                    <ConfirmSubmit
+                      label="Reject"
+                      title="Reject this return?"
+                      description="The customer is emailed your reason and the order goes back to Delivered."
+                      confirmLabel="Reject return"
+                    />
+                  </form>
+                </div>
+              )}
+            </div>
+          ))}
+          <RefundList refunds={refunds} admin />
+          {refunds
+            .filter((r) => r.status === "FAILED")
+            .map((r) => (
+              <form key={r.id} action={retryRefundAction}>
+                <input type="hidden" name="refundId" value={r.id} />
+                <input type="hidden" name="orderId" value={order.id} />
+                <Button type="submit" size="sm" variant="outline">
+                  Retry refund of {formatINR(r.amountInPaise)}
+                </Button>
+              </form>
+            ))}
+        </section>
+      )}
+
+      <section
+        aria-labelledby="invoice-heading"
+        className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-5"
+      >
+        <h2 id="invoice-heading" className="font-medium">
+          Tax invoice{invoice ? ` · ${invoice.number}` : ""}
+        </h2>
+        {invoice ? (
+          <a href={`/api/invoices/${order.id}`} className="text-sm underline underline-offset-4">
+            Download invoice (PDF)
+          </a>
+        ) : order.paidAt ? (
+          <form action={generateInvoiceAction}>
+            <input type="hidden" name="id" value={order.id} />
+            <Button type="submit" size="sm" variant="outline">
+              Generate invoice
+            </Button>
+          </form>
+        ) : (
+          <span className="text-muted-foreground text-sm">
+            Created automatically when the order is paid.
+          </span>
+        )}
+      </section>
 
       <section aria-labelledby="shipping-heading" className="border-border rounded-md border p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -261,6 +383,14 @@ export default async function AdminOrderPage({
               ))}
             </tbody>
             <tfoot className="border-border border-t text-sm">
+              {order.discountInPaise > 0 && (
+                <tr>
+                  <td colSpan={3} className="text-muted-foreground p-3 text-right">
+                    Coupon {order.couponCode}
+                  </td>
+                  <td className="p-3 text-right">−{formatINR(order.discountInPaise)}</td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={3} className="text-muted-foreground p-3 text-right">
                   Shipping

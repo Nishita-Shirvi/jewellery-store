@@ -43,9 +43,17 @@ const id = z
   .max(40)
   .regex(/^[a-z0-9]+$/i);
 
+export const couponCodeSchema = z
+  .string()
+  .trim()
+  .max(32)
+  .optional()
+  .transform((v) => (v ? v : undefined));
+
 export const startCheckoutSchema = z.object({
   addressId: id,
   checkoutKey: z.uuid(),
+  couponCode: couponCodeSchema,
 });
 
 export const verifyPaymentSchema = z.object({
@@ -56,3 +64,32 @@ export const verifyPaymentSchema = z.object({
 });
 
 export const orderIdSchema = z.object({ orderId: id });
+
+export const returnRequestSchema = z.object({
+  orderId: id,
+  reason: z.enum(
+    ["DAMAGED", "WRONG_ITEM", "NOT_AS_DESCRIBED", "SIZE_ISSUE", "CHANGED_MIND", "OTHER"],
+    { message: "Choose a reason" },
+  ),
+  details: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .transform((v) => v || undefined),
+  photoUrl: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) => v || undefined)
+    .pipe(
+      z
+        .string()
+        .regex(/^https:\/\/res\.cloudinary\.com\/\S+$/)
+        .optional(),
+    ),
+  items: z
+    .array(z.object({ orderItemId: id, quantity: z.coerce.number().int().min(1).max(100) }))
+    .min(1, { message: "Choose at least one item to return" })
+    .max(50),
+});

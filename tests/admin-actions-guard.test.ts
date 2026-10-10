@@ -41,6 +41,17 @@ vi.mock("@/services/upload.service", () => ({
   UploadError: class extends Error {},
   uploadProductImage: spy("upload"),
 }));
+vi.mock("@/services/return.service", () => ({
+  ReturnError: class extends Error {},
+  approveReturn: spy("approveReturn"),
+  rejectReturn: spy("rejectReturn"),
+}));
+vi.mock("@/services/refund.service", () => ({ retryRefund: spy("retryRefund") }));
+vi.mock("@/services/invoice.service", () => ({ createInvoiceForOrder: spy("createInvoice") }));
+vi.mock("@/services/admin/coupon-admin.service", () => ({
+  saveCoupon: spy("saveCoupon"),
+  setCouponActive: spy("setCouponActive"),
+}));
 vi.mock("@/services/shipment.service", () => ({
   ShipmentError: class extends Error {},
   createShipmentForOrder: spy("createShipment"),
@@ -53,6 +64,10 @@ function validForm() {
   const fd = new FormData();
   for (const [k, v] of Object.entries({
     id: "abc123",
+    returnId: "abc123",
+    orderId: "abc123",
+    refundId: "abc123",
+    note: "reason",
     isActive: "false",
     stock: "5",
     status: "SHIPPED",
@@ -81,6 +96,12 @@ const calls: [string, () => Promise<unknown>][] = [
   ["deleteCategoryAction", () => actions.deleteCategoryAction(validForm())],
   ["updateOrderStatusAction", () => actions.updateOrderStatusAction(validForm())],
   ["createShipmentAction", () => actions.createShipmentAction(validForm())],
+  ["approveReturnAction", () => actions.approveReturnAction(validForm())],
+  ["rejectReturnAction", () => actions.rejectReturnAction(validForm())],
+  ["retryRefundAction", () => actions.retryRefundAction(validForm())],
+  ["generateInvoiceAction", () => actions.generateInvoiceAction(validForm())],
+  ["saveCouponAction", () => actions.saveCouponAction({}, validForm())],
+  ["toggleCouponAction", () => actions.toggleCouponAction(validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {

@@ -189,13 +189,13 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 11 — Cancellations, returns, refunds
 
-- [ ] Customer cancels a PAID order before shipping → automatic full refund via Razorpay
-- [ ] Return request within 7 days of delivery (reason + optional photo); admin approves or rejects
-- [ ] ReturnRequest and Refund models; partial refunds per item
-- [ ] `refund.processed` / `refund.failed` webhooks handled idempotently
-- [ ] Restock on cancellation/approved return (configurable)
-- [ ] REFUND_PENDING / REFUNDED / RETURN_REQUESTED statuses in one state-machine function
-- [ ] Email to the customer at each step
+- [x] Customer cancels a PAID order before shipping → automatic full refund via Razorpay
+- [x] Return request within 7 days of delivery (reason + optional photo); admin approves or rejects
+- [x] ReturnRequest and Refund models; partial refunds per item
+- [x] `refund.processed` / `refund.failed` webhooks handled idempotently
+- [x] Restock on cancellation/approved return (configurable)
+- [x] REFUND_PENDING / REFUNDED / RETURN_REQUESTED statuses in one state-machine function
+- [x] Email to the customer at each step
 
 **Jewellery-specific:** decide which items are non-returnable (e.g. customised or engraved pieces, earrings for hygiene). Default: flag `isReturnable` on the product.
 
@@ -203,11 +203,11 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 12 — GST invoices and emails
 
-- [ ] HSN code and GST rate on each product; tax breakdown (CGST + SGST or IGST) saved on OrderItem at purchase
-- [ ] PDF tax invoice on PAID, sequential invoice number (concurrency-safe), stored in S3/Cloudinary
-- [ ] Customer and admin can download invoices
-- [ ] Email templates: confirmed, shipped, delivered, cancelled, refunded — all sent through one notification service
-- [ ] Optional WhatsApp/SMS via MSG91 behind a feature flag
+- [x] HSN code and GST rate on each product; tax breakdown (CGST + SGST or IGST) saved on OrderItem at purchase
+- [x] PDF tax invoice on PAID, sequential invoice number (concurrency-safe); invoice data frozen in the database and the PDF rendered on demand (see D-84)
+- [x] Customer and admin can download invoices
+- [x] Email templates: confirmed, shipped, delivered, cancelled, refunded — all sent through one notification service
+- [x] Optional SMS via MSG91 behind a feature flag (FEATURE_SMS; needs DLT-approved template — B-08)
 
 **Jewellery-specific:** default GST 3% with HSN 7113 for jewellery (to be confirmed by a CA — see `note.md`). Invoice shows metal, purity, weight and HUID per item.
 

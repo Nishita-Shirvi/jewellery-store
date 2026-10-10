@@ -28,6 +28,11 @@ function sniffImageType(bytes: Uint8Array): (typeof ALLOWED_IMAGE_TYPES)[number]
 
 /** Signed upload to Cloudinary. Returns the HTTPS URL of the stored image. */
 export async function uploadProductImage(file: File): Promise<string> {
+  return uploadImage(file, "jewellery-store/products");
+}
+
+/** Signed upload into a Cloudinary folder. */
+export async function uploadImage(file: File, folder: string): Promise<string> {
   if (!isUploadConfigured())
     throw new UploadError("Image upload isn't set up yet (Cloudinary keys missing).");
   if (file.size === 0) throw new UploadError("The file is empty.");
@@ -38,7 +43,6 @@ export async function uploadProductImage(file: File): Promise<string> {
   if (!type) throw new UploadError("Only JPG, PNG or WebP images are allowed.");
 
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = "jewellery-store/products";
   const toSign = `folder=${folder}&timestamp=${timestamp}${env.CLOUDINARY_API_SECRET}`;
   const signature = createHash("sha1").update(toSign).digest("hex");
 

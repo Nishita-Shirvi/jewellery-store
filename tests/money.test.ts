@@ -5,7 +5,7 @@ import {
   parseGramsToMg,
   parseRupeesToPaise,
 } from "@/lib/money";
-import { canTransition } from "@/lib/order-status";
+import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { productFormSchema, slugify } from "@/lib/validation/admin";
 
 describe("money parsing (no floating point)", () => {

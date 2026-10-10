@@ -3,6 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { PincodeChecker } from "@/components/catalog/pincode-checker";
+import { WishlistButton } from "@/components/wishlist/wishlist-button";
+import { getCurrentUser } from "@/lib/auth-guards";
+import { isWishlisted } from "@/services/wishlist.service";
 import { ProductImage } from "@/components/catalog/product-image";
 import { formatINR, formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
@@ -30,7 +33,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 const toneClass = {
-  ok: "text-emerald-700",
+  ok: "text-emerald",
   low: "text-amber-700",
   out: "text-red-700",
 } as const;
@@ -39,6 +42,8 @@ export default async function ProductPage({ params }: { params: Params }) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
   if (!product) notFound();
+  const viewer = await getCurrentUser();
+  const saved = viewer ? await isWishlisted(viewer.id, product.id) : false;
 
   const stock = stockStatus(product.stock);
   const details: [string, string][] = [
@@ -100,14 +105,17 @@ export default async function ProductPage({ params }: { params: Params }) {
         </div>
 
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">{product.name}</h1>
+          <h1 className="text-3xl leading-tight md:text-4xl">{product.name}</h1>
           <p className="text-muted-foreground mt-1 text-sm">{product.materialSummary}</p>
-          <p className="mt-4 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
+          <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
           <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
           <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 
           <div className="mt-6">
             <AddToCart productId={product.id} stock={product.stock} />
+          </div>
+          <div className="mt-4">
+            <WishlistButton productId={product.id} slug={product.slug} initial={saved} />
           </div>
           <div className="mt-6">
             <PincodeChecker />

@@ -23,11 +23,15 @@ export default async function OrderFailedPage({
   const user = await requireUserPage(`/orders/${id}/failed`);
   const order = await getOrderForUser(user.id, id);
   if (!order) notFound();
-  if (order.status === "PAID" || order.status === "SHIPPED" || order.status === "DELIVERED") {
+  if (
+    ["PAID", "SHIPPED", "DELIVERED", "RETURN_REQUESTED"].includes(order.status) ||
+    (!order.cancellationReason?.startsWith("Sold out") &&
+      ["REFUND_PENDING", "REFUNDED"].includes(order.status))
+  ) {
     redirect(`/orders/${id}/success`);
   }
 
-  const soldOut = order.status === "CANCELLED";
+  const soldOut = Boolean(order.cancellationReason?.startsWith("Sold out after payment"));
   const canRetry = order.status === "PENDING" || order.status === "FAILED";
 
   return (
