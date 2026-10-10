@@ -1,0 +1,388 @@
+// Prisma schema — Jewellery Store
+// Money is always an integer in paise. Weights are always integers in milligrams.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (used by the app)
+  directUrl = env("DIRECT_URL") // direct connection (used by migrations)
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  FAILED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+}
+
+enum PaymentStatus {
+  CREATED // Razorpay order created, waiting for the customer
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+/// Where a parcel is, in our own words (Shiprocket's many statuses are mapped onto these).
+enum ShipmentStatus {
+  CREATED // order created at Shiprocket, no courier yet
+  AWB_ASSIGNED // courier + tracking number assigned, label ready
+  PICKUP_SCHEDULED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RTO // returned to origin (refused / undeliverable)
+  CANCELLED
+}
+
+/// Whether an order is holding stock while the customer pays.
+enum ReservationState {
+  NONE
+  ACTIVE // stock held until reservedUntil
+  CONVERTED // paid: the hold became a real stock decrease
+  RELEASED // expired, failed or cancelled: the hold was given back
+}
+
+enum MetalType {
+  GOLD
+  SILVER
+  PLATINUM
+}
+
+enum MetalColour {
+  YELLOW
+  WHITE
+  ROSE
+  SILVER
+}
+
+/// Enum names can't start with a digit, so 22K is stored as K22, sterling silver as S925, etc.
+enum Purity {
+  K24
+  K22
+  K18
+  K14
+  S925
+  PT950
+}
+
+// ─────────────────────── Users and Auth.js ───────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  /// bcrypt hash. Null for users who only sign in with Google.
+  passwordHash  String?
+  role          Role      @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts  Account[]
+  sessions  Session[]
+  cart      Cart?
+  addresses Address[]
+  orders    Order[]
+
+  @@index([role])
+}
+
+/// Auth.js adapter model (OAuth accounts such as Google).
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Auth.js adapter model (database sessions).
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Auth.js adapter model (email verification / magic links).
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ──────────────────────────── Catalog ────────────────────────────
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([isActive, sortOrder])
+}
+
+model Product {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String
+  priceInPaise  Int
+  stock         Int      @default(0)
+  /// Units held by unpaid orders (15-minute holds). Available = stock - reservedStock.
+  reservedStock Int      @default(0)
+  images        String[]
+  isActive      Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  categoryId    String
+
+  // Jewellery details
+  metalType           MetalType
+  purity              Purity
+  metalColour         MetalColour
+  /// Whole piece including stones, in milligrams.
+  grossWeightMg       Int?
+  /// Metal only, in milligrams.
+  netWeightMg         Int
+  gemstone            String?
+  /// BIS hallmark unique ID (6 characters) where applicable.
+  huid                String?
+  makingChargeInPaise Int         @default(0)
+  isReturnable        Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([isActive, isFeatured])
+  @@index([isActive, createdAt])
+  @@index([isActive, priceInPaise])
+}
+
+// ───────────────────────────── Cart ──────────────────────────────
+
+model Cart {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@index([productId])
+}
+
+// ─────────────────────────── Addresses ───────────────────────────
+
+model Address {
+  id        String   @id @default(cuid())
+  userId    String
+  fullName  String
+  phone     String
+  line1     String
+  line2     String?
+  landmark  String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("IN")
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ──────────────────────────── Orders ─────────────────────────────
+
+model Order {
+  id                 String           @id @default(cuid())
+  userId             String
+  status             OrderStatus      @default(PENDING)
+  subtotalInPaise    Int
+  shippingInPaise    Int              @default(0)
+  totalInPaise       Int
+  /// Copy of the delivery address at the time of purchase (addresses can change later).
+  addressSnapshot    Json
+  paidAt             DateTime?
+  /// One per "Pay" click session: a second click with the same key returns the same order.
+  checkoutKey        String?          @unique
+  /// Why the order was cancelled (e.g. sold out after payment, refund needed).
+  cancellationReason String?
+  reservationState   ReservationState @default(NONE)
+  /// When the stock hold ends if the order isn't paid.
+  reservedUntil      DateTime?
+  /// Set when an unpaid order is closed because its hold expired.
+  expiredAt          DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  user     User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items    OrderItem[]
+  payments Payment[]
+  shipment Shipment?
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@index([reservationState, reservedUntil])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id               String @id @default(cuid())
+  orderId          String
+  productId        String
+  /// Snapshots taken at purchase time so the order never changes when the product does.
+  productName      String
+  productSlug      String
+  priceInPaise     Int
+  quantity         Int
+  lineTotalInPaise Int
+  /// Metal, purity, colour, weights, gemstone, HUID at purchase time.
+  productSnapshot  Json
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  orderId           String
+  provider          PaymentProvider @default(RAZORPAY)
+  providerOrderId   String          @unique
+  /// Unique so the same payment can never be processed twice (idempotency).
+  providerPaymentId String?         @unique
+  status            PaymentStatus   @default(CREATED)
+  amountInPaise     Int
+  currency          String          @default("INR")
+  method            String?
+  failureReason     String?
+  rawPayload        Json?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([status])
+}
+
+// ──────────────────────────── Shipping ───────────────────────────
+
+/// One parcel per order, created through Shiprocket.
+model Shipment {
+  id                 String         @id @default(cuid())
+  orderId            String         @unique
+  provider           String         @default("SHIPROCKET")
+  providerOrderId    String?
+  providerShipmentId String?
+  awb                String?        @unique
+  courier            String?
+  trackingUrl        String?
+  labelUrl           String?
+  status             ShipmentStatus @default(CREATED)
+  /// Last error while creating the shipment (shown to the admin; cleared on success).
+  lastError          String?
+  rawPayload         Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  order  Order           @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  events ShipmentEvent[]
+
+  @@index([status])
+}
+
+/// Tracking timeline. The unique key makes repeated webhooks harmless.
+model ShipmentEvent {
+  id         String         @id @default(cuid())
+  shipmentId String
+  status     ShipmentStatus
+  label      String
+  location   String?
+  occurredAt DateTime
+  createdAt  DateTime       @default(now())
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, label, occurredAt])
+  @@index([shipmentId, occurredAt])
+}
+
+// ──────────────────────────── Settings ───────────────────────────
+
+/// Key/value store for store-wide settings (shipping rules, feature flags, ...).
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

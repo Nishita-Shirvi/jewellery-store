@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: jewellery_ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+
+    # Test-only values. Real secrets live in Vercel, never in this file.
+    env:
+      CI: "true"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jewellery_ci
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/jewellery_ci
+      AUTH_SECRET: ci-only-secret-0123456789abcdefghijklmnopqrstuv
+      AUTH_TRUST_HOST: "true"
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
+      SEED_ADMIN_EMAIL: admin@example.com
+      SEED_ADMIN_PASSWORD: ci-admin-password-123
+      RAZORPAY_KEY_ID: rzp_test_ci000000
+      RAZORPAY_KEY_SECRET: ci_razorpay_key_secret
+      RAZORPAY_WEBHOOK_SECRET: ci_razorpay_webhook_secret
+      RAZORPAY_API_BASE: http://localhost:4010
+      CRON_SECRET: ci-cron-secret-0123456789
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint, types, formatting
+        run: |
+          npm run lint
+          npm run typecheck
+          npm run format:check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Database schema + seed
+        run: |
+          if [ -d prisma/migrations ]; then npx prisma migrate deploy; else npx prisma db push --skip-generate; fi
+          npx prisma db seed
+
+      - name: Database tests (stock reservations under real concurrency)
+        run: npm run test:db
+
+      - name: Build
+        run: npm run build
+
+      - name: No secrets in browser code
+        run: npm run check:bundle
+
+      - name: End-to-end tests (Playwright)
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+
+      - name: Dependency audit (high/critical)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

@@ -1,0 +1,19 @@
+# Backup scheduler for the free Vercel plan (Vercel Hobby only runs crons once a day).
+# Set repository secrets SITE_URL (e.g. https://www.yourstore.in) and CRON_SECRET.
+name: Scheduled jobs
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  release-reservations:
+    runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_CRON == 'true' }}
+    steps:
+      - name: Release expired stock holds
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.SITE_URL }}/api/cron/release-reservations"
