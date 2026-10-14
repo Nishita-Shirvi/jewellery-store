@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductImage } from "@/components/catalog/product-image";
 import { formatINR } from "@/lib/format";
+import { Stars } from "@/components/reviews/stars";
 import type { ProductCardData } from "@/types/catalog";
 
 export function ProductCard({
@@ -32,6 +33,12 @@ export function ProductCard({
         {product.name}
       </h3>
       <p className="text-muted-foreground mt-0.5 text-xs">{product.materialSummary}</p>
+      {product.reviewCount > 0 && (
+        <p className="mt-1 flex items-center gap-1.5 text-xs">
+          <Stars avgX100={product.ratingAvgX100} size={12} />
+          <span className="text-muted-foreground">({product.reviewCount})</span>
+        </p>
+      )}
       <p className="mt-1.5 text-sm font-semibold">{formatINR(product.priceInPaise)}</p>
     </Link>
   );

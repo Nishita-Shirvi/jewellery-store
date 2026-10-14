@@ -2,7 +2,7 @@
 
 Online jewellery store for India, built phase by phase. Project goals, progress, blockers and decisions live in [`Docs/`](./Docs/readme.md).
 
-**Current phase:** 12 — GST invoices and order emails (Week 2) (see `Docs/DEPLOY.md` and `Docs/GO_LIVE_CHECKLIST.md`) (backend first; the UI is a placeholder until the final design).
+**Current phase:** 16 — Analytics, reports, release (Week 2 complete). See `CHANGELOG.md` and `Docs/RELEASE_WEEK2.md`.
 
 ## Stack
 
@@ -99,6 +99,29 @@ All variables are validated in `lib/env.ts` when the app starts. If one is missi
 - `/products?q=jhumka` — search by name (the header search box uses this).
 - `/products/<slug>` — product details: price, stock, metal, purity, weight, stones, hallmark.
 - Catalog pages are cached for 5 minutes; Phase 7 admin edits refresh them instantly.
+
+## Reports, activity log and analytics
+
+- Admin → **Reports**: orders, gross/net sales, refunds, average order, revenue by day and week, top products, shopping funnel, low stock, **Download CSV**.
+- Admin → **Activity log**: who changed what and when.
+- Set `NEXT_PUBLIC_GA_ID` for Google Analytics 4; it only loads after a shopper accepts the cookie banner.
+- Backups: see `Docs/BACKUPS.md`.
+
+## Search and SEO
+
+- The header search suggests pieces while you type and copes with spelling mistakes ("jumka" → Traditional Jhumka). Press Enter for all results.
+- `/products` filters: category, metal, purity, price range, in stock only, rating; sort by best match, newest, price or top rated.
+- Category landing pages at `/collections/<category>`; `sitemap.xml` and `robots.txt` are generated automatically — submit `https://<your-domain>/sitemap.xml` in Google Search Console after going live.
+
+## Reviews
+
+- Customers whose order was delivered can review the piece (stars, title, text, optional photos) from the product page or their order page.
+- Admin → **Reviews**: publish, reject or unpublish (with a reason the customer sees). Only published reviews count towards the star rating shown on products.
+
+## Coupons and wishlist
+
+- Admin → **Coupons**: percent or flat discounts, minimum order, maximum discount, start/end dates, total and per-customer limits. Customers enter codes at checkout (any case).
+- Customers tap **Save** on a product to add it to **Account → Wishlist**, then **Move to cart** when ready.
 
 ## GST invoices and emails
 

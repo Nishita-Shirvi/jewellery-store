@@ -426,6 +426,8 @@ export async function markOrderPaid(input: {
       return { outcome: "already_processed", orderId: payment.orderId };
     }
     logger.info("payment.order_paid", log);
+    const { countFunnel } = await import("@/services/report.service");
+    await countFunnel("purchase");
     revalidateTag(CATALOG_TAG); // stock changed
     await createInvoiceForOrder(payment.orderId).catch(() => null); // logged inside; never blocks payment
     await sendConfirmation(payment.orderId);

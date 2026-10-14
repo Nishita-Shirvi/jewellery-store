@@ -201,6 +201,14 @@ export default async function AccountOrderPage({
                 {item.name}
               </Link>{" "}
               × {item.quantity}
+              {(order.status === "DELIVERED" || order.status === "RETURN_REQUESTED") && (
+                <Link
+                  href={`/products/${item.slug}#reviews`}
+                  className="ml-3 text-xs underline underline-offset-4"
+                >
+                  Write a review
+                </Link>
+              )}
             </span>
             <span>{formatINR(item.lineTotalInPaise)}</span>
           </li>

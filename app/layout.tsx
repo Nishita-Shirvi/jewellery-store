@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { Analytics } from "@/components/analytics/analytics";
 import { publicEnv } from "@/lib/env";
 import "@fontsource/marcellus/400.css";
 import "@fontsource-variable/figtree";
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
+        <Analytics gaId={publicEnv.NEXT_PUBLIC_GA_ID} />
       </body>
     </html>
   );

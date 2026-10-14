@@ -5,6 +5,7 @@ import { OrderSummaryCard } from "@/components/checkout/order-summary-card";
 import { Button } from "@/components/ui/button";
 import { requireUserPage } from "@/lib/auth-guards";
 import { getOrderForUser } from "@/services/order.service";
+import { TrackEvent } from "@/components/analytics/track-event";
 
 export const metadata: Metadata = { title: "Order confirmed", robots: { index: false } };
 
@@ -33,6 +34,23 @@ export default async function OrderSuccessPage({ params }: { params: Promise<{ i
             This usually takes a few seconds. Refresh this page in a moment.
           </p>
         </>
+      )}
+      {paid && (
+        <TrackEvent
+          name="purchase"
+          params={{
+            transaction_id: order.id,
+            currency: "INR",
+            value: order.totalInPaise / 100,
+            shipping: order.shippingInPaise / 100,
+            items: order.items.map((i) => ({
+              item_id: i.slug,
+              item_name: i.name,
+              quantity: i.quantity,
+              price: i.priceInPaise / 100,
+            })),
+          }}
+        />
       )}
       <div className="mt-8">
         <OrderSummaryCard order={order} />

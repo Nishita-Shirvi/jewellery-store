@@ -31,7 +31,7 @@ export async function SiteHeader() {
             {categories.map((c) => (
               <Link
                 key={c.slug}
-                href={`/products?category=${c.slug}`}
+                href={`/collections/${c.slug}`}
                 className="hover:text-primary underline-offset-8 hover:underline"
               >
                 {c.name}
@@ -74,11 +74,7 @@ export async function SiteHeader() {
           className="mx-auto flex max-w-6xl gap-5 overflow-x-auto px-4 pb-3 text-sm lg:hidden"
         >
           {categories.map((c) => (
-            <Link
-              key={c.slug}
-              href={`/products?category=${c.slug}`}
-              className="shrink-0 hover:underline"
-            >
+            <Link key={c.slug} href={`/collections/${c.slug}`} className="shrink-0 hover:underline">
               {c.name}
             </Link>
           ))}

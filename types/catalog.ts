@@ -40,6 +40,8 @@ export interface ProductCardData {
   /** e.g. "22K yellow gold · 4.1 g" */
   materialSummary: string;
   inStock: boolean;
+  reviewCount: number;
+  ratingAvgX100: number;
 }
 
 export interface CategorySummary {

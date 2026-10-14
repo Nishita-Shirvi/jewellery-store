@@ -25,8 +25,19 @@ export async function generateMetadata({
       ? `Shop ${category.name.toLowerCase()} in gold, silver and diamonds.`
       : "Shop rings, necklaces, earrings, bangles and bracelets in gold, silver and diamonds.",
     // Filtered and searched pages shouldn't compete with category pages in Google.
-    robots: query.q || query.metal || query.purity || query.page > 1 ? { index: false } : undefined,
-    alternates: { canonical: category ? `/products?category=${category.slug}` : "/products" },
+    robots:
+      query.q ||
+      query.metal ||
+      query.purity ||
+      query.minPrice ||
+      query.maxPrice ||
+      query.inStock ||
+      query.rating ||
+      query.sort ||
+      query.page > 1
+        ? { index: false }
+        : undefined,
+    alternates: { canonical: category ? `/collections/${category.slug}` : "/products" },
   };
 }
 

@@ -74,12 +74,61 @@ export function CatalogFilters({
         </select>
       </div>
 
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium">Price (₹)</legend>
+        <div className="flex items-center gap-2">
+          <input
+            aria-label="Minimum price"
+            name="minPrice"
+            inputMode="numeric"
+            placeholder="Min"
+            defaultValue={query.minPrice ?? ""}
+            className={selectClass}
+          />
+          <span aria-hidden="true">–</span>
+          <input
+            aria-label="Maximum price"
+            name="maxPrice"
+            inputMode="numeric"
+            placeholder="Max"
+            defaultValue={query.maxPrice ?? ""}
+            className={selectClass}
+          />
+        </div>
+      </fieldset>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="filter-rating">Rating</Label>
+        <select
+          id="filter-rating"
+          name="rating"
+          defaultValue={query.rating ?? ""}
+          className={selectClass}
+        >
+          <option value="">Any rating</option>
+          <option value="4">4 stars and up</option>
+          <option value="3">3 stars and up</option>
+        </select>
+      </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="inStock" value="1" defaultChecked={query.inStock === "1"} /> In
+        stock only
+      </label>
+
       <div className="space-y-1.5">
         <Label htmlFor="filter-sort">Sort by</Label>
-        <select id="filter-sort" name="sort" defaultValue={query.sort} className={selectClass}>
+        <select
+          id="filter-sort"
+          name="sort"
+          defaultValue={query.sort ?? (query.q ? "relevance" : "newest")}
+          className={selectClass}
+        >
+          {query.q && <option value="relevance">Best match</option>}
           <option value="newest">Newest</option>
           <option value="price_asc">Price: low to high</option>
           <option value="price_desc">Price: high to low</option>
+          <option value="rating">Top rated</option>
         </select>
       </div>
 

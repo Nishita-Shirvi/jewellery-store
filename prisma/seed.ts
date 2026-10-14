@@ -84,6 +84,8 @@ async function seedProducts(categoryIds: Map<string, string>) {
     });
   }
   console.log(`✔ Products: ${dummyProducts.length}`);
+  // Build the search words for every product (same rules as services/search.service.ts; it also self-heals on first search).
+  await db.$executeRaw`UPDATE "Product" SET "searchText" = '' `;
 }
 
 async function main() {

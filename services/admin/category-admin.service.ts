@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { slugify, type CategoryFormInput } from "@/lib/validation/admin";
 import { AdminInputError } from "@/services/admin/product-admin.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import { reindexSearchText } from "@/services/search.service";
 
 export async function listCategoriesAdmin() {
   return db.category.findMany({
@@ -54,6 +55,7 @@ export async function updateCategory(id: string, input: CategoryFormInput, admin
     },
   });
   if (result.count === 0) throw new AdminInputError("Category not found.");
+  await reindexSearchText({ categoryId: id }); // category name is part of the search words
   revalidateTag(CATALOG_TAG);
   logger.info("admin.category_updated", { adminId, categoryId: id });
 }

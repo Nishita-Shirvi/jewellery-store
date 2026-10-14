@@ -37,10 +37,7 @@ export async function SiteFooter() {
           <ul className="space-y-2 text-sm text-[#e9d9dc]">
             {categories.map((c) => (
               <li key={c.slug}>
-                <Link
-                  href={`/products?category=${c.slug}`}
-                  className="hover:text-white hover:underline"
-                >
+                <Link href={`/collections/${c.slug}`} className="hover:text-white hover:underline">
                   {c.name}
                 </Link>
               </li>

@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { verifyPaymentSignature } from "@/lib/payments/razorpay";
 import { rateLimit } from "@/lib/rate-limit";
 import { getCartView } from "@/services/cart.service";
+import { countFunnel } from "@/services/report.service";
 import { checkCoupon } from "@/services/coupon.service";
 import {
   couponCodeSchema,
@@ -59,7 +60,9 @@ export async function startCheckoutAction(input: {
   const limit = rateLimit(`checkout:${user.id}`, 10, 10 * 60 * 1000);
   if (!limit.ok) return { ok: false, error: "Too many attempts. Please wait a few minutes." };
 
-  return startCheckout(user, parsed.data);
+  const result = await startCheckout(user, parsed.data);
+  if (result.ok) await countFunnel("begin_checkout");
+  return result;
 }
 
 export async function retryPaymentAction(input: { orderId: string }): Promise<CheckoutResult> {

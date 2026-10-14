@@ -28,6 +28,7 @@ vi.mock("@/services/admin/product-admin.service", () => ({
   updateProduct: spy("updateProduct"),
   setProductActive: spy("setProductActive"),
   setProductStock: spy("setProductStock"),
+  getProductAdmin: vi.fn(async () => null),
 }));
 vi.mock("@/services/admin/category-admin.service", () => ({
   createCategory: spy("createCategory"),
@@ -48,6 +49,11 @@ vi.mock("@/services/return.service", () => ({
 }));
 vi.mock("@/services/refund.service", () => ({ retryRefund: spy("retryRefund") }));
 vi.mock("@/services/invoice.service", () => ({ createInvoiceForOrder: spy("createInvoice") }));
+vi.mock("@/services/audit.service", () => ({ audit: vi.fn(), diff: () => ({}) }));
+vi.mock("@/services/review.service", () => ({
+  ReviewError: class extends Error {},
+  moderateReview: spy("moderateReview"),
+}));
 vi.mock("@/services/admin/coupon-admin.service", () => ({
   saveCoupon: spy("saveCoupon"),
   setCouponActive: spy("setCouponActive"),
@@ -68,6 +74,7 @@ function validForm() {
     orderId: "abc123",
     refundId: "abc123",
     note: "reason",
+    decision: "APPROVED",
     isActive: "false",
     stock: "5",
     status: "SHIPPED",
@@ -102,6 +109,7 @@ const calls: [string, () => Promise<unknown>][] = [
   ["generateInvoiceAction", () => actions.generateInvoiceAction(validForm())],
   ["saveCouponAction", () => actions.saveCouponAction({}, validForm())],
   ["toggleCouponAction", () => actions.toggleCouponAction(validForm())],
+  ["moderateReviewAction", () => actions.moderateReviewAction(validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {

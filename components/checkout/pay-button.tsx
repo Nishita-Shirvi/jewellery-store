@@ -10,6 +10,7 @@ import {
 } from "@/app/checkout/actions";
 import type { CheckoutResult } from "@/services/order.service";
 import { loadRazorpay, openRazorpay } from "./razorpay";
+import { track } from "@/components/analytics/analytics";
 
 interface PayButtonProps {
   label: string;
@@ -61,6 +62,7 @@ export function PayButton({
         return;
       }
       const session = result.session;
+      track("begin_checkout", { currency: "INR", value: session.amountInPaise / 100 });
       activeOrderId.current = session.orderId;
 
       if (!(await loadRazorpay())) {

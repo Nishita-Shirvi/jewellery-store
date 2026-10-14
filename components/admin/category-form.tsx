@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { saveCategoryAction, type AdminFormState } from "@/app/admin/actions";
@@ -14,12 +14,19 @@ export function CategoryForm({
     saveCategoryAction,
     {},
   );
+  // Submit without React's automatic form reset, so fields always keep what the admin typed.
+  const [, startSubmit] = useTransition();
+  const submitWithoutReset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startSubmit(() => formAction(data));
+  };
   const e = state.fieldErrors ?? {};
   const prefix = category ? `cat-${category.id}` : "cat-new";
 
   return (
     <form
-      action={formAction}
+      onSubmit={submitWithoutReset}
       className="flex flex-wrap items-start gap-2"
       aria-label={category ? `Edit ${category.name}` : "New category"}
     >

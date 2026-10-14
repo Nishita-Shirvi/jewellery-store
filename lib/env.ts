@@ -84,17 +84,26 @@ const serverSchema = z.object({
   // Scheduled jobs: callers must send "Authorization: Bearer <CRON_SECRET>" (Vercel Cron does this).
   CRON_SECRET: z.string().min(16).optional(),
 
+  // Where low-stock alerts go (defaults to every admin account)
+  ADMIN_ALERT_EMAIL: z.email().optional(),
+
   // Error tracking (optional)
   SENTRY_DSN: z.url().optional(),
 });
 
 const publicSchema = z.object({
+  /** Google Analytics 4 measurement ID (G-XXXX). Loads only after the shopper accepts cookies. */
+  NEXT_PUBLIC_GA_ID: z
+    .string()
+    .regex(/^G-[A-Z0-9]+$/)
+    .optional(),
   NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
   NEXT_PUBLIC_SITE_NAME: z.string().min(1).default("Jewellery Store"),
 });
 
 // NEXT_PUBLIC_* values must be read with literal `process.env.X` so Next.js can inline them.
 const rawPublic = {
+  NEXT_PUBLIC_GA_ID: process.env.NEXT_PUBLIC_GA_ID || undefined,
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || undefined,
   NEXT_PUBLIC_SITE_NAME: process.env.NEXT_PUBLIC_SITE_NAME || undefined,
 };

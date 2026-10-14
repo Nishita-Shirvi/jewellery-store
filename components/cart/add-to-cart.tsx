@@ -6,6 +6,7 @@ import { Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addToCartAction } from "@/app/cart/actions";
 import { MAX_QTY_PER_ITEM } from "@/lib/validation/cart";
+import { track } from "@/components/analytics/analytics";
 
 /** Quantity selector + Add to Cart. The server re-checks price and stock every time. */
 export function AddToCart({ productId, stock }: { productId: string; stock: number }) {
@@ -31,6 +32,8 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
           ? { ok: true, text: res.message ?? "Added to cart." }
           : { ok: false, text: res.error },
       );
+      if (res.ok)
+        track("add_to_cart", { currency: "INR", items: [{ item_id: productId, quantity }] });
     });
   }
 

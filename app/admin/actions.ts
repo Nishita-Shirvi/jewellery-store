@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { audit, diff } from "@/services/audit.service";
+import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { z } from "zod";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth-guards";
@@ -31,6 +33,7 @@ import { ReturnError, approveReturn, rejectReturn } from "@/services/return.serv
 import { retryRefund } from "@/services/refund.service";
 import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
+import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
 
 /**
@@ -74,6 +77,7 @@ export async function saveProductAction(
     return {
       error: "Please fix the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: typedValues(formData),
     };
 
   const id = formData.get("id");
@@ -81,9 +85,48 @@ export async function saveProductAction(
   try {
     if (typeof id === "string" && id) {
       if (!idSchema.safeParse({ id }).success) return { error: "Invalid product." };
+      const before = await getProductAdmin(id);
       savedId = (await updateProduct(id, parsed.data, admin.id)).id;
+      if (before) {
+        const changes = diff(
+          before as unknown as Record<string, unknown>,
+          {
+            name: parsed.data.name,
+            priceInPaise: parsed.data.price,
+            stock: parsed.data.stock,
+            isActive: parsed.data.isActive,
+            isFeatured: parsed.data.isFeatured,
+            gstRateBps: parsed.data.gstRate,
+            hsnCode: parsed.data.hsnCode,
+            categoryId: parsed.data.categoryId,
+          },
+          [
+            "name",
+            "priceInPaise",
+            "stock",
+            "isActive",
+            "isFeatured",
+            "gstRateBps",
+            "hsnCode",
+            "categoryId",
+          ],
+        );
+        await audit(admin, {
+          action: "product.update",
+          entityType: "product",
+          entityId: id,
+          summary: `Updated ${parsed.data.name}${Object.keys(changes).length ? ` (${Object.keys(changes).join(", ")})` : ""}`,
+          changes,
+        });
+      }
     } else {
       savedId = (await createProduct(parsed.data, admin.id)).id;
+      await audit(admin, {
+        action: "product.create",
+        entityType: "product",
+        entityId: savedId,
+        summary: `Created ${parsed.data.name}`,
+      });
     }
   } catch (error) {
     return { ...fail(error), values: typedValues(formData) };
@@ -97,7 +140,15 @@ export async function toggleProductActiveAction(formData: FormData): Promise<voi
   const admin = await requireAdmin();
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
-  await setProductActive(parsed.data.id, formData.get("isActive") === "true", admin.id);
+  const isActive = formData.get("isActive") === "true";
+  await setProductActive(parsed.data.id, isActive, admin.id);
+  await audit(admin, {
+    action: isActive ? "product.show" : "product.hide",
+    entityType: "product",
+    entityId: parsed.data.id,
+    summary: isActive ? "Product shown in store" : "Product hidden from store",
+    changes: { isActive: { from: !isActive, to: isActive } },
+  });
   revalidatePath("/admin/products");
   revalidatePath(`/admin/products/${parsed.data.id}`);
 }
@@ -109,7 +160,15 @@ export async function updateStockAction(formData: FormData): Promise<void> {
     stock: formData.get("stock"),
   });
   if (!parsed.success) return;
+  const beforeStock = (await getProductAdmin(parsed.data.id))?.stock;
   await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  await audit(admin, {
+    action: "product.stock",
+    entityType: "product",
+    entityId: parsed.data.id,
+    summary: `Stock set to ${parsed.data.stock}`,
+    changes: { stock: { from: beforeStock, to: parsed.data.stock } },
+  });
   revalidatePath("/admin/products");
   revalidatePath("/admin");
 }
@@ -139,13 +198,29 @@ export async function saveCategoryAction(
     return {
       error: "Please fix the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: typedValues(formData),
     };
   const id = formData.get("id");
   try {
-    if (typeof id === "string" && id) await updateCategory(id, parsed.data, admin.id);
-    else await createCategory(parsed.data, admin.id);
+    if (typeof id === "string" && id) {
+      await updateCategory(id, parsed.data, admin.id);
+      await audit(admin, {
+        action: "category.update",
+        entityType: "category",
+        entityId: id,
+        summary: `Updated category ${parsed.data.name}`,
+      });
+    } else {
+      const created = await createCategory(parsed.data, admin.id);
+      await audit(admin, {
+        action: "category.create",
+        entityType: "category",
+        entityId: created.id,
+        summary: `Created category ${parsed.data.name}`,
+      });
+    }
   } catch (error) {
-    return fail(error);
+    return { ...fail(error), values: typedValues(formData) };
   }
   revalidatePath("/admin/categories");
   return { ok: true, message: "Saved." };
@@ -157,6 +232,12 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
   if (!parsed.success) return;
   try {
     await deleteCategory(parsed.data.id, admin.id);
+    await audit(admin, {
+      action: "category.delete",
+      entityType: "category",
+      entityId: parsed.data.id,
+      summary: "Deleted category",
+    });
   } catch (error) {
     if (error instanceof AdminInputError) {
       redirect(`/admin/categories?error=${encodeURIComponent(error.message)}`);
@@ -177,6 +258,12 @@ export async function updateOrderStatusAction(formData: FormData): Promise<void>
   if (!parsed.success) return;
   try {
     await updateOrderStatus(parsed.data.id, parsed.data.status, admin.id);
+    await audit(admin, {
+      action: "order.status",
+      entityType: "order",
+      entityId: parsed.data.id,
+      summary: `Order status → ${parsed.data.status}`,
+    });
   } catch (error) {
     if (error instanceof AdminInputError) {
       redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(error.message)}`);
@@ -196,6 +283,12 @@ export async function createShipmentAction(formData: FormData): Promise<void> {
   if (!parsed.success) return;
   try {
     await createShipmentForOrder(parsed.data.id, admin.id);
+    await audit(admin, {
+      action: "shipment.create",
+      entityType: "order",
+      entityId: parsed.data.id,
+      summary: "Shipment created with Shiprocket",
+    });
   } catch (error) {
     if (error instanceof ShipmentError) {
       redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(error.message)}`);
@@ -252,6 +345,12 @@ export async function rejectReturnAction(formData: FormData): Promise<void> {
     );
   try {
     await rejectReturn(parsed.data.returnId, admin.id, parsed.data.note);
+    await audit(admin, {
+      action: "return.reject",
+      entityType: "order",
+      entityId: parsed.data.orderId,
+      summary: `Return rejected: ${parsed.data.note}`,
+    });
   } catch (error) {
     if (error instanceof ReturnError)
       redirect(`/admin/orders/${parsed.data.orderId}?error=${encodeURIComponent(error.message)}`);
@@ -270,17 +369,30 @@ export async function retryRefundAction(formData: FormData): Promise<void> {
     })
     .safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
-  await retryRefund(parsed.data.refundId, admin.id);
+  const outcome = await retryRefund(parsed.data.refundId, admin.id);
+  await audit(admin, {
+    action: "refund.retry",
+    entityType: "refund",
+    entityId: parsed.data.refundId,
+    summary: `Refund retried (${outcome})`,
+  });
   revalidatePath(`/admin/orders/${parsed.data.orderId}`);
 }
 
 // ── Invoices ─────────────────────────────────────────────
 
 export async function generateInvoiceAction(formData: FormData): Promise<void> {
-  await requireAdmin();
+  const admin = await requireAdmin();
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const invoice = await createInvoiceForOrder(parsed.data.id);
+  if (invoice)
+    await audit(admin, {
+      action: "invoice.generate",
+      entityType: "order",
+      entityId: parsed.data.id,
+      summary: `Invoice ${invoice.number} generated`,
+    });
   if (!invoice)
     redirect(
       `/admin/orders/${parsed.data.id}?error=${encodeURIComponent("Couldn't create the invoice (is the order paid?). Check the logs.")}`,
@@ -300,14 +412,21 @@ export async function saveCouponAction(
     return {
       error: "Please fix the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: typedValues(formData),
     };
   const id = formData.get("id");
   let savedId: string;
   try {
     savedId = (await saveCoupon(typeof id === "string" && id ? id : null, parsed.data, admin.id))
       .id;
+    await audit(admin, {
+      action: typeof id === "string" && id ? "coupon.update" : "coupon.create",
+      entityType: "coupon",
+      entityId: savedId,
+      summary: `${typeof id === "string" && id ? "Updated" : "Created"} coupon ${parsed.data.code}`,
+    });
   } catch (error) {
-    return fail(error);
+    return { ...fail(error), values: typedValues(formData) };
   }
   revalidatePath("/admin/coupons");
   if (typeof id === "string" && id) return { ok: true, message: "Saved." };
@@ -319,5 +438,36 @@ export async function toggleCouponAction(formData: FormData): Promise<void> {
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   await setCouponActive(parsed.data.id, formData.get("isActive") === "true", admin.id);
+  await audit(admin, {
+    action: "coupon.toggle",
+    entityType: "coupon",
+    entityId: parsed.data.id,
+    summary: formData.get("isActive") === "true" ? "Coupon turned on" : "Coupon turned off",
+  });
   revalidatePath("/admin/coupons");
+}
+
+// ── Reviews ──────────────────────────────────────────────
+
+export async function moderateReviewAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const parsed = z
+    .object({
+      id: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      decision: z.enum(["APPROVED", "REJECTED"]),
+      note: z.string().trim().max(300).optional(),
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  try {
+    await moderateReview(
+      parsed.data.id,
+      parsed.data.decision,
+      admin.id,
+      parsed.data.note || undefined,
+    );
+  } catch (error) {
+    if (!(error instanceof ReviewError)) throw error;
+  }
+  revalidatePath("/admin/reviews");
 }

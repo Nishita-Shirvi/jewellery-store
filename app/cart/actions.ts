@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth-guards";
 import { addToCartSchema, removeItemSchema, updateQuantitySchema } from "@/lib/validation/cart";
 import { addItem, clearCart, removeItem, setItemQuantity } from "@/services/cart.service";
 import type { CartActionResult } from "@/types/cart";
+import { countFunnel } from "@/services/report.service";
 
 const INVALID: CartActionResult = { ok: false, error: "Something was wrong with that request." };
 
@@ -21,7 +22,10 @@ export async function addToCartAction(input: {
   if (!parsed.success) return INVALID;
   const user = await getCurrentUser();
   const result = await addItem(user?.id ?? null, parsed.data.productId, parsed.data.quantity);
-  if (result.ok) refresh();
+  if (result.ok) {
+    refresh();
+    await countFunnel("add_to_cart");
+  }
   return result;
 }
 

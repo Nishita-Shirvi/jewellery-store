@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-10-08
-**Current phase:** Frontend design (storefront redesign in progress). Phase 13 (coupons + wishlist) is built but its browser test is unfinished — see note D-91. Needs `npx prisma migrate dev --name phase13_coupons_wishlist` locally.
+**Current phase:** Phase 16 — Analytics, reports, release (done; run `npx prisma migrate dev --name phase16_analytics` locally). Week 2 complete. Next: Week 3, Phase 17 — Product variants.
 
 ---
 
@@ -26,10 +26,10 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 10    | Shipping (Shiprocket)           | ✅     | 2026-10-09 | 2026-10-09 | 21/21 shipping checks; full regression 163 browser + 86 unit + 7 DB tests                                        |
 | 11    | Cancellations, returns, refunds | ✅     | 2026-10-10 | 2026-10-10 | 34/34 refund checks; full regression 218 browser + 3 Playwright + 105 unit + 7 DB                                |
 | 12    | GST invoices and order emails   | ✅     | 2026-10-10 | 2026-10-10 | 20/20 invoice checks (PDF text verified) + 5 DB tests; full regression green                                     |
-| 13    | Coupons and wishlist            | 🟨     | 2026-10-10 |            | Built; unit + DB tests pass; browser test unfinished (paused for frontend)                                       |
-| 14    | Reviews                         | ⬜     |            |            |                                                                                                                  |
-| 15    | Search, SEO, performance        | ⬜     |            |            |                                                                                                                  |
-| 16    | Analytics, reports, release     | ⬜     |            |            |                                                                                                                  |
+| 13    | Coupons and wishlist            | ✅     | 2026-10-10 | 2026-10-11 | 24/24 browser checks, coupon rules unit-tested, 2 DB concurrency tests; full regression green                    |
+| 14    | Reviews and ratings             | ✅     | 2026-10-11 | 2026-10-11 | 20/20 browser checks + DB concurrency test (found and fixed a stale-average race)                                |
+| 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                             |
+| 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
 | 17    | Product variants                | ⬜     |            |            |                                                                                                                  |
 | 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                                                                |
 | 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
@@ -63,6 +63,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ```
 
 ---
+
+### Before Phase 13 — Coupons and wishlist (2026-10-10)
+
+**Done so far:** Phases 1–12 (store, payments, shipping, refunds, GST invoices).
+**Not finished / carried over:** None.
+**Open blockers:** None for this phase.
+**Plan for this phase:** Coupon model (percent/flat, minimum order, cap, dates, total and per-customer limits), server-only pricing with exact per-line discount split for GST, redemptions counted inside the payment transaction, admin coupon pages, wishlist (save, list, move to cart).
+**Risks:** Limit bypass under concurrency — row-locked counter, DB-tested.
+**Git:** tag `phase-12` before starting. (Paused 2026-10-11 for the storefront redesign, resumed the same day.)
 
 ### Before Phase 12 — GST invoices and order emails (2026-10-10)
 

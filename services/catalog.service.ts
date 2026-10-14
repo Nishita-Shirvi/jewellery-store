@@ -3,6 +3,7 @@ import { unstable_cache } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
+import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
 import { PAGE_SIZE, slugSchema, type ProductListQuery } from "@/lib/validation/catalog";
 import type {
@@ -23,6 +24,8 @@ const cardSelect = {
   priceInPaise: true,
   stock: true,
   reservedStock: true,
+  reviewCount: true,
+  ratingAvgX100: true,
   metalType: true,
   purity: true,
   metalColour: true,
@@ -41,10 +44,16 @@ function toCard(row: CardRow): ProductCardData {
     priceInPaise: row.priceInPaise,
     materialSummary: materialSummary(row),
     inStock: availableStock(row) > 0,
+    reviewCount: row.reviewCount,
+    ratingAvgX100: row.ratingAvgX100,
   };
 }
 
-const ORDER_BY: Record<ProductListQuery["sort"], Prisma.ProductOrderByWithRelationInput[]> = {
+const ORDER_BY: Record<
+  Exclude<ProductListQuery["sort"], "relevance" | undefined>,
+  Prisma.ProductOrderByWithRelationInput[]
+> = {
+  rating: [{ ratingAvgX100: "desc" }, { reviewCount: "desc" }, { id: "asc" }],
   newest: [{ createdAt: "desc" }, { id: "asc" }],
   price_asc: [{ priceInPaise: "asc" }, { id: "asc" }],
   price_desc: [{ priceInPaise: "desc" }, { id: "asc" }],
@@ -53,25 +62,56 @@ const ORDER_BY: Record<ProductListQuery["sort"], Prisma.ProductOrderByWithRelati
 /** Active products, filtered, sorted and paginated on the server. */
 export const listProducts = unstable_cache(
   async (query: ProductListQuery): Promise<ProductListResult> => {
+    // Search: typo-tolerant matching gives the candidate IDs and their relevance.
+    const scores = query.q ? await searchProductScores(query.q) : null;
+    if (scores && scores.size === 0) return { items: [], total: 0, page: 1, pageCount: 1 };
+
     const where: Prisma.ProductWhereInput = {
       isActive: true,
       category: { isActive: true, ...(query.category ? { slug: query.category } : {}) },
-      ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
+      ...(scores ? { id: { in: [...scores.keys()] } } : {}),
       ...(query.metal ? { metalType: query.metal } : {}),
       ...(query.purity ? { purity: query.purity } : {}),
+      ...(query.minPrice !== undefined || query.maxPrice !== undefined
+        ? {
+            priceInPaise: {
+              ...(query.minPrice !== undefined ? { gte: query.minPrice * 100 } : {}),
+              ...(query.maxPrice !== undefined ? { lte: query.maxPrice * 100 } : {}),
+            },
+          }
+        : {}),
+      // In stock = more units than are held in checkouts (compares two columns).
+      ...(query.inStock ? { stock: { gt: db.product.fields.reservedStock } } : {}),
+      ...(query.rating ? { ratingAvgX100: { gte: query.rating * 100 } } : {}),
     };
+
+    const sort = query.sort ?? (scores ? "relevance" : "newest");
+    const skip = (query.page - 1) * PAGE_SIZE;
+
+    if (sort === "relevance" && scores) {
+      // Relevance order comes from the search scores, so sort the (at most 500) matches here.
+      const rows = await db.product.findMany({ where, select: { ...cardSelect, id: true } });
+      rows.sort(
+        (a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0) || a.name.localeCompare(b.name),
+      );
+      return {
+        items: rows.slice(skip, skip + PAGE_SIZE).map(toCard),
+        total: rows.length,
+        page: query.page,
+        pageCount: Math.max(1, Math.ceil(rows.length / PAGE_SIZE)),
+      };
+    }
 
     const [total, rows] = await db.$transaction([
       db.product.count({ where }),
       db.product.findMany({
         where,
         select: cardSelect,
-        orderBy: ORDER_BY[query.sort],
-        skip: (query.page - 1) * PAGE_SIZE,
+        orderBy: ORDER_BY[sort === "relevance" ? "newest" : sort],
+        skip,
         take: PAGE_SIZE,
       }),
     ]);
-
     return {
       items: rows.map(toCard),
       total,
@@ -79,7 +119,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list"],
+  ["catalog:list:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 

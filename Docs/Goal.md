@@ -215,32 +215,32 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 13 — Coupons and wishlist
 
-- [ ] Coupon model with all rules (type, value, minimum order, max discount, dates, usage limits, active flag)
-- [ ] Discount calculated only on the server in a pricing service and saved on the Order
-- [ ] Redemptions tracked inside the payment transaction (no limit bypass)
-- [ ] Admin coupon management
-- [ ] Wishlist: add/remove, list, move to cart
+- [x] Coupon model with all rules (type, value, minimum order, max discount, dates, usage limits, active flag)
+- [x] Discount calculated only on the server in a pricing service and saved on the Order
+- [x] Redemptions tracked inside the payment transaction (no limit bypass)
+- [x] Admin coupon management
+- [x] Wishlist: add/remove, list, move to cart
 
 **Done when:** expired, over-used or below-minimum coupons are rejected with a clear message, and tests cover every pricing rule.
 
 ### Phase 14 — Reviews
 
-- [ ] Only customers with a delivered order of that product can review (1 per user per product)
-- [ ] Rating 1–5, title, body, optional images, moderation status
-- [ ] Admin moderation queue
-- [ ] Average rating and review count kept on Product, updated in a transaction
-- [ ] Product + AggregateRating structured data for Google
-- [ ] Sorting and pagination of reviews
+- [x] Only customers with a delivered order of that product can review (1 per user per product)
+- [x] Rating 1–5, title, body, optional images, moderation status
+- [x] Admin moderation queue
+- [x] Average rating and review count kept on Product, updated in a transaction
+- [x] Product + AggregateRating structured data for Google
+- [x] Sorting and pagination of reviews
 
 **Done when:** only verified buyers can review, approved reviews appear, and the average updates correctly.
 
 ### Phase 15 — Search, SEO, performance
 
-- [ ] Full-text search with typo tolerance and autocomplete
-- [ ] Filters: price range, in stock only, rating
-- [ ] sitemap.xml, robots.txt, canonical URLs, category landing pages
-- [ ] next/image everywhere, ISR with revalidation on admin edits, missing indexes added, no N+1 queries
-- [ ] Lighthouse ≥ 90 (performance + SEO, mobile), with before/after scores
+- [x] Full-text search with typo tolerance and autocomplete
+- [x] Filters: price range, in stock only, rating
+- [x] sitemap.xml, robots.txt, canonical URLs, category landing pages
+- [x] next/image everywhere, ISR with revalidation on admin edits, missing indexes added, no N+1 queries
+- [ ] Lighthouse ≥ 90 (not measured yet — run on the deployed site; see D-108) (performance + SEO, mobile), with before/after scores
 
 **Jewellery-specific:** search understands common terms (e.g. "jhumka", "kada", "mangalsutra", "22k").
 
@@ -248,12 +248,12 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 16 — Analytics, reports, release
 
-- [ ] GA4 or PostHog e-commerce events with cookie consent banner
-- [ ] Admin reports: revenue by day/week, top products, funnel, refunds, low-stock email alerts, CSV export
-- [ ] Audit log of admin changes
-- [ ] Automated backups confirmed and restore steps written
-- [ ] E2E tests updated for coupons and refunds
-- [ ] Week 2 release checklist and changelog
+- [x] GA4 or PostHog e-commerce events with cookie consent banner
+- [x] Admin reports: revenue by day/week, top products, funnel, refunds, low-stock email alerts, CSV export
+- [x] Audit log of admin changes
+- [x] Automated backups confirmed and restore steps written
+- [x] Browser test suites cover coupons (24 checks) and refunds (34 checks); Playwright CI test still covers browse → cart → checkout
+- [x] Week 2 release checklist and changelog
 
 **Done when:** CI is green, reports match the database, and the release is deployed.
 

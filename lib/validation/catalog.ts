@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const SORT_OPTIONS = ["newest", "price_asc", "price_desc"] as const;
+export const SORT_OPTIONS = ["relevance", "newest", "price_asc", "price_desc", "rating"] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
 
 export const PAGE_SIZE = 12;
@@ -30,7 +30,17 @@ export const productListQuerySchema = z.object({
   purity: z
     .preprocess(single, z.enum(["K24", "K22", "K18", "K14", "S925", "PT950"]).optional())
     .catch(undefined),
-  sort: z.preprocess(single, z.enum(SORT_OPTIONS).default("newest")).catch("newest"),
+  sort: z.preprocess(single, z.enum(SORT_OPTIONS).optional()).catch(undefined),
+  /** Whole rupees. */
+  minPrice: z
+    .preprocess(single, z.coerce.number().int().min(0).max(10_000_000).optional())
+    .catch(undefined),
+  maxPrice: z
+    .preprocess(single, z.coerce.number().int().min(0).max(10_000_000).optional())
+    .catch(undefined),
+  inStock: z.preprocess(single, z.enum(["1"]).optional()).catch(undefined),
+  /** Minimum average stars (1–4). */
+  rating: z.preprocess(single, z.coerce.number().int().min(1).max(4).optional()).catch(undefined),
   page: z.preprocess(single, z.coerce.number().int().min(1).max(1000).default(1)).catch(1),
 });
 

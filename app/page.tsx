@@ -81,7 +81,7 @@ export default async function HomePage() {
               {categories.map((category) => (
                 <li key={category.slug}>
                   <Link
-                    href={`/products?category=${category.slug}`}
+                    href={`/collections/${category.slug}`}
                     className="group focus-visible:ring-ring block rounded-md outline-none focus-visible:ring-2"
                   >
                     <div className="arch border-border bg-muted border">

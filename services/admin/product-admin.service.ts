@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { slugify, type ProductFormInput } from "@/lib/validation/admin";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import { reindexSearchText } from "@/services/search.service";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -106,7 +107,9 @@ export async function updateProduct(id: string, input: ProductFormInput, adminId
       data: { ...toData(input), ...(slug ? { slug } : {}) },
       select: { id: true, slug: true },
     });
+    await reindexSearchText({ productId: id });
     revalidateTag(CATALOG_TAG);
+    await reindexSearchText({ productId: id });
     logger.info("admin.product_updated", { adminId, productId: id });
     return product;
   } catch (error) {

@@ -82,14 +82,18 @@ export function ProductForm({
     saveProductAction,
     {},
   );
+  // Submit without React's automatic form reset, so fields always keep what the admin typed.
+  const [, startSubmit] = useTransition();
+  const submitWithoutReset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startSubmit(() => formAction(data));
+  };
   const [images, setImages] = useState<string[]>(values.images);
   const [uploading, startUpload] = useTransition();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const e = state.fieldErrors ?? {};
-  // After an error React resets the form; feeding back what was typed keeps the admin's input.
-  const typed = state.values ?? {};
-  const v = (key: keyof ProductFormValues) => typed[key] ?? String(values[key] ?? "");
 
   function upload(file: File) {
     setUploadError(null);
@@ -104,7 +108,7 @@ export function ProductForm({
   }
 
   return (
-    <form action={formAction} className="space-y-8" noValidate aria-label="Product">
+    <form onSubmit={submitWithoutReset} className="space-y-8" noValidate aria-label="Product">
       {values.id && <input type="hidden" name="id" value={values.id} />}
       <input type="hidden" name="images" value={images.join("\n")} />
 
@@ -122,11 +126,11 @@ export function ProductForm({
       )}
 
       <section className="grid gap-4 md:grid-cols-2">
-        <FormField label="Name" name="name" defaultValue={v("name")} errors={e.name} />
+        <FormField label="Name" name="name" defaultValue={values.name} errors={e.name} />
         <FormField
           label="URL name (optional)"
           name="slug"
-          defaultValue={v("slug")}
+          defaultValue={values.slug}
           errors={e.slug}
           hint="Made from the name if left empty."
         />
@@ -135,7 +139,7 @@ export function ProductForm({
           <textarea
             id="description"
             name="description"
-            defaultValue={v("description")}
+            defaultValue={values.description}
             rows={4}
             className="border-input bg-background w-full rounded-md border px-3 py-2 text-sm"
             aria-invalid={e.description ? true : undefined}
@@ -145,7 +149,7 @@ export function ProductForm({
         <Select
           label="Category"
           name="categoryId"
-          value={v("categoryId")}
+          value={values.categoryId}
           options={categories.map((c) => [c.id, c.name])}
           error={e.categoryId}
         />
@@ -154,7 +158,7 @@ export function ProductForm({
           name="stock"
           type="number"
           min={0}
-          defaultValue={v("stock")}
+          defaultValue={values.stock}
           errors={e.stock}
         />
       </section>
@@ -164,21 +168,21 @@ export function ProductForm({
           label="Price (₹, incl. GST)"
           name="price"
           inputMode="decimal"
-          defaultValue={v("price")}
+          defaultValue={values.price}
           errors={e.price}
         />
         <FormField
           label="Making charge (₹, optional)"
           name="makingCharge"
           inputMode="decimal"
-          defaultValue={v("makingCharge")}
+          defaultValue={values.makingCharge}
           errors={e.makingCharge}
         />
         <div />
         <Select
           label="Metal"
           name="metalType"
-          value={v("metalType")}
+          value={values.metalType}
           options={[
             ["GOLD", "Gold"],
             ["SILVER", "Silver"],
@@ -189,7 +193,7 @@ export function ProductForm({
         <Select
           label="Purity"
           name="purity"
-          value={v("purity")}
+          value={values.purity}
           options={[
             ["K22", "22K"],
             ["K18", "18K"],
@@ -203,7 +207,7 @@ export function ProductForm({
         <Select
           label="Colour"
           name="metalColour"
-          value={v("metalColour")}
+          value={values.metalColour}
           options={[
             ["YELLOW", "Yellow"],
             ["WHITE", "White"],
@@ -216,35 +220,35 @@ export function ProductForm({
           label="Net weight (g)"
           name="netWeight"
           inputMode="decimal"
-          defaultValue={v("netWeight")}
+          defaultValue={values.netWeight}
           errors={e.netWeight}
         />
         <FormField
           label="Gross weight (g, optional)"
           name="grossWeight"
           inputMode="decimal"
-          defaultValue={v("grossWeight")}
+          defaultValue={values.grossWeight}
           errors={e.grossWeight}
         />
         <FormField
           label="BIS HUID (optional)"
           name="huid"
           maxLength={6}
-          defaultValue={v("huid")}
+          defaultValue={values.huid}
           errors={e.huid}
         />
         <FormField
           label="HSN code"
           name="hsnCode"
           inputMode="numeric"
-          defaultValue={v("hsnCode")}
+          defaultValue={values.hsnCode}
           errors={e.hsnCode}
         />
         <FormField
           label="GST rate (%)"
           name="gstRate"
           inputMode="decimal"
-          defaultValue={v("gstRate")}
+          defaultValue={values.gstRate}
           errors={e.gstRate}
           hint="Prices include GST. Jewellery: 3%."
         />
@@ -252,7 +256,7 @@ export function ProductForm({
           <FormField
             label="Stones (optional)"
             name="gemstone"
-            defaultValue={v("gemstone")}
+            defaultValue={values.gemstone}
             errors={e.gemstone}
           />
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/auth/form-field";
@@ -22,14 +22,18 @@ export interface CouponFormValues {
 
 export function CouponForm({ values }: { values: CouponFormValues }) {
   const [state, action, pending] = useActionState<AdminFormState, FormData>(saveCouponAction, {});
-  // After an error React resets the form; feeding back what was typed keeps the admin's input.
-  const typed = state.values ?? {};
-  const v = (key: keyof CouponFormValues) => typed[key] ?? String(values[key] ?? "");
+  // Submit without React's automatic form reset, so fields always keep what the admin typed.
+  const [, startSubmit] = useTransition();
+  const submitWithoutReset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    startSubmit(() => action(data));
+  };
   const [type, setType] = useState(values.type);
   const e = state.fieldErrors ?? {};
   return (
     <form
-      action={action}
+      onSubmit={submitWithoutReset}
       className="grid max-w-2xl gap-4 sm:grid-cols-2"
       noValidate
       aria-label="Coupon"
@@ -46,7 +50,7 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
       <FormField
         label="Code"
         name="code"
-        defaultValue={v("code")}
+        defaultValue={values.code}
         errors={e.code}
         hint="Customers can type it in any case."
       />
@@ -67,7 +71,7 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
         label={type === "PERCENT" ? "Percent off (1–90)" : "Amount off (₹)"}
         name="value"
         inputMode="decimal"
-        defaultValue={v("value")}
+        defaultValue={values.value}
         errors={e.value}
       />
       {type === "PERCENT" ? (
@@ -75,7 +79,7 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
           label="Maximum discount (₹, optional)"
           name="maxDiscount"
           inputMode="decimal"
-          defaultValue={v("maxDiscount")}
+          defaultValue={values.maxDiscount}
           errors={e.maxDiscount}
         />
       ) : (
@@ -85,7 +89,7 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
         label="Minimum order (₹, optional)"
         name="minOrder"
         inputMode="decimal"
-        defaultValue={v("minOrder")}
+        defaultValue={values.minOrder}
         errors={e.minOrder}
       />
       <div />
@@ -93,21 +97,21 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
         label="Starts (optional, India time)"
         name="startsAt"
         type="datetime-local"
-        defaultValue={v("startsAt")}
+        defaultValue={values.startsAt}
         errors={e.startsAt}
       />
       <FormField
         label="Ends (optional, India time)"
         name="endsAt"
         type="datetime-local"
-        defaultValue={v("endsAt")}
+        defaultValue={values.endsAt}
         errors={e.endsAt}
       />
       <FormField
         label="Total uses allowed (optional)"
         name="usageLimit"
         inputMode="numeric"
-        defaultValue={v("usageLimit")}
+        defaultValue={values.usageLimit}
         errors={e.usageLimit}
         hint="Empty = unlimited"
       />
@@ -115,7 +119,7 @@ export function CouponForm({ values }: { values: CouponFormValues }) {
         label="Uses per customer (optional)"
         name="perUserLimit"
         inputMode="numeric"
-        defaultValue={v("perUserLimit")}
+        defaultValue={values.perUserLimit}
         errors={e.perUserLimit}
         hint="Empty = unlimited"
       />

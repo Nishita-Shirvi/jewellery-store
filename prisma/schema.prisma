@@ -2,13 +2,16 @@
 // Money is always an integer in paise. Weights are always integers in milligrams.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL") // pooled connection (used by the app)
-  directUrl = env("DIRECT_URL") // direct connection (used by migrations)
+  provider   = "postgresql"
+  url        = env("DATABASE_URL") // pooled connection (used by the app)
+  directUrl  = env("DIRECT_URL") // direct connection (used by migrations)
+  // pg_trgm powers typo-tolerant search (Phase 15). Neon and Supabase support it.
+  extensions = [pg_trgm]
 }
 
 // ───────────────────────────── Enums ─────────────────────────────
@@ -28,6 +31,12 @@ enum OrderStatus {
   RETURN_REQUESTED // customer asked to return delivered items
   REFUND_PENDING // refund sent to Razorpay, waiting for confirmation
   REFUNDED // everything paid has been refunded
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum CouponType {
@@ -128,6 +137,7 @@ model User {
 
   accounts          Account[]
   wishlist          WishlistItem[]
+  reviews           Review[]
   couponRedemptions CouponRedemption[]
   sessions          Session[]
   cart              Cart?
@@ -228,6 +238,13 @@ model Product {
   /// GST: HSN code and rate in basis points (300 = 3%). Jewellery is usually HSN 7113 at 3% — confirm with your CA.
   hsnCode             String      @default("7113")
   gstRateBps          Int         @default(300)
+  /// Approved reviews only, recalculated in the same transaction as each moderation change.
+  reviewCount         Int         @default(0)
+  ratingSum           Int         @default(0)
+  /// Average × 100 (e.g. 467 = 4.67 stars): whole numbers, no floating point.
+  ratingAvgX100       Int         @default(0)
+  /// Lower-case words used by search (name, stones, category, metal, purity). Rebuilt on every product/category save.
+  searchText          String      @default("")
   isReturnable        Boolean     @default(true)
 
   createdAt DateTime @default(now())
@@ -236,12 +253,15 @@ model Product {
   category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
+  reviews       Review[]
   orderItems    OrderItem[]
 
   @@index([categoryId])
   @@index([isActive, isFeatured])
   @@index([isActive, createdAt])
   @@index([isActive, priceInPaise])
+  @@index([isActive, ratingAvgX100])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
 }
 
 // ───────────────────────────── Cart ──────────────────────────────
@@ -453,6 +473,32 @@ model WishlistItem {
   @@index([userId, createdAt])
 }
 
+// ──────────────────────────── Reviews ────────────────────────────
+
+/// One review per customer per product, only from customers whose order with it was delivered.
+model Review {
+  id         String       @id @default(cuid())
+  productId  String
+  userId     String
+  rating     Int
+  title      String
+  body       String
+  images     String[]
+  status     ReviewStatus @default(PENDING)
+  adminNote  String?
+  /// Name shown publicly, e.g. "Priya S." (first name + initial).
+  authorName String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId, status, createdAt])
+  @@index([status, createdAt])
+}
+
 // ─────────────────────────── Invoices ────────────────────────────
 
 /// Tax invoice. The snapshot is frozen at creation so the PDF never changes later.
@@ -578,6 +624,38 @@ model ShipmentEvent {
 
   @@unique([shipmentId, label, occurredAt])
   @@index([shipmentId, occurredAt])
+}
+
+// ─────────────────────── Audit and analytics ─────────────────────
+
+/// Who changed what in the admin panel. Never edited or deleted by the app.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String
+  /// e.g. product.update, order.status, coupon.create, refund.retry
+  action     String
+  entityType String
+  entityId   String
+  summary    String
+  /// Before/after values for the fields that changed, when known.
+  changes    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+  @@index([actorId, createdAt])
+}
+
+/// Anonymous daily counters for the sales funnel (no personal data, so no consent needed).
+model FunnelDaily {
+  /// India-time date, e.g. 2026-10-11
+  day   String
+  /// view_item | add_to_cart | begin_checkout | purchase
+  event String
+  count Int    @default(0)
+
+  @@id([day, event])
 }
 
 // ──────────────────────────── Settings ───────────────────────────
