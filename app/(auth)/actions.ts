@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
+import { logger } from "@/lib/logger";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { safeRedirectPath } from "@/lib/safe-redirect";
@@ -80,7 +81,7 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
     if (error instanceof EmailAlreadyRegisteredError) {
       return { fieldErrors: { email: [error.message] }, values };
     }
-    console.error("[auth] registration failed", error);
+    logger.error("auth.register_failed", { error });
     return { error: "We couldn't create your account. Please try again.", values };
   }
 

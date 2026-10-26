@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { env, publicEnv } from "@/lib/env";
+import { config } from "@/lib/config";
+import { publicEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { istDay } from "@/lib/report/dates";
 import { sendEmail } from "@/services/email.service";
@@ -15,8 +16,8 @@ export async function sendLowStockAlert(): Promise<{ sent: boolean; count: numbe
   const already = await db.appSetting.findUnique({ where: { key } });
   if (already) return { sent: false, count: items.length };
 
-  const recipients = env.ADMIN_ALERT_EMAIL
-    ? [env.ADMIN_ALERT_EMAIL]
+  const recipients = config.alerts.admin_email
+    ? [config.alerts.admin_email]
     : (await db.user.findMany({ where: { role: "ADMIN" }, select: { email: true } })).map(
         (u) => u.email,
       );

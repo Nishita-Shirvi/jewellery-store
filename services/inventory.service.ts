@@ -1,5 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { config } from "@/lib/config";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 
@@ -14,7 +15,7 @@ import { logger } from "@/lib/logger";
  * (Prisma can't compare two columns in a `where`), never string-built SQL.
  */
 
-export const RESERVATION_MINUTES = 15;
+export const RESERVATION_MINUTES = config.inventory.reservation_minutes;
 
 type Tx = Prisma.TransactionClient;
 export interface ReserveLine {

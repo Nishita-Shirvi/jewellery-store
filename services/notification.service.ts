@@ -2,10 +2,11 @@ import "server-only";
 import { render } from "@react-email/render";
 import { OrderEmail, type OrderEmailProps } from "@/emails/order-email";
 import { getBusiness } from "@/lib/business";
+import { config } from "@/lib/config";
 import { db } from "@/lib/db";
 import { env, publicEnv } from "@/lib/env";
 import { formatINR } from "@/lib/format";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { sendEmail } from "@/services/email.service";
 
 /**
@@ -150,22 +151,17 @@ export async function notifyOrder(
 
     await maybeSendSms(order.addressSnapshot as { phone?: string } | null, event, n);
   } catch (error) {
-    logger.error("notify.failed", { orderId, event, error: errorMessage(error) });
+    logger.error("notify.failed", { orderId, event, error });
   }
 }
 
-/** Optional SMS through MSG91 (DLT-approved template). Off unless FEATURE_SMS=true. */
+/** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config.ini. */
 async function maybeSendSms(
   address: { phone?: string } | null,
   event: OrderEvent,
   orderNumber: string,
 ) {
-  if (
-    env.FEATURE_SMS !== "true" ||
-    !env.MSG91_AUTH_KEY ||
-    !env.MSG91_ORDER_FLOW_ID ||
-    !address?.phone
-  )
+  if (!config.features.sms || !env.MSG91_AUTH_KEY || !env.MSG91_ORDER_FLOW_ID || !address?.phone)
     return;
   if (!["confirmed", "shipped", "delivered"].includes(event)) return;
   const res = await fetch("https://control.msg91.com/api/v5/flow", {

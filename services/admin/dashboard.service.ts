@@ -1,8 +1,9 @@
 import "server-only";
+import { config } from "@/lib/config";
 import { db } from "@/lib/db";
 
 const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
-export const LOW_STOCK_THRESHOLD = 3;
+export const LOW_STOCK_THRESHOLD = config.inventory.low_stock_threshold;
 
 /** Midnight today in India, as a UTC Date. */
 export function startOfTodayIST(now = new Date()): Date {

@@ -1,28 +1,26 @@
 import "server-only";
-import { env, publicEnv } from "@/lib/env";
+import { config } from "@/lib/config";
+import { publicEnv } from "@/lib/env";
 
-/** Business details used on legal pages. Set them in .env before going live. */
+/** Business details used on legal pages and invoices. Set them in config.ini before going live. */
 export function getBusiness() {
+  const { business, grievance_officer: grievance } = config;
   return {
     storeName: publicEnv.NEXT_PUBLIC_SITE_NAME,
     siteUrl: publicEnv.NEXT_PUBLIC_APP_URL,
-    legalName: env.BUSINESS_LEGAL_NAME,
-    address: env.BUSINESS_ADDRESS,
-    email: env.BUSINESS_EMAIL,
-    phone: env.BUSINESS_PHONE,
-    gstin: env.BUSINESS_GSTIN,
-    state: env.BUSINESS_STATE,
-    grievanceName: env.GRIEVANCE_OFFICER_NAME,
-    grievanceEmail: env.GRIEVANCE_OFFICER_EMAIL,
+    legalName: business.legal_name,
+    address: business.address,
+    email: business.email,
+    phone: business.phone,
+    gstin: business.gstin,
+    state: business.state,
+    grievanceName: grievance.name,
+    grievanceEmail: grievance.email,
     /** True while any value is still a [placeholder]. */
     incomplete:
-      [
-        env.BUSINESS_LEGAL_NAME,
-        env.BUSINESS_ADDRESS,
-        env.BUSINESS_PHONE,
-        env.BUSINESS_GSTIN,
-        env.GRIEVANCE_OFFICER_NAME,
-      ].some((v) => v.startsWith("[")) || env.BUSINESS_EMAIL.endsWith("@example.com"),
+      [business.legal_name, business.address, business.phone, business.gstin, grievance.name].some(
+        (v) => v.startsWith("["),
+      ) || business.email.endsWith("@example.com"),
   };
 }
 

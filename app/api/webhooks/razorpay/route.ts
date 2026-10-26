@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     logger.error("webhook.razorpay_processing_failed", {
       event: event.event,
       eventId,
-      error: errorMessage(error),
+      error,
     });
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }

@@ -22,7 +22,8 @@
     "test:e2e": "playwright test",
     "check:bundle": "node scripts/check-client-bundle.mjs",
     "vercel-build": "prisma generate && prisma migrate deploy && next build",
-    "test:db": "vitest run --config vitest.db.config.ts"
+    "test:db": "vitest run --config vitest.db.config.ts",
+    "verify": "npm run lint && npm run typecheck && npm test"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

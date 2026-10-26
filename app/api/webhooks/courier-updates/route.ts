@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { parseShiprocketDate } from "@/lib/shipping/dates";
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.error("webhook.courier_processing_failed", {
       awb: payload.awb,
-      error: errorMessage(error),
+      error,
     });
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }

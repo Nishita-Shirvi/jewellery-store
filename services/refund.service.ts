@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import {
   RazorpayError,
   createRazorpayRefund,
@@ -107,7 +107,7 @@ export async function issueRefund(
     logger.error("refund.failed_to_send", {
       refundId,
       orderId: refund.orderId,
-      error: errorMessage(error),
+      error,
     });
     return "failed";
   }

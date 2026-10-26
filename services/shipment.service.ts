@@ -3,7 +3,7 @@ import type { Prisma, ShipmentStatus } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { env, isShiprocketConfigured } from "@/lib/env";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import {
   ShiprocketError,
   assignAwb,
@@ -137,7 +137,7 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
       where: { id: shipment.id },
       data: { lastError: message.slice(0, 300) },
     });
-    logger.error("shipment.create_failed", { orderId, error: errorMessage(error) });
+    logger.error("shipment.create_failed", { orderId, error });
     throw new ShipmentError(
       `${message}. Fix the problem and press the button again — finished steps won't be repeated.`,
     );
@@ -266,7 +266,7 @@ export async function checkPincode(pincode: string): Promise<PincodeCheck> {
       : { status: "not_serviceable" };
   } catch (error) {
     logger.warn("shipment.serviceability_failed", {
-      error: errorMessage(error),
+      error,
       pickup: env.SHIPROCKET_PICKUP_PINCODE,
     });
     return { status: "unknown" };

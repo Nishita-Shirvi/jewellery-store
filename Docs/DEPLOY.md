@@ -46,14 +46,16 @@ In Neon, create a **branch** called `production` from `main` (Branches → Creat
 | `RAZORPAY_WEBHOOK_SECRET`                                              | a new long random text (also entered in Razorpay, step 5)                                           |
 | `RESEND_API_KEY`, `EMAIL_FROM`                                         | from Resend (after verifying your domain)                                                           |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | from Cloudinary                                                                                     |
-| `BUSINESS_*`, `GRIEVANCE_OFFICER_*`                                    | your real business details                                                                          |
+| `CRON_SECRET`                                                          | a long random text (cron jobs refuse to run without it)                                             |
 | `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`                                 | from Sentry (optional)                                                                              |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                                 | optional, for Google login                                                                          |
 | `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                              | only if you'll seed this database                                                                   |
 
+Business details (legal name, GSTIN, state, grievance officer), shipping fee and invoice prefix are **not** env variables: edit `config.ini`, commit and push — see `CONFIGURATION.md`. Any of them can still be overridden per environment with `SECTION_KEY` (e.g. `LOGGING_LEVEL=debug`).
+
 Do **not** set `RAZORPAY_API_BASE`, `CLOUDINARY_API_BASE` or `AUTH_TRUST_HOST` on Vercel — they're for tests only.
 
-4. Click **Deploy**. When it's done, open `https://<project>.vercel.app/api/health` → `{"status":"ok","db":"ok"}`.
+4. Click **Deploy**. When it's done, open `https://<project>.vercel.app/api/health` → `{"status":"ok","db":"ok"}`. In Vercel → Logs, find the `app.start` line to confirm which integrations are switched on.
 
 ## 4. First admin and products
 

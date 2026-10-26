@@ -18,6 +18,12 @@ const eslintConfig = [
     },
   },
   {
+    // Server code logs through lib/logger.ts (levels, JSON, redaction, Sentry).
+    files: ["app/**/*.ts", "lib/**/*.ts", "services/**/*.ts", "auth.ts"],
+    ignores: ["lib/logger.ts"],
+    rules: { "no-console": "error" },
+  },
+  {
     ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"],
   },
 ];

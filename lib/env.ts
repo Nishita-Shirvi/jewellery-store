@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { INDIAN_STATES } from "./india";
 
 /**
- * Typed, validated environment variables.
+ * Typed, validated environment variables: secrets and per-environment URLs only.
+ * Business rules and store details (shipping fee, GSTIN, log level, …) live in config.ini → lib/config.ts.
  *
  * This file is imported by next.config.ts, so `npm run dev` / `npm run build`
  * stop immediately with a clear message if a variable is missing or invalid.
@@ -43,25 +43,9 @@ const serverSchema = z.object({
   /** Only for automated tests; leave unset in real use. */
   CLOUDINARY_API_BASE: z.url().default("https://api.cloudinary.com"),
 
-  // Business details shown on legal pages, invoices and the footer (required before going live)
-  BUSINESS_LEGAL_NAME: z.string().min(2).default("[Your registered business name]"),
-  BUSINESS_ADDRESS: z.string().min(5).default("[Registered address, City, State, PIN]"),
-  BUSINESS_EMAIL: z.email().default("support@example.com"),
-  BUSINESS_PHONE: z.string().min(6).default("[+91 phone number]"),
-  BUSINESS_GSTIN: z.string().default("[GSTIN]"),
-  /** Seller's state for GST: same state as the buyer → CGST + SGST, otherwise IGST. */
-  BUSINESS_STATE: z.enum(INDIAN_STATES).default("Telangana"),
-  /** Prefix for invoice numbers, e.g. INV → INV/2026-27/000001 */
-  INVOICE_PREFIX: z
-    .string()
-    .regex(/^[A-Z0-9-]{1,10}$/)
-    .default("INV"),
-  /** Optional SMS/WhatsApp (MSG91). Off unless FEATURE_SMS=true and the keys are set. */
-  FEATURE_SMS: z.enum(["true", "false"]).default("false"),
+  /** Optional SMS (MSG91). Off unless [features] sms = true in config.ini and the keys are set. */
   MSG91_AUTH_KEY: z.string().min(10).optional(),
   MSG91_ORDER_FLOW_ID: z.string().min(5).optional(),
-  GRIEVANCE_OFFICER_NAME: z.string().min(2).default("[Grievance officer name]"),
-  GRIEVANCE_OFFICER_EMAIL: z.email().default("grievance@example.com"),
 
   // Shiprocket (shipping). Without these, admins mark orders shipped by hand.
   SHIPROCKET_EMAIL: z.email().optional(),
@@ -77,15 +61,8 @@ const serverSchema = z.object({
   /** Only for automated tests; leave unset in real use. */
   SHIPROCKET_API_BASE: z.url().default("https://apiv2.shiprocket.in"),
 
-  // Shipping fee rule (rupees). Default: free above ₹999, otherwise ₹99.
-  SHIPPING_FEE_RUPEES: z.coerce.number().int().min(0).max(10000).default(99),
-  FREE_SHIPPING_ABOVE_RUPEES: z.coerce.number().int().min(0).max(10000000).default(999),
-
   // Scheduled jobs: callers must send "Authorization: Bearer <CRON_SECRET>" (Vercel Cron does this).
   CRON_SECRET: z.string().min(16).optional(),
-
-  // Where low-stock alerts go (defaults to every admin account)
-  ADMIN_ALERT_EMAIL: z.email().optional(),
 
   // Error tracking (optional)
   SENTRY_DSN: z.url().optional(),

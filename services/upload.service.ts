@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { env } from "@/lib/env";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -69,7 +69,7 @@ export async function uploadImage(file: File, folder: string): Promise<string> {
       throw new Error("Unexpected Cloudinary response");
     return json.secure_url;
   } catch (error) {
-    logger.error("upload.failed", { error: errorMessage(error) });
+    logger.error("upload.failed", { error });
     throw new UploadError("Upload failed. Please try again.");
   }
 }

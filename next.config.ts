@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
-// Validate environment variables at startup (dev, build and start). Fails fast if any are missing.
+// Validate env vars and config.ini at startup (dev, build and start). Fails fast on any mistake.
 import "./lib/env";
+import "./lib/config";
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -25,6 +26,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // lib/config.ts reads config.ini at runtime; make sure Vercel ships it with every function.
+  outputFileTracingIncludes: { "/**": ["./config.ini"] },
   // react-pdf ships its own Node build; bundling it breaks font loading.
   serverExternalPackages: ["@react-pdf/renderer"],
   images: {
@@ -60,6 +63,6 @@ export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   widenClientFileUpload: true,
-  disableLogger: true,
+  webpack: { treeshake: { removeDebugLogging: true } },
   telemetry: false,
 });

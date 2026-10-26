@@ -5,8 +5,9 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 ## Business and legal
 
 - [ ] Razorpay **KYC approved** and live keys generated
-- [ ] GSTIN, legal name, registered address, phone, support email filled in (`BUSINESS_*` on Vercel)
-- [ ] Grievance officer name and email filled in
+- [ ] GSTIN, legal name, registered address, state, phone, support email filled in (`config.ini` → `[business]`, committed)
+- [ ] Grievance officer name and email filled in (`config.ini` → `[grievance_officer]`)
+- [ ] Production log has no `app.business_details_incomplete` warning
 - [ ] Privacy, Terms, Refunds, Shipping and Contact pages reviewed by a lawyer/CA
 - [ ] Real product photos, prices, weights, purity and HUIDs entered; dummy products hidden or deleted
 
@@ -32,6 +33,8 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] GitHub Actions CI is green on `main`
 - [ ] Resend domain verified (SPF, DKIM, DMARC); test order email arrives and isn't in spam
 - [ ] Sentry receiving errors (optional but recommended)
+- [ ] `CRON_SECRET` set; `/api/cron/release-reservations` returns 200 with the bearer token
+- [ ] `app.start` log line shows `razorpayMode: "live"`, `email: true`, `cronJobs: true`
 - [ ] Google login redirect URI updated (if used)
 
 ## Real-money test (do this last)
@@ -40,7 +43,7 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] Buy it with a real UPI/card on the live site
 - [ ] Order shows **Paid** in `/admin/orders`, stock went down, confirmation email arrived
 - [ ] Razorpay dashboard shows the payment as **Captured** and the webhook delivery as **200**
-- [ ] Refund it from the Razorpay dashboard, cancel the order in admin, restore the product's real price
+- [ ] Cancel the order in `/admin` — this sends the refund automatically (do **not** also refund from the Razorpay dashboard, or the second refund fails). Check the order reaches **Refunded**, then restore the product's real price
 
 ## After launch (first week)
 

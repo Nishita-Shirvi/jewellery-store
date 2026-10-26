@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { logger } from "@/lib/logger";
 import type { HealthResponse } from "@/types/api";
 
 const DB_TIMEOUT_MS = 3000;
@@ -26,7 +27,7 @@ export async function checkDatabase(): Promise<boolean> {
     await withTimeout(db.$queryRaw`SELECT 1`, DB_TIMEOUT_MS);
     return true;
   } catch (error) {
-    console.error("[health] database ping failed", error);
+    logger.error("health.db_ping_failed", { error });
     return false;
   }
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 
 export interface AuditEntry {
   action: string;
@@ -38,7 +38,7 @@ export async function audit(actor: { id: string; email: string | null }, entry: 
     logger.error("audit.write_failed", {
       action: entry.action,
       entityId: entry.entityId,
-      error: errorMessage(error),
+      error,
     });
   }
 }

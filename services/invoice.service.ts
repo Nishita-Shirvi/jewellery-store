@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
+import { config } from "@/lib/config";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import {
   amountInWords,
   financialYear,
@@ -9,7 +9,7 @@ import {
   isIntraState,
   taxForLine,
 } from "@/lib/gst";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
 import type { AddressSnapshot } from "@/services/address.service";
 
@@ -132,7 +132,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
         ON CONFLICT ("financialYear") DO UPDATE SET "lastNumber" = "InvoiceCounter"."lastNumber" + 1
         RETURNING "lastNumber"`;
       const lastNumber = Number(rows[0]!.lastNumber);
-      const number = formatInvoiceNumber(env.INVOICE_PREFIX, fy, lastNumber);
+      const number = formatInvoiceNumber(config.invoice.prefix, fy, lastNumber);
       const snapshot: InvoiceSnapshot = {
         number,
         date: order.paidAt!.toISOString(),
@@ -184,7 +184,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     // Someone else created it at the same moment: the counter increment rolled back with us.
     if ((error as { code?: string }).code === "P2002")
       return db.invoice.findUnique({ where: { orderId }, select: { number: true } });
-    logger.error("invoice.create_failed", { orderId, error: errorMessage(error) });
+    logger.error("invoice.create_failed", { orderId, error });
     return null;
   }
 }

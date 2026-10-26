@@ -4,15 +4,38 @@ This folder is the project's memory. It tracks what we are building, where we ar
 
 ## What's in this folder
 
-| File                   | Purpose                                                                                 | When to update                                                 |
-| ---------------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `Goal.md`              | Goals for every phase, as checklists, with a "Done when" test                           | Tick items as they are finished and verified                   |
-| `progress.md`          | Status of all phases + a log written **before** each phase starts                       | Before starting a phase, and after finishing it                |
-| `blocker.md`           | Everything stopping or slowing work, who must act, and next steps                       | As soon as a blocker appears or is solved                      |
-| `note.md`              | Decisions, defaults, jewellery domain notes, dummy catalogue, other info                | Whenever a default is chosen or something is worth remembering |
-| `readme.md`            | This file: how the Docs folder works                                                    | Rarely                                                         |
-| `DEPLOY.md`            | Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email     | When hosting changes                                           |
-| `GO_LIVE_CHECKLIST.md` | Everything to tick before taking real orders, including switching Razorpay to live keys | Before launch                                                  |
+**New to the project?** Start with [`learning/README.md`](learning/README.md) — a guided path through the whole codebase.
+
+### Understand and maintain the code
+
+| File               | Purpose                                                                                                     | Update when                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `learning/`        | Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises | A feature, flow or file location changes     |
+| `ARCHITECTURE.md`  | Stack, layers, folder map, background jobs, safety properties                                               | Structure or stack changes                   |
+| `CONFIGURATION.md` | `config.ini` (settings) vs `.env` (secrets) — every key, overrides, adding a setting                        | A setting or env variable is added/removed   |
+| `LOGGING.md`       | Logger usage, where to read logs, built-in debugging tools                                                  | Logging changes                              |
+| `FEATURES.md`      | What each feature does for customers and admins                                                             | Feature behaviour changes                    |
+| `INTEGRATIONS.md`  | Setup steps: Razorpay, Resend, Shiprocket, Cloudinary, Google, MSG91, Sentry, GA4, cron                     | An integration is added or its setup changes |
+
+### Run and ship
+
+| File                   | Purpose                                                                                 | Update when          |
+| ---------------------- | --------------------------------------------------------------------------------------- | -------------------- |
+| `DEPLOY.md`            | Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email     | Hosting changes      |
+| `GO_LIVE_CHECKLIST.md` | Everything to tick before taking real orders, including switching Razorpay to live keys | Before launch        |
+| `BACKUPS.md`           | Database backups and restore steps                                                      | Backup setup changes |
+| `RELEASE_WEEK2.md`     | Release checklist used for the Week 2 release                                           | (historical)         |
+
+### Plan and track
+
+| File           | Purpose                                                           | Update when                                                    |
+| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
+| `checklist.md` | One-page feature checklist: done vs pending                       | A feature is finished                                          |
+| `Goal.md`      | Detailed goals for every phase, with a "Done when" test           | Tick items as they are finished and verified                   |
+| `progress.md`  | Status of all phases + a log written **before** each phase starts | Before starting a phase, and after finishing it                |
+| `blocker.md`   | Everything stopping or slowing work, who must act, and next steps | As soon as a blocker appears or is solved                      |
+| `note.md`      | Decisions, defaults, jewellery domain notes                       | Whenever a default is chosen or something is worth remembering |
+| `readme.md`    | This file                                                         | When a doc is added or removed                                 |
 
 ## The project in short
 
@@ -46,4 +69,4 @@ When starting a new chat mid-project, paste Prompt 0, the folder tree, `prisma/s
 
 ## Current status
 
-See `progress.md`. As of 2026-10-08: planning done, Phase 1 not started.
+See `checklist.md` (summary) and `progress.md` (detail). As of 2026-10-25: Phases 1–16 done and verified; production hardening pass done (missing Phase 14–16 migration added, `config.ini`, structured logger, docs + learning path). Going live waits on client accounts (`blocker.md`).

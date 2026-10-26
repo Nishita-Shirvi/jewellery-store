@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { env } from "@/lib/env";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { sendLowStockAlert } from "@/services/alert.service";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     return NextResponse.json({ ok: true, ...(await sendLowStockAlert()) });
   } catch (error) {
-    logger.error("cron.low_stock_failed", { error: errorMessage(error) });
+    logger.error("cron.low_stock_failed", { error });
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }

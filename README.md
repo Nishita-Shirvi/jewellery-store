@@ -1,206 +1,68 @@
 # Jewellery Store
 
-Online jewellery store for India, built phase by phase. Project goals, progress, blockers and decisions live in [`Docs/`](./Docs/readme.md).
+Online jewellery store for India: catalogue with jewellery details (metal, purity, weight, HUID), cart, Razorpay checkout, GST invoices, shipping via Shiprocket, cancellations/returns/refunds, coupons, wishlist, reviews, search, admin panel with reports and audit log.
 
-**Current phase:** 16 — Analytics, reports, release (Week 2 complete). See `CHANGELOG.md` and `Docs/RELEASE_WEEK2.md`.
+**Status:** Phases 1–16 built and tested (`Docs/checklist.md`). Going live waits on client accounts (`Docs/blocker.md`).
 
 ## Stack
 
-- Next.js 15 (App Router) + TypeScript (strict) + Tailwind CSS v4 + shadcn/ui
-- PostgreSQL + Prisma 6
-- Zod for validation (including environment variables)
-- Later phases: Auth.js v5, Razorpay, Resend, Vercel + Neon
+Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma 6 · Auth.js v5 · Razorpay · Resend · Vercel + Neon. Details: [`Docs/ARCHITECTURE.md`](Docs/ARCHITECTURE.md).
+
+## Quick start
+
+Requirements: Node.js 20.9+ (22 recommended, see `.nvmrc`) and a PostgreSQL 15+ database — a free [Neon](https://neon.tech) database or a local PostgreSQL install.
+
+```bash
+npm install                 # also runs prisma generate
+cp .env.example .env        # then set DATABASE_URL, DIRECT_URL, AUTH_SECRET
+npm run db:deploy           # create all tables from prisma/migrations
+npm run db:seed             # 1 admin (SEED_ADMIN_EMAIL/PASSWORD), 4 categories, 20 demo products
+npm run dev                 # http://localhost:3000  ·  health: /api/health
+```
+
+Generate `AUTH_SECRET` with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`.
+
+## Settings: `config.ini` vs `.env`
+
+| File         | Holds                                                                                                 | In git?   |
+| ------------ | ----------------------------------------------------------------------------------------------------- | --------- |
+| `config.ini` | Business details (legal name, GSTIN, state), shipping fee, invoice prefix, stock hold time, log level | yes       |
+| `.env`       | Secrets and URLs: database, auth secret, Razorpay / Resend / Cloudinary / Shiprocket keys             | **never** |
+
+Both are validated at startup; a mistake stops `dev`/`build` with a clear message. Full reference: [`Docs/CONFIGURATION.md`](Docs/CONFIGURATION.md). Integration setup (Razorpay, Shiprocket, email, Google…): [`Docs/INTEGRATIONS.md`](Docs/INTEGRATIONS.md).
+
+## Scripts
+
+| Command                                 | What it does                                                      |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `npm run dev`                           | Dev server                                                        |
+| `npm run build` / `npm start`           | Production build / run it                                         |
+| `npm run verify`                        | Lint + typecheck + unit tests — run before every push             |
+| `npm test`                              | Unit tests (no database needed)                                   |
+| `npm run test:db`                       | Real-database tests — point `DATABASE_URL` at a **throwaway** DB  |
+| `npm run test:e2e`                      | Playwright browser tests (needs a build + DB)                     |
+| `npm run lint` / `typecheck` / `format` | Individually                                                      |
+| `npm run db:migrate`                    | Create + apply a migration after changing `schema.prisma` (dev)   |
+| `npm run db:deploy`                     | Apply committed migrations (production does this on every deploy) |
+| `npm run db:seed`                       | Load demo data and the admin user (safe to re-run)                |
+| `npm run db:reset`                      | Drop everything and re-seed (development only)                    |
+| `npm run db:studio`                     | Browse/edit data in Prisma Studio                                 |
 
 ## Folder structure
 
 ```
-app/            Pages, layouts and API routes (UI + routing only)
-  api/health/   GET /api/health — app + database check
-components/     UI components
-  layout/       Header, footer, search box
-  ui/           shadcn/ui components
-lib/            Infrastructure: env loader, database client, utilities
-services/       Business logic (no business logic in components)
-prisma/         Database schema and migrations
-types/          Shared TypeScript types / API contracts
-Docs/           Goals, progress, blockers, notes
+app/          Routes: pages, server actions (actions.ts), API routes (app/api)
+components/   UI, grouped by feature
+services/     Business logic + database access (server-only)
+lib/          Helpers: config, env, logger, money, GST, validation, API clients
+prisma/       Schema, migrations, seed
+tests/        Unit (tests/*.test.ts), database (tests/db), browser (tests/e2e)
+Docs/         Documentation — start at Docs/readme.md
+config.ini    Non-secret app settings
 ```
 
-## Requirements
+## Documentation
 
-- Node.js 20.9 or newer
-- PostgreSQL 15+ (local install, Docker, or a free Neon database)
-
-## Setup
-
-1. **Install dependencies** (this also runs `prisma generate`):
-
-   ```bash
-   npm install
-   ```
-
-2. **Create your env file** and set the database URLs and `AUTH_SECRET`:
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Generate `AUTH_SECRET` with:
-
-   ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
-   ```
-
-   Quick local PostgreSQL with Docker:
-
-   ```bash
-   docker run --name jewellery-db -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jewellery_store -p 5432:5432 -d postgres:16
-   ```
-
-3. **Create the database tables and load the dummy data:**
-
-   ```bash
-   npx prisma migrate dev --name phase2_schema
-   npx prisma db seed
-   ```
-
-   The seed creates 1 admin user (from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`), 4 categories and 20 dummy jewellery products. It is safe to run again. Run `npx prisma studio` to browse the data.
-
-4. **Start the dev server:**
-
-   ```bash
-   npm run dev
-   ```
-
-   Open http://localhost:3000 and http://localhost:3000/api/health.
-
-## Scripts
-
-| Command                           | What it does                                                      |
-| --------------------------------- | ----------------------------------------------------------------- |
-| `npm run dev`                     | Start the dev server                                              |
-| `npm run build` / `npm start`     | Production build / run it                                         |
-| `npm run lint`                    | ESLint                                                            |
-| `npm run typecheck`               | TypeScript check                                                  |
-| `npm run format` / `format:check` | Prettier (write / check)                                          |
-| `npm run db:migrate`              | Create and apply a migration (development)                        |
-| `npm run db:deploy`               | Apply migrations (production)                                     |
-| `npm run db:seed`                 | Load the dummy catalogue and admin user                           |
-| `npm run db:reset`                | Drop all data, re-apply migrations and re-seed (development only) |
-| `npm run db:studio`               | Open Prisma Studio                                                |
-
-## Environment variables
-
-All variables are validated in `lib/env.ts` when the app starts. If one is missing or invalid, `npm run dev` / `npm run build` stops with a message listing what to fix. See `.env.example` for the full list.
-
-## Catalog
-
-- `/products` — all active jewellery, 12 per page. Filters and sorting live in the URL, e.g. `/products?category=rings&metal=GOLD&sort=price_asc`.
-- `/products?q=jhumka` — search by name (the header search box uses this).
-- `/products/<slug>` — product details: price, stock, metal, purity, weight, stones, hallmark.
-- Catalog pages are cached for 5 minutes; Phase 7 admin edits refresh them instantly.
-
-## Reports, activity log and analytics
-
-- Admin → **Reports**: orders, gross/net sales, refunds, average order, revenue by day and week, top products, shopping funnel, low stock, **Download CSV**.
-- Admin → **Activity log**: who changed what and when.
-- Set `NEXT_PUBLIC_GA_ID` for Google Analytics 4; it only loads after a shopper accepts the cookie banner.
-- Backups: see `Docs/BACKUPS.md`.
-
-## Search and SEO
-
-- The header search suggests pieces while you type and copes with spelling mistakes ("jumka" → Traditional Jhumka). Press Enter for all results.
-- `/products` filters: category, metal, purity, price range, in stock only, rating; sort by best match, newest, price or top rated.
-- Category landing pages at `/collections/<category>`; `sitemap.xml` and `robots.txt` are generated automatically — submit `https://<your-domain>/sitemap.xml` in Google Search Console after going live.
-
-## Reviews
-
-- Customers whose order was delivered can review the piece (stars, title, text, optional photos) from the product page or their order page.
-- Admin → **Reviews**: publish, reject or unpublish (with a reason the customer sees). Only published reviews count towards the star rating shown on products.
-
-## Coupons and wishlist
-
-- Admin → **Coupons**: percent or flat discounts, minimum order, maximum discount, start/end dates, total and per-customer limits. Customers enter codes at checkout (any case).
-- Customers tap **Save** on a product to add it to **Account → Wishlist**, then **Move to cart** when ready.
-
-## GST invoices and emails
-
-- Set `BUSINESS_GSTIN`, `BUSINESS_STATE` (e.g. Telangana) and `INVOICE_PREFIX` in `.env`. Same-state customers get CGST + SGST, others IGST.
-- Each product has an HSN code and GST rate (Admin → Products → edit). Prices include GST.
-- A tax invoice (`INV/2026-27/000001`) is created when an order is paid; customers download it from their order page, admins from the order in `/admin`. Older paid orders: **Generate invoice**.
-- Customers get emails when an order is confirmed, shipped, delivered, cancelled or refunded. Set `RESEND_API_KEY` to send them for real.
-
-## Cancellations, returns and refunds
-
-- **Cancel:** customers cancel paid orders that aren't packed yet (Account → Orders → Cancel order); admins can cancel any paid order. Stock goes back and a full refund is sent through Razorpay automatically.
-- **Return:** within 7 days of delivery, customers choose pieces, a reason and an optional photo. Admin → **Returns** → open the order → approve (optionally restock) or reject with a reason.
-- **Refunds:** sent through Razorpay's API; confirmed by the `refund.processed` webhook (add the events `refund.processed` and `refund.failed` to your Razorpay webhook). Failed refunds show a **Retry** button.
-- Customers get an email at every step.
-
-## Shipping (Shiprocket)
-
-1. Shiprocket → **Settings → API → Add New API User** (use a different email from your login). Put that email/password in `SHIPROCKET_EMAIL` / `SHIPROCKET_PASSWORD`.
-2. **Settings → Pickup Addresses**: note the pickup location's name → `SHIPROCKET_PICKUP_LOCATION` (default "Primary") and its pincode → `SHIPROCKET_PICKUP_PINCODE`.
-3. After deploying: **Settings → API → Webhooks** → URL `https://<your-domain>/api/webhooks/courier-updates`, token = any long random text, also put in `SHIPROCKET_WEBHOOK_TOKEN`.
-4. In `/admin/orders/<id>` press **Create shipment** on a paid order → courier, AWB, label PDF and tracking link appear; tracking updates move the order to Shipped and Delivered automatically.
-5. Shipping fee: `SHIPPING_FEE_RUPEES` (₹99) unless the subtotal reaches `FREE_SHIPPING_ABOVE_RUPEES` (₹999).
-
-Without Shiprocket keys, the pincode check stays silent and admins use "Mark as shipped / delivered" by hand.
-
-## Admin panel (`/admin`, admins only)
-
-- **Dashboard:** today's paid orders and revenue (India time), orders waiting to ship, low-stock pieces.
-- **Products:** search/filter, add and edit (price in rupees, weight in grams, purity, stones, HUID), quick stock edit, hide/show, images (upload with Cloudinary keys, or pick a placeholder).
-- **Orders:** filter by status or search by order number/email; open an order to mark it shipped → delivered, or cancel (stock is put back; refund in Razorpay until Phase 11).
-- **Categories:** add, rename, reorder, hide; delete only when empty.
-
-## Customer account (`/account`)
-
-- **Orders:** history and details with a progress bar (confirmed → shipped → delivered).
-- **Addresses:** add, edit, delete, choose the default.
-
-## Checkout and payments (Razorpay)
-
-1. Create a Razorpay account → switch to **Test Mode** → **Account & Settings → API Keys → Generate Test Key**.
-2. Put the Key ID and Key Secret in `.env` (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) and any long random text in `RAZORPAY_WEBHOOK_SECRET`. Restart `npm run dev`.
-3. Add items to the cart → Checkout → add an address → **Pay**. In test mode use UPI ID `success@razorpay` (or a test card from Razorpay's docs).
-4. After paying you land on `/orders/<id>/success`; the order is PAID, stock goes down and the cart empties.
-
-Webhooks (`/api/webhooks/razorpay`, events `payment.captured` and `payment.failed`) are registered after deploying in Phase 8 — Razorpay can't reach `localhost`. Locally, the verified checkout callback marks orders as paid.
-
-Emails: set `RESEND_API_KEY` to send real order confirmations; otherwise they're printed in the terminal.
-
-## Cart
-
-- Works without logging in (saved in a cookie); after login it moves into the database and stays across devices.
-- Prices and stock are always re-read from the database, so the browser can't change what a customer pays.
-- `/cart` shows items, line totals and the subtotal; "Proceed to checkout" asks guests to log in first.
-
-## Tests
-
-```bash
-npm test
-```
-
-Runs the Vitest unit tests in `tests/`.
-
-## Accounts and login
-
-- `/register` and `/login` — email + password (and Google, if configured).
-- `/account` — any signed-in user. `/admin` — admins only (others see "Access denied").
-- The seed creates the first admin from `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`.
-- `GET /api/account/me` returns the signed-in user (401 if signed out). `GET /api/admin/me` returns 403 for customers.
-
-### Google login (optional)
-
-1. Go to https://console.cloud.google.com → create a project → **APIs & Services → OAuth consent screen** (External, add your email as a test user).
-2. **Credentials → Create credentials → OAuth client ID** → type **Web application**.
-3. Authorised redirect URI: `http://localhost:3000/api/auth/callback/google` (add your live domain's version later).
-4. Copy the client ID and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET` in `.env`, then restart `npm run dev`. The "Continue with Google" button appears automatically.
-
-## Health check
-
-`GET /api/health`
-
-- `200 {"status":"ok","db":"ok"}` — app and database are reachable
-- `503 {"status":"error","db":"error"}` — database unreachable (details in the server log)
+- **New to the code? Start here:** [`Docs/learning/`](Docs/learning/README.md) — a guided path to understand the project end to end and find any bug fast.
+- [`Docs/readme.md`](Docs/readme.md) — index of all docs.
+- Deploying: [`Docs/DEPLOY.md`](Docs/DEPLOY.md) · Before launch: [`Docs/GO_LIVE_CHECKLIST.md`](Docs/GO_LIVE_CHECKLIST.md) · Logs & debugging: [`Docs/LOGGING.md`](Docs/LOGGING.md)

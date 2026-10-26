@@ -2,8 +2,8 @@
 
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
-**Last updated:** 2026-10-08
-**Current phase:** Phase 16 — Analytics, reports, release (done; run `npx prisma migrate dev --name phase16_analytics` locally). Week 2 complete. Next: Week 3, Phase 17 — Product variants.
+**Last updated:** 2026-10-25
+**Current phase:** Week 2 complete + production hardening pass (2026-10-25: missing Phase 14–16 migration added, `config.ini`, structured logger, docs + `Docs/learning/`). Next: deploy (waits on client accounts), then Week 3, Phase 17 — Product variants.
 
 ---
 
@@ -49,6 +49,14 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Production hardening pass (2026-10-25)
+
+**Done so far:** Phases 1–16.
+**Found:** Phase 14–16 schema changes had no committed migration — a fresh production deploy would have crashed on reviews/search/audit. Fixed with an idempotent migration (D-118).
+**Changed:** `config.ini` + `lib/config.ts` for non-secret settings (D-115); logger with levels/redaction/stacks (D-116); `app.start` summary (D-117); `npm run verify`; `.nvmrc`; Sentry config deprecations fixed; GO_LIVE_CHECKLIST double-refund step corrected.
+**Verified:** lint, typecheck, 164 unit tests, 25 DB tests on PostgreSQL 16, production build, client-bundle secret scan, 3 Playwright E2E (browse → cart → checkout → pay).
+**Docs:** ARCHITECTURE, CONFIGURATION, LOGGING, FEATURES, INTEGRATIONS, `learning/` (6 guides); README rewritten.
 
 ### Template — copy this before starting each phase
 

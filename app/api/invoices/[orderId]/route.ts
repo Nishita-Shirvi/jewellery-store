@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { renderInvoicePdf } from "@/lib/invoice/invoice-pdf";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { getUserRole } from "@/services/auth.service";
 import { getInvoiceForViewer } from "@/services/invoice.service";
 
@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ord
       },
     });
   } catch (error) {
-    logger.error("invoice.render_failed", { orderId, error: errorMessage(error) });
+    logger.error("invoice.render_failed", { orderId, error });
     return NextResponse.json({ error: "Couldn't create the PDF." }, { status: 500 });
   }
 }

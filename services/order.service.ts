@@ -3,7 +3,7 @@ import type { OrderStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { materialSummary } from "@/lib/jewellery";
-import { errorMessage, logger } from "@/lib/logger";
+import { logger } from "@/lib/logger";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
 import { addressSnapshot, getAddressForUser } from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
@@ -188,7 +188,7 @@ export async function startCheckout(
         },
         select: { id: true },
       });
-      // Hold the stock for 15 minutes (atomic; rolls back the whole order if anything is gone).
+      // Hold the stock for [inventory] reservation_minutes (atomic; rolls back the whole order if anything is gone).
       await reserveLines(
         tx,
         cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
@@ -226,7 +226,7 @@ export async function startCheckout(
     });
     logger.error("checkout.razorpay_order_failed", {
       orderId: order.id,
-      error: errorMessage(error),
+      error,
     });
     return { ok: false, error: "We couldn't reach the payment provider. Please try again." };
   }

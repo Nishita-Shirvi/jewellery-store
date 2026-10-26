@@ -6,6 +6,7 @@ import type { Provider } from "next-auth/providers";
 import { authConfig } from "@/auth.config";
 import { db } from "@/lib/db";
 import { env, isGoogleAuthEnabled } from "@/lib/env";
+import { logger } from "@/lib/logger";
 import { getClientIp } from "@/lib/request";
 import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validation/auth";
@@ -38,7 +39,7 @@ const providers: Provider[] = [
       const ipLimit = rateLimit(`login-ip:${ip}`, LOGIN_LIMIT_PER_IP, LOGIN_WINDOW_MS);
       const emailLimit = rateLimit(emailKey, LOGIN_LIMIT_PER_EMAIL, LOGIN_WINDOW_MS);
       if (!ipLimit.ok || !emailLimit.ok) {
-        console.warn("[auth] login rate limit hit", { ip });
+        logger.warn("auth.login_rate_limited", { ip });
         throw new TooManyAttempts();
       }
 
@@ -78,13 +79,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   events: {
     async signIn({ user, account }) {
-      console.info("[auth] sign-in", { userId: user.id, provider: account?.provider });
+      logger.info("auth.sign_in", { userId: user.id, provider: account?.provider });
       // Move anything added to the cart while logged out into the saved cart.
       if (user.id) {
         try {
           await mergeGuestCartIntoUser(user.id);
         } catch (error) {
-          console.error("[cart] merge after login failed", error); // never block login
+          logger.error("cart.merge_after_login_failed", { userId: user.id, error }); // never block login
         }
       }
     },

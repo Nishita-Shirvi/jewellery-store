@@ -1,4 +1,5 @@
 import "server-only";
+import { config } from "@/lib/config";
 import { db } from "@/lib/db";
 import { PAID_STATUSES } from "@/lib/order-status";
 import { dayRange, istDay, istMidnight, istWeekStart } from "@/lib/report/dates";
@@ -102,7 +103,7 @@ export async function salesReport(days = 30) {
   };
 }
 
-export const LOW_STOCK_ALERT_THRESHOLD = 3;
+export const LOW_STOCK_ALERT_THRESHOLD = config.inventory.low_stock_threshold;
 
 export async function lowStockProducts() {
   const rows = await db.product.findMany({
