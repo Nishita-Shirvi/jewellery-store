@@ -65,5 +65,6 @@ Needs a DLT-approved template (India). Set `MSG91_AUTH_KEY`, `MSG91_ORDER_FLOW_I
 
 `CRON_SECRET` (any long random text) in Vercel. `vercel.json` runs:
 
-- `/api/cron/release-reservations` — daily on the free plan. For faster release of expired stock holds on the free plan, enable `.github/workflows/cron.yml` (repo variable `ENABLE_CRON=true`, secrets `SITE_URL`, `CRON_SECRET`) which calls it every 10 minutes. Holds are also released whenever any checkout starts.
+- **Background jobs (Phase 19).** Emails, SMS, invoices, Shiprocket shipments and webhook processing run as jobs stored in Postgres (no extra service). They normally run a moment after the request that created them; anything that failed is retried by the scheduler. **Enable `.github/workflows/cron.yml`** (repo variable `ENABLE_CRON=true`, secrets `SITE_URL`, `CRON_SECRET`): it calls `/api/cron/jobs` every 10 minutes — runs due jobs and retries, releases expired stock holds, prunes old finished jobs. Failed jobs: **Admin → Jobs** (retry button).
+- `/api/cron/release-reservations` — Vercel cron, daily on the free plan; now does the same as `/api/cron/jobs`. Holds are also released whenever any checkout starts.
 - `/api/cron/low-stock` — daily 09:00 IST email to admins (or `[alerts] admin_email`).

@@ -1,5 +1,19 @@
 # Changelog
 
+## Week 3 — Phase 19: Background jobs — 2026-11-03
+
+### Added
+
+- Background job queue in the existing database (no new service): emails, SMS, invoices, Shiprocket shipments, payment/courier webhooks, low-stock email and expired stock holds run in the background and are retried automatically.
+- **Admin → Jobs:** failed jobs with their last error and a retry button.
+- `/api/cron/jobs` — run every 10 minutes by the GitHub schedule (`cron.yml` now calls it).
+
+### Changed
+
+- Paying (online or COD) no longer waits for the confirmation email or invoice; they follow a moment later.
+- Webhooks are saved and acknowledged at once; a repeated delivery is ignored.
+- "Create shipment" retries on its own if Shiprocket fails, and can't create two parcels on a double click.
+
 ## Week 3 — Phase 18: Cash on delivery and payment options — 2026-11-03
 
 ### Added

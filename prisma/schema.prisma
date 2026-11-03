@@ -789,6 +789,57 @@ model FunnelDaily {
   @@id([day, event])
 }
 
+// ───────────────────── Background jobs (Phase 19) ──────────────────
+
+enum JobStatus {
+  PENDING // waiting for runAt
+  RUNNING // claimed by a worker (lockedAt)
+  DONE
+  DEAD // failed maxAttempts times — shown in Admin → Jobs with a retry button
+}
+
+/// Work done outside the customer's request (emails, invoices, shipments, webhook processing…).
+/// Stored in Postgres: no extra service. Claimed with FOR UPDATE SKIP LOCKED, so two workers
+/// never run the same job.
+model Job {
+  id          String    @id @default(cuid())
+  /// e.g. "email.order", "invoice.create", "webhook.razorpay"
+  type        String
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(6)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lastError   String?
+  /// While the job is PENDING/RUNNING no second job with the same key can be queued.
+  /// Cleared when the job finishes, so the same work can be queued again later.
+  dedupeKey   String?   @unique
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@index([type, status])
+}
+
+/// Every verified webhook delivery, saved before any processing. The unique key makes a
+/// repeated delivery (providers retry) a no-op.
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  /// "razorpay" | "shiprocket"
+  provider    String
+  /// Provider's event id, or a hash of the body when the provider sends none.
+  eventId     String
+  eventType   String
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
+  @@index([receivedAt])
+}
+
 // ──────────────────────────── Settings ───────────────────────────
 
 /// Key/value store for store-wide settings (shipping rules, feature flags, ...).

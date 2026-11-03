@@ -33,7 +33,8 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] GitHub Actions CI is green on `main`
 - [ ] Resend domain verified (SPF, DKIM, DMARC); test order email arrives and isn't in spam
 - [ ] Sentry receiving errors (optional but recommended)
-- [ ] `CRON_SECRET` set; `/api/cron/release-reservations` returns 200 with the bearer token
+- [ ] `CRON_SECRET` set; `/api/cron/jobs` returns 200 with the bearer token; GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`)
+- [ ] Admin → Jobs shows no failed jobs after a test order (email, invoice, webhook all DONE)
 - [ ] `app.start` log line shows `razorpayMode: "live"`, `email: true`, `cronJobs: true`
 - [ ] Google login redirect URI updated (if used)
 

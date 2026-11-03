@@ -2,17 +2,15 @@ import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { releaseExpiredReservations } from "@/services/inventory.service";
-import { revalidateTag } from "next/cache";
-import { CATALOG_TAG } from "@/services/catalog.service";
+import { cronTick } from "@/services/cron.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/cron/release-reservations
- * Closes unpaid orders whose stock hold ([inventory] reservation_minutes) ran out and gives their stock back.
- * Called every few minutes by Vercel Cron or the GitHub Actions schedule (see Docs/DEPLOY.md).
+ * Kept for existing schedules: same as /api/cron/jobs (releases expired stock holds as a job and
+ * runs every due background job).
  */
 export async function GET(request: Request) {
   if (!env.CRON_SECRET) return NextResponse.json({ error: "not_configured" }, { status: 503 });
@@ -22,10 +20,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await releaseExpiredReservations();
-    if (result.released > 0) revalidateTag(CATALOG_TAG);
-    logger.info("cron.release_reservations", result);
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ...(await cronTick()) });
   } catch (error) {
     logger.error("cron.release_reservations_failed", { error });
     return NextResponse.json({ error: "failed" }, { status: 500 });

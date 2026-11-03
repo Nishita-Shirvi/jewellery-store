@@ -287,11 +287,11 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 19 — Background jobs
 
-- [ ] Inngest (or BullMQ + Upstash Redis) set up
-- [ ] Emails/SMS, invoices, shipment creation, webhook processing, low-stock alerts and reservation expiry run as jobs with retries
-- [ ] Webhooks only verify, save to WebhookEvent (unique eventId), return 200, and queue the work
-- [ ] Admin dead-letter view with a retry button
-- [ ] Redis caching for hot reads, cleared on admin edits
+- [x] Job queue set up — in Postgres instead of Inngest/Redis (no extra service; see note.md D-130)
+- [x] Emails/SMS, invoices, shipment creation, webhook processing, low-stock alerts and reservation expiry run as jobs with retries
+- [x] Webhooks only verify, save to WebhookEvent (unique eventId), return 200, and queue the work
+- [x] Admin dead-letter view with a retry button (Admin → Jobs)
+- [x] Caching for hot reads, cleared on admin edits — Next.js data cache with tag invalidation instead of Redis (D-131)
 
 **Done when:** checkout speed doesn't depend on email/PDF/Shiprocket, a forced failure retries then shows in the dead-letter view, and the cache clears on product edit.
 

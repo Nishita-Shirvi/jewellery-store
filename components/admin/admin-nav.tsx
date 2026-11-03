@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/jobs", label: "Jobs" },
   { href: "/admin/audit", label: "Activity log" },
 ];
 

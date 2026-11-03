@@ -14,7 +14,8 @@ export interface AuditEntry {
     | "return"
     | "review"
     | "invoice"
-    | "shipment";
+    | "shipment"
+    | "job";
   entityId: string;
   summary: string;
   changes?: Record<string, { from: unknown; to: unknown }>;

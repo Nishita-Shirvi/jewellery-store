@@ -9,10 +9,16 @@ import { formatINR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/services/email.service";
 import { lineName } from "@/lib/variants";
+import type { Prisma } from "@prisma/client";
+import { enqueue, kickJobs } from "@/services/jobs.service";
 
 /**
  * The single place that tells customers about their order (email, and SMS when switched on).
- * Never throws: a failed message must never undo a payment, refund or status change.
+ *
+ * Since Phase 19 notifyOrder() only QUEUES the messages (as background jobs, inside the caller's
+ * transaction when one is given). Rendering and sending happen in deliverOrderEmail() /
+ * deliverOrderSms(), which throw on failure so the job is retried. A failed message can never
+ * slow down or undo a payment, refund or status change.
  */
 export type OrderEvent =
   | "confirmed"
@@ -24,12 +30,41 @@ export type OrderEvent =
   | "return_rejected"
   | "refund_processed";
 
+/** Events that happen at most once per order: a second queued copy is dropped while one is pending. */
+const ONCE_PER_ORDER: OrderEvent[] = ["confirmed", "shipped", "delivered", "cancelled"];
+const SMS_EVENTS: OrderEvent[] = ["confirmed", "shipped", "delivered"];
+
 export async function notifyOrder(
   orderId: string,
   event: OrderEvent,
   extra: { amountInPaise?: number; note?: string } = {},
+  tx?: Prisma.TransactionClient,
 ) {
+  const once = ONCE_PER_ORDER.includes(event);
   try {
+    await enqueue(
+      "email.order",
+      { orderId, event, extra },
+      { tx, dedupeKey: once ? `email:${event}:${orderId}` : undefined },
+    );
+    if (config.features.sms && SMS_EVENTS.includes(event))
+      await enqueue("sms.order", { orderId, event }, { tx, dedupeKey: `sms:${event}:${orderId}` });
+  } catch (error) {
+    // Inside a transaction the caller must see the failure; outside, never break the caller.
+    if (tx) throw error;
+    logger.error("notify.enqueue_failed", { orderId, event, error });
+    return;
+  }
+  if (!tx) await kickJobs();
+}
+
+/** Renders and sends one order email. Throws on failure (the job retries). */
+export async function deliverOrderEmail(
+  orderId: string,
+  event: OrderEvent,
+  extra: { amountInPaise?: number; note?: string } = {},
+) {
+  {
     const order = await db.order.findUnique({
       where: { id: orderId },
       include: {
@@ -154,22 +189,20 @@ export async function notifyOrder(
     const [html, text] = await Promise.all([render(element), render(element, { plainText: true })]);
     await sendEmail({ to: order.user.email, subject: c.subject, html, text });
     logger.info("notify.email_sent", { orderId, event });
-
-    await maybeSendSms(order.addressSnapshot as { phone?: string } | null, event, n);
-  } catch (error) {
-    logger.error("notify.failed", { orderId, event, error });
   }
 }
 
 /** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config.ini. */
-async function maybeSendSms(
-  address: { phone?: string } | null,
-  event: OrderEvent,
-  orderNumber: string,
-) {
-  if (!config.features.sms || !env.MSG91_AUTH_KEY || !env.MSG91_ORDER_FLOW_ID || !address?.phone)
-    return;
-  if (!["confirmed", "shipped", "delivered"].includes(event)) return;
+export async function deliverOrderSms(orderId: string, event: OrderEvent) {
+  if (!config.features.sms || !env.MSG91_AUTH_KEY || !env.MSG91_ORDER_FLOW_ID) return;
+  if (!SMS_EVENTS.includes(event)) return;
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, addressSnapshot: true },
+  });
+  const address = order?.addressSnapshot as { phone?: string } | null;
+  if (!order || !address?.phone) return;
+  const orderNumber = `#${order.id.slice(-8).toUpperCase()}`;
   const res = await fetch("https://control.msg91.com/api/v5/flow", {
     method: "POST",
     headers: { authkey: env.MSG91_AUTH_KEY, "Content-Type": "application/json" },
@@ -179,5 +212,6 @@ async function maybeSendSms(
     }),
     signal: AbortSignal.timeout(10_000),
   });
-  if (!res.ok) logger.warn("notify.sms_failed", { event, status: res.status });
+  if (!res.ok) throw new Error(`MSG91 responded ${res.status}`);
+  logger.info("notify.sms_sent", { orderId, event });
 }

@@ -28,10 +28,10 @@ import {
   updateProduct,
 } from "@/services/admin/product-admin.service";
 import { UploadError, uploadProductImage } from "@/services/upload.service";
-import { ShipmentError, createShipmentForOrder } from "@/services/shipment.service";
 import { ReturnError, approveReturn, rejectReturn } from "@/services/return.service";
 import { markManualRefundPaid, retryRefund } from "@/services/refund.service";
 import { markCashReceived } from "@/services/cod.service";
+import { enqueueAndRunNow, retryDeadJob } from "@/services/jobs.service";
 import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
@@ -301,22 +301,32 @@ export async function createShipmentAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
-  try {
-    await createShipmentForOrder(parsed.data.id, admin.id);
-    await audit(admin, {
-      action: "shipment.create",
-      entityType: "order",
-      entityId: parsed.data.id,
-      summary: "Shipment created with Shiprocket",
-    });
-  } catch (error) {
-    if (error instanceof ShipmentError) {
-      redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(error.message)}`);
-    }
-    throw error;
-  }
-  revalidatePath(`/admin/orders/${parsed.data.id}`);
-  redirect(`/admin/orders/${parsed.data.id}?shipped=1`);
+  const orderId = parsed.data.id;
+  // Runs as a background job (retried automatically if Shiprocket fails), but right away so
+  // the admin sees the result. A double click can't create two parcels.
+  const { outcome, error } = await enqueueAndRunNow(
+    "shipment.create",
+    { orderId, adminId: admin.id },
+    `shipment:${orderId}`,
+  );
+  await audit(admin, {
+    action: "shipment.create",
+    entityType: "order",
+    entityId: orderId,
+    summary:
+      outcome === "done"
+        ? "Shipment created with Shiprocket"
+        : `Shipment not created yet (${outcome})`,
+  });
+  revalidatePath(`/admin/orders/${orderId}`);
+  if (outcome === "done") redirect(`/admin/orders/${orderId}?shipped=1`);
+  const message =
+    outcome === "busy"
+      ? "The shipment is already being created. Refresh in a moment."
+      : outcome === "retry"
+        ? `${error ?? "Shiprocket failed"} — it will be retried automatically (Admin → Jobs).`
+        : (error ?? "The shipment couldn't be created.");
+  redirect(`/admin/orders/${orderId}?error=${encodeURIComponent(message.slice(0, 300))}`);
 }
 
 // ── Returns and refunds ──────────────────────────────────
@@ -648,4 +658,25 @@ export async function markRefundPaidAction(formData: FormData): Promise<void> {
     summary: `COD refund marked as paid (ref ${parsed.data.reference}): ${outcome}`,
   });
   revalidatePath(`/admin/orders/${parsed.data.orderId}`);
+}
+
+// ── Background jobs (Phase 19) ───────────────────────────
+
+/** Puts a failed (DEAD) job back in the queue and runs the queue. */
+export async function retryJobAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const ids = idList.safeParse(formData.getAll("jobId"));
+  if (!ids.success) redirect("/admin/jobs");
+  let retried = 0;
+  for (const jobId of ids.data) if (await retryDeadJob(jobId)) retried++;
+  await audit(admin, {
+    action: "jobs.retry",
+    entityType: "job",
+    entityId: ids.data.length === 1 ? ids.data[0]! : "many",
+    summary: `Retried ${retried} failed job(s)`,
+  });
+  const { runDueJobs } = await import("@/services/jobs.service");
+  await runDueJobs({ limit: 20, budgetMs: 15_000 });
+  revalidatePath("/admin/jobs");
+  redirect(`/admin/jobs?retried=${retried}`);
 }

@@ -137,11 +137,11 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] COD remittance, RTO restock
 - [x] UPI, netbanking, EMI (dashboard switch; reported per method)
 
-### 19. Background jobs
+### 19. Background jobs ✅
 
-- [ ] Job queue (Inngest / BullMQ) with retries
-- [ ] Webhooks queued; dead-letter view with retry
-- [ ] Redis caching
+- [x] Job queue with retries (in Postgres — no Inngest / Redis)
+- [x] Webhooks queued; dead-letter view with retry
+- [x] Caching (Next.js data cache, cleared on admin edits — no Redis)
 
 ### 20. Abandoned cart & marketing
 

@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17 (variants) and 18 (cash on delivery) done 2026-11-03. Next: Phase 19 — Background jobs. Deploy still waits on client accounts.
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17 (variants), 18 (cash on delivery) and 19 (background jobs) done 2026-11-03. Next: Phase 20 — Abandoned cart and marketing. Deploy still waits on client accounts.
 
 ---
 
@@ -32,7 +32,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
 | 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
 | 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
-| 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
+| 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
 | 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
 | 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
 | 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 19 — Background jobs (2026-11-03)
+
+**Done so far:** Phases 1–18 (variants 9f463ae, COD 88e3f39).
+**Not finished / carried over:** None.
+**Open blockers:** None for this phase. Decided with the client contact: no Inngest / Redis account — the queue lives in the existing Postgres (D-130).
+**Plan for this phase:** Job + WebhookEvent tables; enqueue in the same transaction as the change (outbox); run after the response (Next `after()`) and from the scheduler; retries with backoff, DEAD + admin retry; webhooks verify → save → queue → 200; emails/SMS, invoices, shipments, low-stock, reservation release as jobs; cache stays Next's data cache with tag invalidation.
+**Risks:** Two workers running one job; timezone bugs in raw SQL (seen in Phase 18); a slow/failing email blocking payment; duplicate webhooks; crashed workers leaving jobs stuck.
+**Git:** after 88e3f39 on `week3-growth`.
 
 ### Before Phase 18 — COD and payment options (2026-11-03)
 

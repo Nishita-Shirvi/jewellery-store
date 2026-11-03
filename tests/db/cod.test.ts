@@ -53,6 +53,7 @@ const { markManualRefundPaid } = await import("@/services/refund.service");
 const { updateOrderStatus } = await import("@/services/admin/order-admin.service");
 const { salesReport } = await import("@/services/report.service");
 const { MAX_ATTEMPTS } = await import("@/services/otp.service");
+const { runDueJobs } = await import("@/services/jobs.service");
 
 const RUN = `cod${Date.now().toString(36)}`;
 let categoryId = "";
@@ -164,6 +165,7 @@ describe("placing a COD order", () => {
 
     const res = await placeCod(b);
     expect(res.ok).toBe(true);
+    await runDueJobs(); // invoice + email are background jobs since Phase 19
     expect(sent.sms[0]).toMatchObject({ mobile: "919876543210" });
     expect(sent.other).toEqual([]); // no Razorpay call for COD
     const order = await db.order.findUniqueOrThrow({

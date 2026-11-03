@@ -1,49 +1,21 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import type { z } from "zod";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
-import { markOrderPaid, markPaymentFailed } from "@/services/order.service";
-import { markRefundFailed, markRefundProcessed } from "@/services/refund.service";
+import { bodyHash, razorpayWebhookSchema, recordWebhook } from "@/services/webhook.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 256 * 1024;
 
-const paymentEntity = z.object({
-  id: z.string().startsWith("pay_"),
-  order_id: z.string().startsWith("order_"),
-  amount: z.number().int(),
-  status: z.string(),
-  method: z.string().optional(),
-  error_description: z.string().nullable().optional(),
-  error_reason: z.string().nullable().optional(),
-});
-
-const refundEntity = z.object({
-  id: z.string().startsWith("rfnd_"),
-  payment_id: z.string(),
-  amount: z.number().int(),
-  status: z.string(),
-  notes: z.union([z.record(z.string(), z.string()), z.array(z.unknown())]).optional(),
-});
-
-const webhookSchema = z.object({
-  event: z.string(),
-  payload: z
-    .object({
-      payment: z.object({ entity: paymentEntity }).optional(),
-      refund: z.object({ entity: refundEntity }).optional(),
-    })
-    .passthrough(),
-});
-
 /**
  * POST /api/webhooks/razorpay
- * Set this URL in Razorpay Dashboard → Webhooks with events payment.captured and payment.failed.
+ * Set this URL in Razorpay Dashboard → Webhooks with events payment.captured, payment.failed,
+ * refund.processed and refund.failed. Verifies, saves, queues — the work happens in a job.
  */
 export async function POST(request: Request) {
   const limit = rateLimit(`webhook:${getClientIp(request.headers)}`, 300, 60_000);
@@ -64,82 +36,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
-  let event: z.infer<typeof webhookSchema>;
+  let event: z.infer<typeof razorpayWebhookSchema>;
   try {
-    event = webhookSchema.parse(JSON.parse(rawBody));
+    event = razorpayWebhookSchema.parse(JSON.parse(rawBody));
   } catch {
     logger.warn("webhook.razorpay_bad_payload");
     return NextResponse.json({ error: "bad_payload" }, { status: 400 });
   }
 
-  const eventId = request.headers.get("x-razorpay-event-id") ?? undefined;
-  const payment = event.payload.payment?.entity;
-  logger.info("webhook.razorpay_received", {
-    event: event.event,
-    eventId,
-    razorpayPaymentId: payment?.id,
-  });
-
+  // Save + queue, then answer at once. Processing runs as a background job with retries.
+  const eventId = request.headers.get("x-razorpay-event-id") || `body:${bodyHash(rawBody)}`;
   try {
-    if (event.event === "payment.captured" && payment) {
-      const result = await markOrderPaid({
-        razorpayOrderId: payment.order_id,
-        razorpayPaymentId: payment.id,
-        amountInPaise: payment.amount,
-        method: payment.method,
-        rawPayload: JSON.parse(rawBody),
-        source: "webhook",
-      });
-      logger.info("webhook.razorpay_processed", {
-        event: event.event,
-        eventId,
-        outcome: result.outcome,
-      });
-    } else if (event.event === "payment.failed" && payment) {
-      const result = await markPaymentFailed({
-        razorpayOrderId: payment.order_id,
-        razorpayPaymentId: payment.id,
-        reason: payment.error_description ?? payment.error_reason ?? "Payment failed",
-        rawPayload: JSON.parse(rawBody),
-      });
-      logger.info("webhook.razorpay_processed", {
-        event: event.event,
-        eventId,
-        outcome: result.outcome,
-      });
-    } else if (
-      (event.event === "refund.processed" || event.event === "refund.failed") &&
-      event.payload.refund
-    ) {
-      const refund = event.payload.refund.entity;
-      const refundRef =
-        refund.notes && !Array.isArray(refund.notes) ? refund.notes.refundRef : undefined;
-      const outcome =
-        event.event === "refund.processed"
-          ? await markRefundProcessed({
-              razorpayRefundId: refund.id,
-              refundRef,
-              raw: JSON.parse(rawBody),
-            })
-          : await markRefundFailed({
-              razorpayRefundId: refund.id,
-              refundRef,
-              reason: "Refund failed at the bank",
-              raw: JSON.parse(rawBody),
-            });
-      logger.info("webhook.razorpay_processed", { event: event.event, eventId, outcome });
-    } else {
-      logger.info("webhook.razorpay_ignored", { event: event.event, eventId });
-    }
-  } catch (error) {
-    // 500 makes Razorpay retry later; processing is idempotent so retries are safe.
-    logger.error("webhook.razorpay_processing_failed", {
-      event: event.event,
+    const { duplicate } = await recordWebhook({
+      provider: "razorpay",
       eventId,
-      error,
+      eventType: event.event,
+      payload: JSON.parse(rawBody),
     });
+    logger.info("webhook.razorpay_received", { event: event.event, eventId, duplicate });
+    return NextResponse.json({ ok: true, duplicate });
+  } catch (error) {
+    // Couldn't even save it: 500 makes Razorpay send it again later.
+    logger.error("webhook.razorpay_save_failed", { event: event.event, eventId, error });
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true });
 }

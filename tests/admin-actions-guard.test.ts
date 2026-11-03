@@ -66,9 +66,13 @@ vi.mock("@/services/admin/variant-admin.service", () => ({
   saveOptions: spy("saveOptions"),
   bulkUpdateVariants: spy("bulkUpdateVariants"),
 }));
-vi.mock("@/services/shipment.service", () => ({
-  ShipmentError: class extends Error {},
-  createShipmentForOrder: spy("createShipment"),
+vi.mock("@/services/jobs.service", () => ({
+  enqueueAndRunNow: vi.fn(async () => {
+    touched.push("enqueueAndRunNow");
+    return { outcome: "done", error: null };
+  }),
+  retryDeadJob: spy("retryDeadJob"),
+  runDueJobs: spy("runDueJobs"),
 }));
 
 const actions = await import("@/app/admin/actions");
@@ -106,6 +110,7 @@ function validForm() {
     net_abc123: "1",
     active_abc123: "on",
     reference: "UTR123456",
+    jobId: "abc123",
     file: new File([new Uint8Array([1])], "a.png"),
   }))
     fd.append(k, v as string | Blob);
@@ -132,6 +137,7 @@ const calls: [string, () => Promise<unknown>][] = [
   ["saveVariantsAction", () => actions.saveVariantsAction({}, validForm())],
   ["markCashReceivedAction", () => actions.markCashReceivedAction(validForm())],
   ["markRefundPaidAction", () => actions.markRefundPaidAction(validForm())],
+  ["retryJobAction", () => actions.retryJobAction(validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {

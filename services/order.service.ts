@@ -8,11 +8,9 @@ import { logger } from "@/lib/logger";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
 import { addressSnapshot, getAddressForUser } from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
-import { sendOrderConfirmationEmail } from "@/services/email.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { getBusiness } from "@/lib/business";
 import { isIntraState, taxForLine } from "@/lib/gst";
-import { createInvoiceForOrder } from "@/services/invoice.service";
 import { allocateDiscount } from "@/lib/coupons";
 import { CouponLimitReached, checkCoupon, redeemCouponInTx } from "@/services/coupon.service";
 import { shippingFeeFor } from "@/lib/shipping-fee";
@@ -28,6 +26,8 @@ import {
   reserveLines,
 } from "@/services/inventory.service";
 import { revalidateTag } from "next/cache";
+import { enqueue, kickJobs } from "@/services/jobs.service";
+import { notifyOrder } from "@/services/notification.service";
 import { config } from "@/lib/config";
 import {
   codDecision,
@@ -479,6 +479,7 @@ export async function placeCodOrder(
           variantId: { in: pricing.priced.cart.items.map((i) => i.variantId) },
         },
       });
+      await queueAfterOrder(tx, created.id);
       return created;
     });
   } catch (error) {
@@ -499,8 +500,7 @@ export async function placeCodOrder(
   const { countFunnel } = await import("@/services/report.service");
   await countFunnel("purchase");
   revalidateTag(CATALOG_TAG); // stock changed
-  await createInvoiceForOrder(order.id).catch(() => null); // logged inside; never blocks the order
-  await sendConfirmation(order.id);
+  await kickJobs(); // invoice + email after the response is sent
   return { ok: true, orderId: order.id };
 }
 
@@ -687,6 +687,8 @@ export async function markOrderPaid(input: {
       await tx.cartItem.deleteMany({
         where: { cart: { userId }, variantId: { in: items.map((i) => i.variantId) } },
       });
+      // Invoice PDF data + confirmation email run in the background (queued in THIS transaction).
+      await queueAfterOrder(tx, payment.orderId);
       return true;
     });
 
@@ -698,8 +700,7 @@ export async function markOrderPaid(input: {
     const { countFunnel } = await import("@/services/report.service");
     await countFunnel("purchase");
     revalidateTag(CATALOG_TAG); // stock changed
-    await createInvoiceForOrder(payment.orderId).catch(() => null); // logged inside; never blocks payment
-    await sendConfirmation(payment.orderId);
+    await kickJobs(); // invoice + email after the response is sent; never blocks payment
     return { outcome: "paid", orderId: payment.orderId };
   } catch (error) {
     if (error instanceof SoldOutAfterPayment) return handleSoldOut(payment, input, log);
@@ -721,6 +722,12 @@ export async function markOrderPaid(input: {
 }
 
 class SoldOutAfterPayment extends Error {}
+
+/** Background work after an order is paid / confirmed — queued inside the order's transaction. */
+async function queueAfterOrder(tx: Prisma.TransactionClient, orderId: string) {
+  await enqueue("invoice.create", { orderId }, { tx, dedupeKey: `invoice:${orderId}` });
+  await notifyOrder(orderId, "confirmed", {}, tx);
+}
 
 /** Paid, but someone else bought the last piece first. Cancel and flag for refund (automated in Phase 11). */
 async function handleSoldOut(
@@ -801,10 +808,6 @@ export async function markPaymentFailed(input: {
     reason: input.reason,
   });
   return { outcome: updated.count > 0 ? "failed" : "ignored" };
-}
-
-async function sendConfirmation(orderId: string) {
-  await sendOrderConfirmationEmail({ orderId });
 }
 
 export interface OrderSummary {
