@@ -274,12 +274,12 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 18 — Cash on delivery and payment options
 
-- [ ] COD orders go to CONFIRMED with paymentMethod COD; Shiprocket COD shipment
-- [ ] COD rules: max order value, pincode allowlist, optional fee, block users with 2+ refused deliveries
-- [ ] OTP by SMS before placing a COD order
-- [ ] COD marked paid after delivery + cash remittance; RTO restocks and flags the user
-- [ ] UPI, netbanking and EMI enabled in Razorpay
-- [ ] Invoices, reports and state machine updated for COD
+- [x] COD orders go to CONFIRMED with paymentMethod COD; Shiprocket COD shipment
+- [x] COD rules: max order value, pincode allowlist, optional fee, block users with 2+ refused deliveries
+- [x] OTP by SMS before placing a COD order (live SMS needs MSG91 + DLT — B-08)
+- [x] COD marked paid after delivery + cash remittance; RTO restocks and flags the user
+- [x] UPI, netbanking and EMI enabled in Razorpay (switched on in the Razorpay dashboard by the client; method recorded and reported)
+- [x] Invoices, reports and state machine updated for COD
 
 **Jewellery-specific:** keep the COD limit low by default (high value means high fraud and RTO risk). Check cash and PAN rules for high-value purchases with a CA (see `note.md`).
 

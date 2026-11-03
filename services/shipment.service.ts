@@ -8,6 +8,7 @@ import {
   ShiprocketError,
   assignAwb,
   checkServiceability,
+  codCollectAmount,
   createShiprocketOrder,
   generateLabel,
   mapShiprocketStatus,
@@ -16,6 +17,8 @@ import {
 } from "@/lib/shipping/shiprocket";
 import type { AddressSnapshot } from "@/services/address.service";
 import { lineName } from "@/lib/variants";
+import { READY_TO_SHIP_STATUSES } from "@/lib/order-status";
+import { restockLines } from "@/services/inventory.service";
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -55,10 +58,12 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
   });
   if (!order) throw new ShipmentError("Order not found.");
   if (
-    order.status !== "PAID" &&
+    !READY_TO_SHIP_STATUSES.includes(order.status) &&
     !(order.status === "SHIPPED" && order.shipment && !order.shipment.awb)
   ) {
-    throw new ShipmentError("Only paid orders that haven't shipped can get a shipment.");
+    throw new ShipmentError(
+      "Only paid or confirmed (cash on delivery) orders that haven't shipped can get a shipment.",
+    );
   }
 
   let shipment = order.shipment ?? (await db.shipment.create({ data: { orderId } }));
@@ -71,7 +76,7 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
           sum + Math.ceil((i.variant.grossWeightMg ?? i.variant.netWeightMg) / 1000) * i.quantity,
         0,
       );
-      const created = await createShiprocketOrder({
+      const request = {
         orderId: order.id,
         orderDate: order.paidAt ?? order.createdAt,
         customer: { name: address.fullName, email: order.user.email, phone: address.phone },
@@ -86,7 +91,16 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
         subTotalInPaise: order.subtotalInPaise,
         shippingInPaise: order.shippingInPaise,
         weightGrams: weightGrams + 200, // box and packing
-      });
+        ...(order.paymentMethod === "COD"
+          ? { cod: { feeInPaise: order.codFeeInPaise, discountInPaise: order.discountInPaise } }
+          : {}),
+      };
+      // The courier must collect exactly the order total — never more, never less.
+      if (order.paymentMethod === "COD" && codCollectAmount(request) !== order.totalInPaise)
+        throw new ShipmentError(
+          "COD amount doesn't match the order total. Not sent to Shiprocket.",
+        );
+      const created = await createShiprocketOrder(request);
       shipment = await db.shipment.update({
         where: { id: shipment.id },
         data: {
@@ -134,7 +148,9 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
     return shipment;
   } catch (error) {
     const message =
-      error instanceof ShiprocketError ? error.message : "Unexpected error talking to Shiprocket";
+      error instanceof ShiprocketError || error instanceof ShipmentError
+        ? error.message.replace(/\.$/, "")
+        : "Unexpected error talking to Shiprocket";
     await db.shipment.update({
       where: { id: shipment.id },
       data: { lastError: message.slice(0, 300) },
@@ -210,30 +226,72 @@ export async function applyTrackingUpdate(
       moved = res.count > 0;
     }
 
-    let orderEvent: "shipped" | "delivered" | null = null;
+    let orderEvent: "shipped" | "delivered" | "rto" | null = null;
     if (latest && ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(latest)) {
       const moved = await tx.order.updateMany({
-        where: { id: shipment.orderId, status: "PAID" },
+        where: { id: shipment.orderId, status: { in: READY_TO_SHIP_STATUSES } },
         data: { status: "SHIPPED" },
       });
       if (moved.count > 0) orderEvent = "shipped";
     }
     if (latest === "DELIVERED") {
       const done = await tx.order.updateMany({
-        where: { id: shipment.orderId, status: { in: ["PAID", "SHIPPED"] } },
+        where: { id: shipment.orderId, status: { in: [...READY_TO_SHIP_STATUSES, "SHIPPED"] } },
         data: { status: "DELIVERED", deliveredAt: update.occurredAt },
       });
       if (done.count > 0) orderEvent = "delivered";
     }
-    if (latest === "RTO")
+    if (latest === "RTO") {
       logger.warn("shipment.rto", { orderId: shipment.orderId, awb: update.awb });
+      // COD parcel refused / undeliverable: close the order, put the pieces back, and count the
+      // refusal against the customer. The status switch is conditional, so a repeated webhook
+      // can never restock or count twice. (Prepaid RTOs are handled by the admin: refund/reship.)
+      const closed = await tx.order.updateMany({
+        where: {
+          id: shipment.orderId,
+          paymentMethod: "COD",
+          status: { in: [...READY_TO_SHIP_STATUSES, "SHIPPED"] },
+        },
+        data: {
+          status: "CANCELLED",
+          rtoAt: update.occurredAt,
+          cancellationReason:
+            "Cash on delivery parcel returned to the store (refused or undeliverable)",
+        },
+      });
+      if (closed.count > 0) {
+        const order = await tx.order.findUniqueOrThrow({
+          where: { id: shipment.orderId },
+          select: {
+            userId: true,
+            items: { select: { id: true, productId: true, variantId: true, quantity: true } },
+          },
+        });
+        await restockLines(tx, order.items);
+        for (const item of order.items)
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: { returnedQuantity: item.quantity },
+          });
+        await tx.user.update({
+          where: { id: order.userId },
+          data: { codRefusals: { increment: 1 } },
+        });
+        orderEvent = "rto";
+      }
+    }
 
     return {
       result: inserted.count > 0 || moved ? ("applied" as const) : ("no_change" as const),
       orderEvent,
     };
   });
-  if (outcome.orderEvent) {
+  if (outcome.orderEvent === "rto") {
+    logger.warn("order.cod_rto_restocked", { orderId: shipment.orderId });
+    const { revalidateTag } = await import("next/cache");
+    const { CATALOG_TAG } = await import("@/services/catalog.service");
+    revalidateTag(CATALOG_TAG);
+  } else if (outcome.orderEvent) {
     const { notifyOrder } = await import("@/services/notification.service");
     await notifyOrder(shipment.orderId, outcome.orderEvent);
   }
@@ -257,6 +315,26 @@ const cachedServiceability = unstable_cache(
   ["shiprocket:serviceability"],
   { revalidate: 6 * 60 * 60, tags: ["serviceability"] },
 );
+
+const cachedCodServiceability = unstable_cache(
+  async (pincode: string) => checkServiceability(pincode, 0.5, true),
+  ["shiprocket:serviceability:cod"],
+  { revalidate: 6 * 60 * 60, tags: ["serviceability"] },
+);
+
+/**
+ * Can a courier collect cash at this pincode? null = unknown (Shiprocket not set up or down);
+ * the COD rules then rely on config.ini [cod] pincodes only.
+ */
+export async function checkCodPincode(pincode: string): Promise<boolean | null> {
+  if (!isShiprocketConfigured) return null;
+  try {
+    return (await cachedCodServiceability(pincode)).serviceable;
+  } catch (error) {
+    logger.warn("shipment.cod_serviceability_failed", { error });
+    return null;
+  }
+}
 
 /** Pincode check with a 6-hour cache. "unknown" when Shiprocket isn't set up or is down (never blocks a sale). */
 export async function checkPincode(pincode: string): Promise<PincodeCheck> {

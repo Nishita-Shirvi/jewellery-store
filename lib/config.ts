@@ -54,6 +54,20 @@ const configSchema = z.object({
   features: z.object({
     sms: bool.default(false),
   }),
+  cod: z.object({
+    enabled: bool.default(true),
+    // Kept low on purpose: jewellery COD carries high fraud / refusal (RTO) risk.
+    max_order_rupees: z.coerce.number().int().min(0).max(1_000_000).default(10_000),
+    fee_rupees: z.coerce.number().int().min(0).max(1_000).default(0),
+    // Comma-separated pincodes or prefixes ("500", "500001"). Empty = everywhere.
+    pincodes: z
+      .string()
+      .regex(/^[0-9, ]*$/, "digits and commas only, e.g. 500, 560001")
+      .default(""),
+    max_refusals: z.coerce.number().int().min(1).max(20).default(2),
+    // SMS one-time code before every COD order. Needs MSG91 (see INTEGRATIONS.md).
+    otp_required: bool.default(true),
+  }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),
   }),

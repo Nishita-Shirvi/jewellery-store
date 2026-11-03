@@ -1,5 +1,20 @@
 # Changelog
 
+## Week 3 — Phase 18: Cash on delivery and payment options — 2026-11-03
+
+### Added
+
+- **Cash on delivery** at checkout, with rules in `config.ini` `[cod]`: maximum order value (₹10,000 by default), optional fee, pincode list, and a block after 2 refused parcels. The reason is shown when COD isn't available.
+- SMS one-time code before every COD order (MSG91; hidden in production until the DLT template is approved).
+- COD orders are **Confirmed (cash on delivery)**: stock is taken, the invoice says "Cash on delivery", Shiprocket gets a COD shipment for exactly the order total.
+- **Admin → Cash on delivery:** delivered orders waiting for the courier's remittance; record cash for several orders at once. COD refunds are marked as paid by bank/UPI with a reference.
+- Refused parcels (RTO) are cancelled and restocked automatically and counted against the customer.
+- Reports: "How customers paid" (UPI, card, netbanking, EMI, wallet, COD).
+
+### Fixed
+
+- Admin "Cancel" on an order whose stock was already taken would not have put the stock back (now goes through the cancel service).
+
 ## Week 3 — Phase 17: Product variants — 2026-11-03
 
 ### Added

@@ -55,7 +55,10 @@ export default async function AccountOrderPage({
     getReturnOptions(user.id, order.id),
   ]);
   const invoiceReady = await hasInvoice(order.id);
-  const reached = STEPS.findIndex((s) => s.status === order.status);
+  // A COD order is "confirmed" at the first step just like a paid one.
+  const reached = STEPS.findIndex(
+    (s) => s.status === (order.status === "CONFIRMED" ? "PAID" : order.status),
+  );
 
   return (
     <section className="space-y-8">
@@ -66,14 +69,22 @@ export default async function AccountOrderPage({
         <h1 className="text-2xl font-semibold tracking-tight">Order {order.displayNumber}</h1>
         <StatusBadge status={order.status} />
       </div>
-      <p className="text-muted-foreground text-sm">Placed {dateFmt.format(order.createdAt)}</p>
+      <p className="text-muted-foreground text-sm">
+        Placed {dateFmt.format(order.createdAt)}
+        {order.paymentMethod === "COD" &&
+          (order.paidAt
+            ? " · Cash on delivery, paid"
+            : order.status === "CANCELLED"
+              ? " · Cash on delivery"
+              : ` · Cash on delivery: pay ${formatINR(order.totalInPaise)} to the courier`)}
+      </p>
 
       {order.status === "REFUND_PENDING" ||
       order.status === "REFUNDED" ||
       order.status === "RETURN_REQUESTED" ? null : order.status === "CANCELLED" ? (
         <p className="border-border bg-muted rounded-md border p-4 text-sm">
           This order was cancelled.
-          {order.cancellationReason?.includes("refund")
+          {order.paymentMethod === "ONLINE" && order.cancellationReason?.includes("refund")
             ? " Your payment will be refunded to the original payment method."
             : ""}
         </p>

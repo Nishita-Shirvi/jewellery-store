@@ -58,7 +58,7 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await page.getByLabel("State").selectOption("Tamil Nadu");
   await page.getByLabel("Pincode").fill("600001");
   await page.getByRole("button", { name: "Save address" }).click();
-  await expect(page.getByRole("radio")).toBeChecked();
+  await expect(page.getByRole("radio", { name: /Playwright Buyer/ })).toBeChecked();
   await page.getByRole("button", { name: "Pay ₹4,400" }).click();
 
   await expect(page).toHaveURL(/\/orders\/[a-z0-9]+\/success$/, { timeout: 20_000 });

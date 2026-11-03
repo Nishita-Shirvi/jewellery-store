@@ -9,6 +9,7 @@ import { listAddresses } from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { shippingFeeFor } from "@/lib/shipping-fee";
+import { config } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
@@ -36,6 +37,7 @@ export default async function CheckoutPage() {
           subtotalInPaise={cart.subtotalInPaise}
           shippingInPaise={shipping}
           storeName={publicEnv.NEXT_PUBLIC_SITE_NAME}
+          codEnabled={config.cod.enabled}
           paymentsEnabled={isRazorpayConfigured}
         />
 

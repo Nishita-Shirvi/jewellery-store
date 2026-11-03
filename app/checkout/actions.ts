@@ -15,13 +15,19 @@ import {
   orderIdSchema,
   startCheckoutSchema,
   verifyPaymentSchema,
+  codQuoteSchema,
+  placeCodSchema,
 } from "@/lib/validation/checkout";
 import { TooManyAddressesError, createAddress } from "@/services/address.service";
 import {
   markOrderPaid,
+  placeCodOrder,
+  quoteCod,
   resumePayment,
+  sendCodOtp,
   startCheckout,
   type CheckoutResult,
+  type CodOrderResult,
 } from "@/services/order.service";
 
 export interface AddressFormState {
@@ -147,4 +153,62 @@ export async function applyCouponAction(code: string): Promise<CouponCheck> {
         description: result.description!,
       }
     : result;
+}
+
+// ───────────────────────── Cash on delivery (Phase 18) ─────────────────────────
+
+export type CodQuoteResult =
+  | { ok: true; feeInPaise: number; totalInPaise: number; otpRequired: boolean }
+  | { ok: false; reason: string };
+
+/** Is COD possible for this address/cart/coupon? (Never exposes the phone number.) */
+export async function codQuoteAction(input: {
+  addressId: string;
+  couponCode?: string;
+}): Promise<CodQuoteResult> {
+  const user = await requireUser();
+  const parsed = codQuoteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, reason: "Please choose a delivery address." };
+  const quote = await quoteCod(user, parsed.data);
+  return quote.ok
+    ? {
+        ok: true,
+        feeInPaise: quote.feeInPaise,
+        totalInPaise: quote.totalInPaise,
+        otpRequired: quote.otpRequired,
+      }
+    : quote;
+}
+
+export async function sendCodOtpAction(input: {
+  addressId: string;
+  couponCode?: string;
+}): Promise<{ ok: true; challengeId: string; sentTo: string } | { ok: false; error: string }> {
+  const user = await requireUser();
+  const parsed = codQuoteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Please choose a delivery address." };
+  if (!rateLimit(`cod-otp:${user.id}`, 5, 10 * 60 * 1000).ok)
+    return { ok: false, error: "Too many attempts. Please wait a few minutes." };
+  return sendCodOtp(user, parsed.data);
+}
+
+export async function placeCodOrderAction(input: {
+  addressId: string;
+  checkoutKey: string;
+  couponCode?: string;
+  challengeId?: string;
+  code?: string;
+}): Promise<CodOrderResult> {
+  const user = await requireUser();
+  const parsed = placeCodSchema.safeParse(input);
+  if (!parsed.success)
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Check your details." };
+  if (!rateLimit(`checkout:${user.id}`, 10, 10 * 60 * 1000).ok)
+    return { ok: false, error: "Too many attempts. Please wait a few minutes." };
+  const result = await placeCodOrder(user, parsed.data);
+  if (result.ok) {
+    await countFunnel("begin_checkout");
+    revalidatePath("/", "layout");
+  }
+  return result;
 }

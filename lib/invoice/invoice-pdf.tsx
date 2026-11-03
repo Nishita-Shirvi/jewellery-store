@@ -57,6 +57,7 @@ function InvoiceDocument({ inv }: { inv: InvoiceSnapshot }) {
             </Text>
             <Text>Invoice date: {date}</Text>
             <Text>Order: {inv.orderNumber}</Text>
+            {inv.paymentMode ? <Text>Payment: {inv.paymentMode}</Text> : null}
           </View>
           <View style={{ maxWidth: 230 }}>
             <Text style={s.bold}>{inv.seller.name}</Text>

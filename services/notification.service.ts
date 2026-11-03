@@ -47,6 +47,7 @@ export async function notifyOrder(
       ? formatINR(extra.amountInPaise)
       : formatINR(order.totalInPaise);
     const business = getBusiness();
+    const isCod = order.paymentMethod === "COD";
     const items = order.items.map((i) => ({
       name: lineName(i.productName, i.variantLabel),
       quantity: i.quantity,
@@ -67,7 +68,9 @@ export async function notifyOrder(
         subject: `Order ${n} confirmed`,
         heading: "Thank you! Your order is confirmed.",
         paragraphs: [
-          `We've received your payment for order ${n}. We'll email you again when it ships.`,
+          isCod
+            ? `Order ${n} is confirmed for cash on delivery. Please keep ${formatINR(order.totalInPaise)} ready for the courier. We'll email you again when it ships.`
+            : `We've received your payment for order ${n}. We'll email you again when it ships.`,
           ...(order.invoice
             ? [
                 `Your tax invoice (${order.invoice.number}) is ready to download from your order page.`,
@@ -101,7 +104,9 @@ export async function notifyOrder(
         subject: `Order ${n} cancelled`,
         heading: "Your order is cancelled",
         paragraphs: [
-          `Order ${n} has been cancelled. A full refund of ${amount} is on its way to your original payment method (usually 5–7 business days).`,
+          isCod && !order.paidAt
+            ? `Order ${n} has been cancelled. It was cash on delivery, so there's nothing to refund.`
+            : `Order ${n} has been cancelled. A full refund of ${amount} is on its way to your original payment method (usually 5–7 business days).`,
         ],
         button: { label: "View your order", url: orderUrl },
       },

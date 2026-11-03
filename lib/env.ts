@@ -46,6 +46,10 @@ const serverSchema = z.object({
   /** Optional SMS (MSG91). Off unless [features] sms = true in config.ini and the keys are set. */
   MSG91_AUTH_KEY: z.string().min(10).optional(),
   MSG91_ORDER_FLOW_ID: z.string().min(5).optional(),
+  /** DLT-approved MSG91 flow for one-time codes (variable: otp). Needed for cash on delivery. */
+  MSG91_OTP_TEMPLATE_ID: z.string().min(5).optional(),
+  /** Tests only: point MSG91 calls at a local stand-in. */
+  MSG91_API_BASE: z.url().optional(),
 
   // Shiprocket (shipping). Without these, admins mark orders shipped by hand.
   SHIPROCKET_EMAIL: z.email().optional(),

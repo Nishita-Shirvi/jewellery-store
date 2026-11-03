@@ -1,0 +1,80 @@
+import type { PrismaClient } from "@prisma/client";
+
+/**
+ * Test data for browser tests. Each test makes its OWN product with a unique slug: product pages
+ * are cached by slug (and Next keeps that cache on disk between runs), so a test that edited a
+ * shared product straight in the database could be shown stale stock by the cache, and tests
+ * running in parallel could change each other's stock.
+ */
+
+export function uniqueSlug(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+/**
+ * A ring in 3 sizes × 2 colours (like the seeded "Plain Gold Band"): 3 of each in stock except
+ * size 14 / Rose (sold out). Price ₹28,500 / ₹30,000 / ₹31,500 by size.
+ */
+export async function createVariantRing(db: PrismaClient, slug = uniqueSlug("e2e-band")) {
+  const category = await db.category.findFirstOrThrow({ where: { slug: "rings" } });
+  const sizes = ["10", "12", "14"];
+  const colours = ["Yellow", "Rose"];
+  const product = await db.product.create({
+    data: {
+      name: `E2E Band ${slug.slice(-4)}`,
+      slug,
+      description: "A ring made by the browser tests.",
+      priceInPaise: 2_850_000,
+      stock: 15,
+      images: ["/images/products/floral-band-ring.svg"],
+      categoryId: category.id,
+      metalType: "GOLD",
+      purity: "K22",
+      metalColour: "YELLOW",
+      netWeightMg: 3000,
+      options: {
+        create: [
+          {
+            name: "Ring size",
+            position: 0,
+            values: { create: sizes.map((value, position) => ({ value, position })) },
+          },
+          {
+            name: "Metal colour",
+            position: 1,
+            values: { create: colours.map((value, position) => ({ value, position })) },
+          },
+        ],
+      },
+    },
+    include: { options: { include: { values: true }, orderBy: { position: "asc" } } },
+  });
+  const [sizeOpt, colourOpt] = product.options;
+  const sku = (size: string, colour: string) =>
+    `${slug.toUpperCase()}-${size}-${colour.toUpperCase()}`;
+  let position = 0;
+  for (const [si, size] of sizes.entries()) {
+    for (const colour of colours) {
+      const ids = [
+        sizeOpt!.values.find((v) => v.value === size)!.id,
+        colourOpt!.values.find((v) => v.value === colour)!.id,
+      ];
+      await db.productVariant.create({
+        data: {
+          productId: product.id,
+          sku: sku(size, colour),
+          optionKey: [...ids].sort().join("."),
+          label: `Ring size ${size} / ${colour}`,
+          priceInPaise: 2_850_000 + si * 150_000,
+          netWeightMg: 3000 + si * 150,
+          stock: size === "14" && colour === "Rose" ? 0 : 3,
+          metalColour: colour === "Rose" ? "ROSE" : "YELLOW",
+          position: position++,
+          images: [],
+          optionValues: { create: ids.map((optionValueId) => ({ optionValueId })) },
+        },
+      });
+    }
+  }
+  return { id: product.id, slug, name: product.name, sku };
+}

@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { createVariantRing } from "./fixtures";
 
 /**
  * Phase 17 "done when": a product with 3 sizes × 2 colours can be bought per variant, and stock
- * is tracked per variant. Uses the seeded "Plain Gold Band" (6 variants, 3 each in stock).
+ * is tracked per variant. Uses its own freshly created 3 × 2 ring (see fixtures.ts for why).
  */
 
 const FAKE_RAZORPAY = `
@@ -19,15 +20,12 @@ window.Razorpay = function (o) {
 };`;
 
 const db = new PrismaClient();
-const SKU = (size: string, colour: string) => `PLAIN-GOLD-BAND-${size}-${colour}`;
+let ring: Awaited<ReturnType<typeof createVariantRing>>;
+const SKU = (size: string, colour: string) => ring.sku(size, colour);
 
 test.beforeAll(async () => {
-  // Fresh demo stock; size 14 / Rose is sold out so the page must refuse it.
-  await db.productVariant.updateMany({
-    where: { sku: { startsWith: "PLAIN-GOLD-BAND-" } },
-    data: { stock: 3, reservedStock: 0, isActive: true },
-  });
-  await db.productVariant.update({ where: { sku: SKU("14", "ROSE") }, data: { stock: 0 } });
+  // 3 of each in stock; size 14 / Rose is sold out so the page must refuse it.
+  ring = await createVariantRing(db);
 });
 test.afterAll(async () => {
   await db.$disconnect();
@@ -42,14 +40,14 @@ test("buy two different variants of one ring; stock drops only for those variant
   const before = new Map(
     (
       await db.productVariant.findMany({
-        where: { sku: { startsWith: "PLAIN-GOLD-BAND-" } },
+        where: { productId: ring.id },
         select: { sku: true, stock: true },
       })
     ).map((v) => [v.sku, v.stock]),
   );
 
-  await page.goto("/products/plain-gold-band");
-  await expect(page.getByRole("heading", { name: "Plain Gold Band" })).toBeVisible();
+  await page.goto(`/products/${ring.slug}`);
+  await expect(page.getByRole("heading", { name: ring.name })).toBeVisible();
   await page.waitForLoadState("networkidle");
 
   // Sold-out combination can't be bought.
@@ -96,18 +94,18 @@ test("buy two different variants of one ring; stock drops only for those variant
   await page.getByLabel("State").selectOption("Tamil Nadu");
   await page.getByLabel("Pincode").fill("600001");
   await page.getByRole("button", { name: "Save address" }).click();
-  await expect(page.getByRole("radio")).toBeChecked();
+  await expect(page.getByRole("radio", { name: /Variant Buyer/ })).toBeChecked();
   await page.getByRole("button", { name: /^Pay ₹/ }).click();
   await expect(page).toHaveURL(/\/orders\/[a-z0-9]+\/success$/, { timeout: 20_000 });
 
   // Order page names the exact variants.
   await page.getByRole("link", { name: "View order" }).click();
-  await expect(page.getByText("Plain Gold Band (Ring size 12 / Rose)")).toBeVisible();
-  await expect(page.getByText("Plain Gold Band (Ring size 10 / Yellow)")).toBeVisible();
+  await expect(page.getByText(`${ring.name} (Ring size 12 / Rose)`)).toBeVisible();
+  await expect(page.getByText(`${ring.name} (Ring size 10 / Yellow)`)).toBeVisible();
 
   // Stock: −2 for 12/Rose, −1 for 10/Yellow, nothing else moved, nothing left on hold.
   const after = await db.productVariant.findMany({
-    where: { sku: { startsWith: "PLAIN-GOLD-BAND-" } },
+    where: { productId: ring.id },
     select: { sku: true, stock: true, reservedStock: true },
   });
   for (const v of after) {
@@ -120,12 +118,12 @@ test("buy two different variants of one ring; stock drops only for those variant
       held: 0,
     });
   }
-  const product = await db.product.findUniqueOrThrow({ where: { slug: "plain-gold-band" } });
+  const product = await db.product.findUniqueOrThrow({ where: { id: ring.id } });
   expect(product.stock).toBe(after.reduce((n, v) => n + v.stock, 0));
 
   // The order lines carry the SKUs.
   const lines = await db.orderItem.findMany({
-    where: { productSlug: "plain-gold-band" },
+    where: { productId: ring.id },
     orderBy: { id: "desc" },
     take: 2,
     select: { sku: true, quantity: true },

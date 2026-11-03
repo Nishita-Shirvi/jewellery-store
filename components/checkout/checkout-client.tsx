@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AddressForm } from "./address-form";
 import { PayButton } from "./pay-button";
 import { CouponBox } from "./coupon-box";
+import { CodPanel } from "./cod-panel";
 import { formatINR } from "@/lib/format";
 
 export interface AddressOption {
@@ -21,12 +22,15 @@ export function CheckoutClient({
   shippingInPaise,
   storeName,
   paymentsEnabled,
+  codEnabled = false,
 }: {
   addresses: AddressOption[];
   subtotalInPaise: number;
   shippingInPaise: number;
   storeName: string;
   paymentsEnabled: boolean;
+  /** Cash on delivery switched on in config.ini (each order is still checked on the server). */
+  codEnabled?: boolean;
 }) {
   const [coupon, setCoupon] = useState<{ code: string; discountInPaise: number } | null>(null);
   const total = subtotalInPaise - (coupon?.discountInPaise ?? 0) + shippingInPaise;
@@ -34,6 +38,7 @@ export function CheckoutClient({
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(addresses[0]?.id ?? null);
   const [adding, setAdding] = useState(addresses.length === 0);
+  const [method, setMethod] = useState<"online" | "cod">("online");
 
   return (
     <div className="space-y-8">
@@ -107,11 +112,40 @@ export function CheckoutClient({
         <h2 id="payment-heading" className="text-lg font-medium">
           Payment
         </h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          UPI, cards, netbanking and wallets via Razorpay.
+        {codEnabled && (
+          <fieldset className="mt-3 flex flex-wrap gap-3">
+            <legend className="sr-only">How would you like to pay?</legend>
+            {(
+              [
+                ["online", "Pay online"],
+                ["cod", "Cash on delivery"],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className="border-border has-[:checked]:border-foreground flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value={value}
+                  checked={method === value}
+                  onChange={() => setMethod(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        <p className="text-muted-foreground mt-2 text-sm">
+          {method === "cod"
+            ? "Pay the courier when your order arrives. We'll confirm your mobile number by SMS."
+            : "UPI, cards, netbanking, EMI and wallets via Razorpay."}
         </p>
         <div className="mt-4 max-w-sm">
-          {paymentsEnabled ? (
+          {method === "cod" ? (
+            <CodPanel addressId={selected} couponCode={coupon?.code} />
+          ) : paymentsEnabled ? (
             <PayButton
               label={payLabel}
               storeName={storeName}

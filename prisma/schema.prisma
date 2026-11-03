@@ -23,6 +23,8 @@ enum Role {
 
 enum OrderStatus {
   PENDING
+  /// Cash on delivery (Phase 18): order accepted, stock taken, money collected at the door.
+  CONFIRMED
   PAID
   SHIPPED
   DELIVERED
@@ -67,6 +69,14 @@ enum RefundStatus {
 
 enum PaymentProvider {
   RAZORPAY
+  /// Cash collected by the courier and remitted to the store (recorded by an admin).
+  COD
+}
+
+/// How the customer chose to pay.
+enum PaymentMethod {
+  ONLINE
+  COD
 }
 
 enum PaymentStatus {
@@ -132,6 +142,9 @@ model User {
   /// bcrypt hash. Null for users who only sign in with Google.
   passwordHash  String?
   role          Role      @default(CUSTOMER)
+  /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
+  /// [cod] max_refusals in config.ini.
+  codRefusals   Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -143,8 +156,28 @@ model User {
   cart              Cart?
   addresses         Address[]
   orders            Order[]
+  otpChallenges     OtpChallenge[]
 
   @@index([role])
+}
+
+/// One-time code sent by SMS (e.g. to confirm a cash-on-delivery order). Only a hash is stored.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  /// 10-digit Indian mobile number the code was sent to.
+  phone      String
+  /// e.g. "cod"
+  purpose    String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 /// Auth.js adapter model (OAuth accounts such as Google).
@@ -427,6 +460,11 @@ model Order {
   couponCode         String?
   /// Coupon discount on the items (never on shipping), in paise.
   discountInPaise    Int              @default(0)
+  paymentMethod      PaymentMethod    @default(ONLINE)
+  /// Cash-on-delivery handling fee ([cod] fee_rupees), included in totalInPaise.
+  codFeeInPaise      Int              @default(0)
+  /// When a COD parcel came back to the store (refused / undeliverable).
+  rtoAt              DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -444,6 +482,7 @@ model Order {
   @@index([status])
   @@index([reservationState, reservedUntil])
   @@index([createdAt])
+  @@index([paymentMethod, status])
 }
 
 model OrderItem {

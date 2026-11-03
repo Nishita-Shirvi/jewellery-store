@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phase 17 (product variants) done 2026-11-03. Next: Phase 18 — COD and payment options. Deploy still waits on client accounts.
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17 (variants) and 18 (cash on delivery) done 2026-11-03. Next: Phase 19 — Background jobs. Deploy still waits on client accounts.
 
 ---
 
@@ -31,7 +31,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                             |
 | 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
 | 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
-| 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                                                                |
+| 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
 | 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
 | 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
 | 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 18 — COD and payment options (2026-11-03)
+
+**Done so far:** Phases 1–17 (variants committed as 9f463ae).
+**Not finished / carried over:** None from Phase 17.
+**Open blockers:** B-08 (MSG91 + DLT) for live SMS codes — built against a stand-in; COD stays hidden in production until the keys exist. B-05 (Shiprocket COD + remittance account). B-09 (CA: cash/PAN rules, COD fee tax).
+**Plan for this phase:** CONFIRMED status + paymentMethod COD; rules in config.ini [cod]; SMS one-time code; one-transaction order placement; Shiprocket COD shipments; RTO restock + refusal count; cash recorded after delivery; manual refunds for COD; invoices, emails, reports, admin pages.
+**Risks:** Codes reused/guessed; double clicks; stock or refusals counted twice from repeated webhooks; cash recorded twice; COD refunds accidentally sent to Razorpay; every place that assumed "PAID = ready to ship".
+**Git:** after 9f463ae on `week3-growth`.
 
 ### Before Phase 17 — Product variants (2026-11-03)
 

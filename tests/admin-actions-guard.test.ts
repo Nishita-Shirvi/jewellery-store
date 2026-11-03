@@ -47,7 +47,11 @@ vi.mock("@/services/return.service", () => ({
   approveReturn: spy("approveReturn"),
   rejectReturn: spy("rejectReturn"),
 }));
-vi.mock("@/services/refund.service", () => ({ retryRefund: spy("retryRefund") }));
+vi.mock("@/services/refund.service", () => ({
+  retryRefund: spy("retryRefund"),
+  markManualRefundPaid: spy("markManualRefundPaid"),
+}));
+vi.mock("@/services/cod.service", () => ({ markCashReceived: spy("markCashReceived") }));
 vi.mock("@/services/invoice.service", () => ({ createInvoiceForOrder: spy("createInvoice") }));
 vi.mock("@/services/audit.service", () => ({ audit: vi.fn(), diff: () => ({}) }));
 vi.mock("@/services/review.service", () => ({
@@ -101,6 +105,7 @@ function validForm() {
     stock_abc123: "1",
     net_abc123: "1",
     active_abc123: "on",
+    reference: "UTR123456",
     file: new File([new Uint8Array([1])], "a.png"),
   }))
     fd.append(k, v as string | Blob);
@@ -125,6 +130,8 @@ const calls: [string, () => Promise<unknown>][] = [
   ["moderateReviewAction", () => actions.moderateReviewAction(validForm())],
   ["saveVariantOptionsAction", () => actions.saveVariantOptionsAction({}, validForm())],
   ["saveVariantsAction", () => actions.saveVariantsAction({}, validForm())],
+  ["markCashReceivedAction", () => actions.markCashReceivedAction(validForm())],
+  ["markRefundPaidAction", () => actions.markRefundPaidAction(validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {

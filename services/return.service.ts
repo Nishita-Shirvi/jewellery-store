@@ -35,7 +35,7 @@ export async function canCustomerCancel(orderId: string): Promise<boolean> {
     where: { id: orderId },
     select: { status: true, shipment: { select: { awb: true } } },
   });
-  return order?.status === "PAID" && !order.shipment?.awb;
+  return (order?.status === "PAID" || order?.status === "CONFIRMED") && !order.shipment?.awb;
 }
 
 /**
@@ -56,6 +56,7 @@ export async function cancelPaidOrder(input: {
     },
   });
   if (!order) throw new ReturnError("Order not found.");
+  if (order.status === "CONFIRMED") return cancelCodOrder(order, input);
   if (order.status !== "PAID")
     throw new ReturnError("Only paid orders that haven't shipped can be cancelled.");
   if (input.by === "customer" && order.shipment?.awb) {
@@ -98,6 +99,45 @@ export async function cancelPaidOrder(input: {
   });
   await issueRefund(refundId);
   await sendOrderUpdateEmail(order.id, "cancelled", { amountInPaise: order.totalInPaise });
+}
+
+/**
+ * Cancels a cash-on-delivery order before it ships: stock goes back, nothing to refund.
+ * CONFIRMED → CANCELLED is conditional, so two clicks can't restock twice.
+ */
+async function cancelCodOrder(
+  order: {
+    id: string;
+    items: { id: string; productId: string; variantId: string; quantity: number }[];
+    shipment: { awb: string | null } | null;
+  },
+  input: { by: "customer" | "admin"; actorId: string },
+) {
+  if (input.by === "customer" && order.shipment?.awb)
+    throw new ReturnError(
+      "Your order is already packed for the courier. Please contact us to cancel.",
+    );
+  await db.$transaction(async (tx) => {
+    const switched = await tx.order.updateMany({
+      where: { id: order.id, status: "CONFIRMED" },
+      data: {
+        status: "CANCELLED",
+        cancellationReason:
+          input.by === "customer" ? "Cancelled by the customer" : "Cancelled by the store",
+      },
+    });
+    if (switched.count === 0)
+      throw new ReturnError("This order changed in the meantime. Please refresh.");
+    await restockItems(tx, order.items);
+    for (const item of order.items)
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: { returnedQuantity: item.quantity },
+      });
+  });
+  revalidateTag(CATALOG_TAG);
+  logger.info("order.cod_cancelled", { orderId: order.id, by: input.by, actorId: input.actorId });
+  await sendOrderUpdateEmail(order.id, "cancelled");
 }
 
 /** Paid, but the piece sold out first: refund in full automatically (called from the payment flow). */
@@ -220,6 +260,10 @@ export async function approveReturn(
   if (!request) throw new ReturnError("Return not found.");
   if (request.status !== "REQUESTED")
     throw new ReturnError("This return has already been decided.");
+  if (request.order.paymentMethod === "COD" && !request.order.paidAt)
+    throw new ReturnError(
+      "This is a cash-on-delivery order and its cash hasn't been recorded yet. Record it on the COD page first, then approve the return.",
+    );
 
   const lines: ReturnableLine[] = request.order.items.map((i) => ({
     orderItemId: i.id,

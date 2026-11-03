@@ -5,7 +5,7 @@ import { ConfirmSubmit } from "@/components/admin/confirm-submit";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/lib/format";
-import { ADMIN_TRANSITIONS, STATUS_LABEL } from "@/lib/order-status";
+import { ADMIN_TRANSITIONS, READY_TO_SHIP_STATUSES, STATUS_LABEL } from "@/lib/order-status";
 import type { AddressSnapshot } from "@/services/address.service";
 import { getOrderAdmin } from "@/services/admin/order-admin.service";
 import { displayOrderNumber } from "@/services/order.service";
@@ -16,6 +16,8 @@ import {
   rejectReturnAction,
   retryRefundAction,
   updateOrderStatusAction,
+  markCashReceivedAction,
+  markRefundPaidAction,
 } from "../../actions";
 import { RefundList } from "@/components/returns/refund-list";
 import { Input } from "@/components/ui/input";
@@ -61,7 +63,7 @@ export default async function AdminOrderPage({
     select: { number: true },
   });
   const canCreateShipment =
-    order.status === "PAID" &&
+    READY_TO_SHIP_STATUSES.includes(order.status) &&
     (!shipment || !shipment.awb || shipment.status === "AWB_ASSIGNED" || !shipment.labelUrl);
   const address = order.addressSnapshot as AddressSnapshot;
   const next = ADMIN_TRANSITIONS[order.status];
@@ -107,7 +109,9 @@ export default async function AdminOrderPage({
                   description={
                     order.status === "PAID"
                       ? "Stock goes back and the customer is refunded in full through Razorpay automatically."
-                      : "The order will be closed. This can't be undone."
+                      : order.status === "CONFIRMED"
+                        ? "Cash on delivery: stock goes back. Nothing was paid, so there's nothing to refund."
+                        : "The order will be closed. This can't be undone."
                   }
                   confirmLabel="Cancel order"
                 />
@@ -118,6 +122,42 @@ export default async function AdminOrderPage({
               )}
             </form>
           ))}
+        </section>
+      )}
+
+      {order.paymentMethod === "COD" && (
+        <section
+          aria-labelledby="cod-heading"
+          className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-5 text-sm"
+        >
+          <div>
+            <h2 id="cod-heading" className="font-medium">
+              Cash on delivery · {formatINR(order.totalInPaise)}
+            </h2>
+            <p className="text-muted-foreground" data-testid="cod-state">
+              {order.paidAt
+                ? `Cash recorded ${dateFmt.format(order.paidAt)}`
+                : order.rtoAt
+                  ? "Parcel came back (refused / undeliverable) — stock restored"
+                  : order.status === "CANCELLED"
+                    ? "Cancelled — nothing to collect"
+                    : order.deliveredAt
+                      ? "Delivered — waiting for the courier's remittance"
+                      : "To collect at delivery"}
+              {order.codFeeInPaise > 0
+                ? ` · includes ${formatINR(order.codFeeInPaise)} COD fee`
+                : ""}
+            </p>
+          </div>
+          {!order.paidAt && ["DELIVERED", "RETURN_REQUESTED"].includes(order.status) && (
+            <form action={markCashReceivedAction}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="back" value="order" />
+              <Button type="submit" size="sm">
+                Mark cash received
+              </Button>
+            </form>
+          )}
         </section>
       )}
 
@@ -200,6 +240,28 @@ export default async function AdminOrderPage({
             </div>
           ))}
           <RefundList refunds={refunds} admin />
+          {order.paymentMethod === "COD" &&
+            refunds
+              .filter((r) => r.status === "PENDING")
+              .map((r) => (
+                <form
+                  key={`manual-${r.id}`}
+                  action={markRefundPaidAction}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <input type="hidden" name="refundId" value={r.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <Input
+                    name="reference"
+                    placeholder="Bank / UPI reference"
+                    aria-label={`Bank or UPI reference for the refund of ${formatINR(r.amountInPaise)}`}
+                    className="h-8 w-56"
+                  />
+                  <Button type="submit" size="sm" variant="outline">
+                    Mark {formatINR(r.amountInPaise)} as refunded
+                  </Button>
+                </form>
+              ))}
           {refunds
             .filter((r) => r.status === "FAILED")
             .map((r) => (
@@ -253,7 +315,7 @@ export default async function AdminOrderPage({
             </form>
           )}
         </div>
-        {!isShiprocketConfigured && order.status === "PAID" && (
+        {!isShiprocketConfigured && READY_TO_SHIP_STATUSES.includes(order.status) && (
           <p className="text-muted-foreground mt-2 text-xs">
             Shiprocket isn&apos;t set up — add the SHIPROCKET_* keys, or ship manually and use “Mark
             as shipped”.

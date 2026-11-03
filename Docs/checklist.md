@@ -130,12 +130,12 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Migrate existing products to default variants
 - [x] Cart, orders, invoices per variant; admin bulk edit
 
-### 18. Cash on delivery & payment options
+### 18. Cash on delivery & payment options ✅
 
-- [ ] COD orders with rules (max value, pincodes, fee, blocklist)
-- [ ] OTP before COD order (needs MSG91)
-- [ ] COD remittance, RTO restock
-- [ ] UPI, netbanking, EMI
+- [x] COD orders with rules (max value, pincodes, fee, blocklist)
+- [x] OTP before COD order (needs MSG91 for live SMS)
+- [x] COD remittance, RTO restock
+- [x] UPI, netbanking, EMI (dashboard switch; reported per method)
 
 ### 19. Background jobs
 

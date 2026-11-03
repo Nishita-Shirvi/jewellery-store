@@ -1,6 +1,7 @@
 /**
  * Stand-ins for Razorpay's Orders API and Cloudinary uploads, used by the Playwright tests
- * (point RAZORPAY_API_BASE / CLOUDINARY_API_BASE at http://localhost:4010). Never used in production.
+ * (point RAZORPAY_API_BASE / CLOUDINARY_API_BASE / MSG91_API_BASE at http://localhost:4010).
+ * Never used in production.
  */
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import http from "node:http";
@@ -107,6 +108,28 @@ http
       return res
         .writeHead(200, { "Content-Type": "application/json" })
         .end(JSON.stringify({ sig }));
+    }
+
+    // MSG91 flow API (one-time codes for cash on delivery). Codes are kept so tests can read them.
+    const smsCodes = (globalThis.__smsCodes ??= new Map());
+    if (req.method === "POST" && url.pathname === "/api/v5/flow/") {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        if (!req.headers.authkey) return res.writeHead(401).end("{}");
+        const b = JSON.parse(body || "{}");
+        for (const r of b.recipients ?? []) smsCodes.set(r.mobiles, r.otp);
+        res
+          .writeHead(200, { "Content-Type": "application/json" })
+          .end(JSON.stringify({ type: "success" }));
+      });
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/test/last-sms-code") {
+      const code = smsCodes.get(url.searchParams.get("mobile") ?? "");
+      return res
+        .writeHead(code ? 200 : 404, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ code: code ?? null }));
     }
 
     if (req.method === "POST" && /^\/v1_1\/[^/]+\/image\/upload$/.test(url.pathname)) {

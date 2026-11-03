@@ -30,7 +30,8 @@ import {
 import { UploadError, uploadProductImage } from "@/services/upload.service";
 import { ShipmentError, createShipmentForOrder } from "@/services/shipment.service";
 import { ReturnError, approveReturn, rejectReturn } from "@/services/return.service";
-import { retryRefund } from "@/services/refund.service";
+import { markManualRefundPaid, retryRefund } from "@/services/refund.service";
+import { markCashReceived } from "@/services/cod.service";
 import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
@@ -591,4 +592,60 @@ export async function saveVariantsAction(
   } catch (error) {
     return { ...fail(error), values: typedValues(formData) };
   }
+}
+
+// ── Cash on delivery (Phase 18) ──────────────────────────
+
+const idList = z
+  .array(z.string().regex(/^[a-z0-9]{1,40}$/i))
+  .min(1)
+  .max(200);
+
+/** Records cash received (remitted by the courier) for one or more delivered COD orders. */
+export async function markCashReceivedAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const ids = idList.safeParse(formData.getAll("orderId"));
+  const reference = String(formData.get("reference") ?? "")
+    .trim()
+    .slice(0, 120);
+  const back = String(formData.get("back") ?? "") === "order" ? "order" : "cod";
+  if (!ids.success) redirect("/admin/cod?error=Choose%20at%20least%20one%20order");
+  const result = await markCashReceived(ids.data, admin.id, reference || undefined);
+  for (const orderId of ids.data)
+    await audit(admin, {
+      action: "order.cod_cash_received",
+      entityType: "order",
+      entityId: orderId,
+      summary: `Cash on delivery recorded as received${reference ? ` (ref ${reference})` : ""}`,
+    });
+  revalidatePath("/admin/cod");
+  revalidatePath("/admin/reports");
+  if (back === "order") revalidatePath(`/admin/orders/${ids.data[0]}`);
+  else redirect(`/admin/cod?recorded=${result.recorded}`);
+}
+
+/** A COD refund the store paid back by bank transfer / UPI. */
+export async function markRefundPaidAction(formData: FormData): Promise<void> {
+  const admin = await requireAdmin();
+  const parsed = z
+    .object({
+      refundId: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      orderId: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      reference: z.string().trim().min(3, { message: "Enter the bank / UPI reference" }).max(120),
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const orderId = String(formData.get("orderId") ?? "").replace(/[^a-z0-9]/gi, "");
+    redirect(
+      `/admin/orders/${orderId}?error=${encodeURIComponent("Enter the bank / UPI reference of the refund.")}`,
+    );
+  }
+  const outcome = await markManualRefundPaid(parsed.data.refundId, admin.id, parsed.data.reference);
+  await audit(admin, {
+    action: "refund.manual_paid",
+    entityType: "refund",
+    entityId: parsed.data.refundId,
+    summary: `COD refund marked as paid (ref ${parsed.data.reference}): ${outcome}`,
+  });
+  revalidatePath(`/admin/orders/${parsed.data.orderId}`);
 }
