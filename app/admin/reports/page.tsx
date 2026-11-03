@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/format";
 import { istDay, istMidnight } from "@/lib/report/dates";
 import { lowStockProducts, salesReport, PAYMENT_METHOD_LABEL } from "@/services/report.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
+  await requirePermissionPage("reports.view", "/admin/reports");
   const daysParam = Number((await searchParams).days);
   const days = [7, 30, 90].includes(daysParam) ? daysParam : 30;
   const [report, lowStock] = await Promise.all([salesReport(days), lowStockProducts()]);

@@ -2,6 +2,7 @@ import { CategoryForm } from "@/components/admin/category-form";
 import { ConfirmSubmit } from "@/components/admin/confirm-submit";
 import { listCategoriesAdmin } from "@/services/admin/category-admin.service";
 import { deleteCategoryAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,7 @@ export default async function AdminCategoriesPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
+  await requirePermissionPage("products.view", "/admin/categories");
   const { error } = await searchParams;
   const categories = await listCategoriesAdmin();
 

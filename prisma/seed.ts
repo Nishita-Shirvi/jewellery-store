@@ -39,7 +39,16 @@ async function seedAdmin() {
     update: { role: "ADMIN" }, // never overwrite an existing password on re-seed
     create: { email, name: "Store Admin", role: "ADMIN", passwordHash, emailVerified: new Date() },
   });
-  console.log(`✔ Admin user: ${email}`);
+  // Phase 21: the seeded admin is an OWNER (roles are created by the migration).
+  const owner = await db.staffRole.findUnique({ where: { key: "OWNER" }, select: { id: true } });
+  const admin = await db.user.findUniqueOrThrow({ where: { email }, select: { id: true } });
+  if (owner)
+    await db.userRole.upsert({
+      where: { userId_roleId: { userId: admin.id, roleId: owner.id } },
+      update: {},
+      create: { userId: admin.id, roleId: owner.id },
+    });
+  console.log(`✔ Admin user: ${email} (Owner — sets up two-step sign-in at first admin visit)`);
 }
 
 async function seedCategories(): Promise<Map<string, string>> {

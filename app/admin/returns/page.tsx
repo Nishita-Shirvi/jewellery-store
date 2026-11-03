@@ -2,6 +2,7 @@ import Link from "next/link";
 import { RETURN_REASON_LABEL } from "@/lib/returns";
 import { listReturnsAdmin } from "@/services/return.service";
 import { displayOrderNumber } from "@/services/order.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default async function AdminReturnsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  await requirePermissionPage("orders.view", "/admin/returns");
   const status = (await searchParams).status ?? "REQUESTED";
   const returns = await listReturnsAdmin(status || undefined);
 

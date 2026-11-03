@@ -4,11 +4,13 @@ import { Button } from "@/components/ui/button";
 import { describeCoupon } from "@/lib/coupons";
 import { listCouponsAdmin } from "@/services/admin/coupon-admin.service";
 import { toggleCouponAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 const dateFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" });
 
 export default async function AdminCouponsPage() {
+  await requirePermissionPage("coupons.manage", "/admin/coupons");
   const coupons = await listCouponsAdmin();
   const now = new Date();
   return (

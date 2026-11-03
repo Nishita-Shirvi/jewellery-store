@@ -35,6 +35,7 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] Sentry receiving errors (optional but recommended)
 - [ ] `CRON_SECRET` set; `/api/cron/jobs` returns 200 with the bearer token; GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`)
 - [ ] Admin → Jobs shows no failed jobs after a test order (email, invoice, webhook all DONE)
+- [ ] Owner signs in to /admin, sets up two-step sign-in on their phone and **stores the 8 recovery codes offline**; staff invited from Admin → Staff with the smallest role that fits
 - [ ] `app.start` log line shows `razorpayMode: "live"`, `email: true`, `cronJobs: true`
 - [ ] Google login redirect URI updated (if used)
 

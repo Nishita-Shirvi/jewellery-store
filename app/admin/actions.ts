@@ -5,7 +5,17 @@ import { audit, diff } from "@/services/audit.service";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth-guards";
+import { ForbiddenError, requirePermission } from "@/lib/auth-guards";
+import { ROLE_KEYS, type RoleKey } from "@/lib/permissions";
+import {
+  StaffError,
+  deactivateStaff,
+  inviteStaff,
+  reactivateStaff,
+  resetTwoFactor,
+  revokeInvite,
+  setStaffRoles,
+} from "@/services/staff.service";
 import { logger } from "@/lib/logger";
 import {
   categoryFormSchema,
@@ -45,8 +55,9 @@ import {
 } from "@/services/admin/variant-admin.service";
 
 /**
- * Every admin action starts with requireAdmin(), which re-reads the role from the database.
- * A customer calling these directly gets a 403 error and nothing changes.
+ * Every admin action starts with requirePermission("…"): staff role, active status, two-step
+ * sign-in and the permission are re-checked on every call. Anyone else calling these directly
+ * gets a 403 (recorded in the activity log) and nothing changes.
  */
 
 export interface AdminFormState {
@@ -79,7 +90,7 @@ export async function saveProductAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = productFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -145,7 +156,7 @@ export async function saveProductAction(
 }
 
 export async function toggleProductActiveAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const isActive = formData.get("isActive") === "true";
@@ -162,7 +173,7 @@ export async function toggleProductActiveAction(formData: FormData): Promise<voi
 }
 
 export async function updateStockAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = stockUpdateSchema.safeParse({
     id: formData.get("id"),
     stock: formData.get("stock"),
@@ -196,11 +207,18 @@ export async function updateStockAction(formData: FormData): Promise<void> {
 export async function uploadImageAction(
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "Choose an image file." };
   try {
-    return { ok: true, url: await uploadProductImage(file) };
+    const url = await uploadProductImage(file);
+    await audit(admin, {
+      action: "product.image_upload",
+      entityType: "product",
+      entityId: "upload",
+      summary: `Uploaded a product photo (${file.name.slice(0, 80)})`,
+    });
+    return { ok: true, url };
   } catch (error) {
     return { ok: false, error: error instanceof UploadError ? error.message : "Upload failed." };
   }
@@ -212,7 +230,7 @@ export async function saveCategoryAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = categoryFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -247,7 +265,7 @@ export async function saveCategoryAction(
 }
 
 export async function deleteCategoryAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   try {
@@ -270,12 +288,15 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
 // ── Orders ───────────────────────────────────────────────
 
 export async function updateOrderStatusAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = orderStatusUpdateSchema.safeParse({
     id: formData.get("id"),
     status: formData.get("status"),
   });
   if (!parsed.success) return;
+  // Cancelling a paid order refunds it: that needs the refunds permission too.
+  if (parsed.data.status === "CANCELLED" && !admin.permissions.includes("refunds.manage"))
+    throw new ForbiddenError();
   try {
     await updateOrderStatus(parsed.data.id, parsed.data.status, admin.id);
     await audit(admin, {
@@ -298,7 +319,7 @@ export async function updateOrderStatusAction(formData: FormData): Promise<void>
 // ── Shipping ─────────────────────────────────────────────
 
 export async function createShipmentAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const orderId = parsed.data.id;
@@ -348,13 +369,19 @@ const returnDecisionSchema = z.object({
 });
 
 export async function approveReturnAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = returnDecisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   try {
     await approveReturn(parsed.data.returnId, admin.id, {
       restock: formData.get("restock") === "on",
       note: parsed.data.note,
+    });
+    await audit(admin, {
+      action: "return.approve",
+      entityType: "return",
+      entityId: parsed.data.returnId,
+      summary: `Return approved${formData.get("restock") === "on" ? " (restocked)" : ""}`,
     });
   } catch (error) {
     if (error instanceof ReturnError)
@@ -366,7 +393,7 @@ export async function approveReturnAction(formData: FormData): Promise<void> {
 }
 
 export async function rejectReturnAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = returnDecisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   if (!parsed.data.note)
@@ -391,7 +418,7 @@ export async function rejectReturnAction(formData: FormData): Promise<void> {
 }
 
 export async function retryRefundAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = z
     .object({
       refundId: z.string().regex(/^[a-z0-9]{1,40}$/i),
@@ -412,7 +439,7 @@ export async function retryRefundAction(formData: FormData): Promise<void> {
 // ── Invoices ─────────────────────────────────────────────
 
 export async function generateInvoiceAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const invoice = await createInvoiceForOrder(parsed.data.id);
@@ -436,7 +463,7 @@ export async function saveCouponAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.manage");
   const parsed = couponFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -464,7 +491,7 @@ export async function saveCouponAction(
 }
 
 export async function toggleCouponAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.manage");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   await setCouponActive(parsed.data.id, formData.get("isActive") === "true", admin.id);
@@ -480,7 +507,7 @@ export async function toggleCouponAction(formData: FormData): Promise<void> {
 // ── Reviews ──────────────────────────────────────────────
 
 export async function moderateReviewAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("reviews.moderate");
   const parsed = z
     .object({
       id: z.string().regex(/^[a-z0-9]{1,40}$/i),
@@ -496,6 +523,12 @@ export async function moderateReviewAction(formData: FormData): Promise<void> {
       admin.id,
       parsed.data.note || undefined,
     );
+    await audit(admin, {
+      action: parsed.data.decision === "APPROVED" ? "review.approve" : "review.reject",
+      entityType: "review",
+      entityId: parsed.data.id,
+      summary: `Review ${parsed.data.decision === "APPROVED" ? "approved" : "rejected"}`,
+    });
   } catch (error) {
     if (!(error instanceof ReviewError)) throw error;
   }
@@ -518,7 +551,7 @@ export async function saveVariantOptionsAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const id = idSchema.safeParse({ id: formData.get("productId") });
   if (!id.success) return { error: "Invalid product." };
   const parsed = optionsInputSchema.safeParse(readOptions(formData));
@@ -550,7 +583,7 @@ export async function saveVariantsAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const id = idSchema.safeParse({ id: formData.get("productId") });
   if (!id.success) return { error: "Invalid product." };
   const allPrice = String(formData.get("setAllPrice") ?? "").trim();
@@ -613,7 +646,7 @@ const idList = z
 
 /** Records cash received (remitted by the courier) for one or more delivered COD orders. */
 export async function markCashReceivedAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("cod.manage");
   const ids = idList.safeParse(formData.getAll("orderId"));
   const reference = String(formData.get("reference") ?? "")
     .trim()
@@ -636,7 +669,7 @@ export async function markCashReceivedAction(formData: FormData): Promise<void> 
 
 /** A COD refund the store paid back by bank transfer / UPI. */
 export async function markRefundPaidAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = z
     .object({
       refundId: z.string().regex(/^[a-z0-9]{1,40}$/i),
@@ -664,7 +697,7 @@ export async function markRefundPaidAction(formData: FormData): Promise<void> {
 
 /** Puts a failed (DEAD) job back in the queue and runs the queue. */
 export async function retryJobAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("jobs.manage");
   const ids = idList.safeParse(formData.getAll("jobId"));
   if (!ids.success) redirect("/admin/jobs");
   let retried = 0;
@@ -679,4 +712,130 @@ export async function retryJobAction(formData: FormData): Promise<void> {
   await runDueJobs({ limit: 20, budgetMs: 15_000 });
   revalidatePath("/admin/jobs");
   redirect(`/admin/jobs?retried=${retried}`);
+}
+
+// ── Staff (Phase 21) ─────────────────────────────────────
+
+const roleKeySchema = z.enum(ROLE_KEYS as [RoleKey, ...RoleKey[]]);
+const staffTarget = z.object({ userId: z.string().regex(/^[a-z0-9]{1,40}$/i) });
+
+function staffFail(error: unknown): never {
+  if (error instanceof StaffError)
+    redirect(`/admin/staff?error=${encodeURIComponent(error.message.slice(0, 200))}`);
+  throw error;
+}
+
+export async function inviteStaffAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requirePermission("staff.manage");
+  const parsed = z
+    .object({ email: z.email({ message: "Enter a valid email" }).max(254), role: roleKeySchema })
+    .safeParse({ email: String(formData.get("email") ?? "").trim(), role: formData.get("role") });
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the form.",
+      values: typedValues(formData),
+    };
+  try {
+    const { inviteId, link } = await inviteStaff(parsed.data.email, parsed.data.role, admin.id);
+    await audit(admin, {
+      action: "staff.invite",
+      entityType: "staff",
+      entityId: inviteId,
+      summary: `Invited ${parsed.data.email} as ${parsed.data.role}`,
+    });
+    revalidatePath("/admin/staff");
+    return {
+      ok: true,
+      message: `Invitation emailed. You can also send this link yourself (valid 7 days): ${link}`,
+    };
+  } catch (error) {
+    if (error instanceof StaffError) return { error: error.message, values: typedValues(formData) };
+    throw error;
+  }
+}
+
+export async function setStaffRolesAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  const roles = z.array(roleKeySchema).max(5).safeParse(formData.getAll("roles"));
+  if (!target.success || !roles.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await setStaffRoles(target.data.userId, roles.data, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.roles",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: `Roles set to ${roles.data.join(", ") || "none"}`,
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function deactivateStaffAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await deactivateStaff(target.data.userId, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.deactivate",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Staff member deactivated",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function reactivateStaffAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await reactivateStaff(target.data.userId, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.reactivate",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Staff member reactivated",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function resetStaffTwoFactorAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  await resetTwoFactor(target.data.userId);
+  await audit(admin, {
+    action: "staff.2fa_reset",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Two-step sign-in reset (they set it up again at their next admin visit)",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function revokeInviteAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const id = idSchema.safeParse({ id: formData.get("inviteId") });
+  if (!id.success) redirect("/admin/staff?error=Invalid%20request");
+  await revokeInvite(id.data.id);
+  await audit(admin, {
+    action: "staff.invite_revoke",
+    entityType: "staff",
+    entityId: id.data.id,
+    summary: "Invitation cancelled",
+  });
+  revalidatePath("/admin/staff");
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ForbiddenError, UnauthorizedError, requireAdmin } from "@/lib/auth-guards";
+import { ForbiddenError, UnauthorizedError, requirePermission } from "@/lib/auth-guards";
 import { csvRow } from "@/lib/report/csv";
 import { istDay, istMidnight } from "@/lib/report/dates";
 import { audit } from "@/services/audit.service";
@@ -10,11 +10,11 @@ import { lineName } from "@/lib/variants";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/orders/export?from=2026-10-01&to=2026-10-31 → orders.csv (admins only). */
+/** GET /api/admin/orders/export?from=2026-10-01&to=2026-10-31 → orders.csv (staff with reports.view). */
 export async function GET(request: Request) {
   let admin;
   try {
-    admin = await requireAdmin();
+    admin = await requirePermission("reports.view");
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError)
       return NextResponse.json({ error: error.message }, { status: error.status });

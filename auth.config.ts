@@ -6,6 +6,9 @@ import { NextResponse } from "next/server";
  * The full config (providers + Prisma adapter) lives in auth.ts.
  */
 
+/** Set by middleware on /admin requests: the page that was asked for (read by the admin layout). */
+export const ADMIN_PATH_HEADER = "x-admin-path";
+
 const PROTECTED_PREFIXES = ["/account", "/checkout", "/orders", "/admin"];
 
 function matchesPrefix(pathname: string, prefix: string) {
@@ -49,8 +52,15 @@ export const authConfig = {
         return NextResponse.redirect(loginUrl);
       }
 
-      if (matchesPrefix(pathname, "/admin") && auth.user.role !== "ADMIN") {
-        return NextResponse.redirect(new URL("/forbidden", request.nextUrl.origin));
+      // No role check here: the cookie's role can be stale (someone who just accepted a staff
+      // invitation still has a CUSTOMER cookie). The admin layout, pages, actions and APIs check
+      // staff status, two-step sign-in and permissions in the database on every request.
+
+      // Tell the admin layout which page was asked for, so two-step sign-in can return there.
+      if (matchesPrefix(pathname, "/admin")) {
+        const headers = new Headers(request.headers);
+        headers.set(ADMIN_PATH_HEADER, `${pathname}${search}`);
+        return NextResponse.next({ request: { headers } });
       }
 
       return true;

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { jobOverview } from "@/services/jobs.service";
 import { retryJobAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function AdminJobsPage({
 }: {
   searchParams: Promise<{ retried?: string }>;
 }) {
+  await requirePermissionPage("jobs.manage", "/admin/jobs");
   const flash = await searchParams;
   const { counts, dead, failing } = await jobOverview();
 

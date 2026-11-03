@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { encodeEmail, signEmailLink } from "@/lib/marketing";
-import { uniqueSlug, hideTestProducts } from "./fixtures";
+import { uniqueSlug, hideTestProducts, createStaff, staffLogin, visitorIp } from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /** Phase 20 screens: newsletter, unsubscribe, notify me, referral link, admin stats. */
 
@@ -110,19 +114,7 @@ test("referral link → friend signs up → linked to the referrer; account show
 });
 
 test("admin Marketing page shows campaign stats", async ({ page }) => {
-  const adminEmail = `e2e-mkt-admin-${Date.now()}@example.com`;
-  await db.user.create({
-    data: {
-      email: adminEmail,
-      role: "ADMIN",
-      passwordHash: await bcrypt.hash("E2eAdminPass2026", 10),
-    },
-  });
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
-  await page.getByLabel("Password").fill("E2eAdminPass2026");
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await staffLogin(page, await createStaff(db, ["OWNER"]));
   await page.goto("/admin/marketing");
   await expect(page.getByRole("heading", { name: "Marketing" })).toBeVisible();
   await expect(page.getByTestId("stat-unsubscribed")).toHaveText(/\d+/);

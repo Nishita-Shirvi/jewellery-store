@@ -5,6 +5,7 @@ import { formatINR } from "@/lib/format";
 import { codOverview } from "@/services/cod.service";
 import { displayOrderNumber } from "@/services/order.service";
 import { markCashReceivedAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function AdminCodPage({
 }: {
   searchParams: Promise<{ recorded?: string; error?: string }>;
 }) {
+  await requirePermissionPage("cod.manage", "/admin/cod");
   const flash = await searchParams;
   const data = await codOverview();
 

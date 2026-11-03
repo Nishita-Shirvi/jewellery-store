@@ -134,21 +134,30 @@ enum Purity {
 // ─────────────────────── Users and Auth.js ───────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String    @unique
+  emailVerified      DateTime?
+  image              String?
   /// bcrypt hash. Null for users who only sign in with Google.
-  passwordHash  String?
-  role          Role      @default(CUSTOMER)
+  passwordHash       String?
+  role               Role      @default(CUSTOMER)
   /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
   /// [cod] max_refusals in config.ini.
-  codRefusals   Int       @default(0)
+  codRefusals        Int       @default(0)
   /// Personal referral code (Phase 20), created the first time the customer opens it.
-  referralCode  String?   @unique
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  referralCode       String?   @unique
+  /// Staff (Phase 21): set when the owner deactivates this person (role goes back to CUSTOMER).
+  staffDeactivatedAt DateTime?
+  /// Authenticator-app secret, encrypted (lib/secret-box.ts). Null = two-step sign-in not set up.
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+  /// Last accepted 30-second step: a code can't be used twice.
+  totpLastStep       Int?
+  /// SHA-256 hashes of unused one-time recovery codes.
+  recoveryCodes      String[]  @default([])
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   accounts          Account[]
   wishlist          WishlistItem[]
@@ -162,6 +171,7 @@ model User {
   referralsMade     Referral[]         @relation("ReferralReferrer")
   referredBy        Referral?          @relation("ReferralReferred")
   cartReminders     CartReminder[]
+  staffRoles        UserRole[]
 
   @@index([role])
 }
@@ -885,6 +895,70 @@ model Referral {
 
   @@index([referrerId])
   @@index([status])
+}
+
+// ───────────────────── Staff roles (Phase 21) ──────────────────────
+
+/// e.g. "orders.view". Seeded from lib/permissions.ts.
+model Permission {
+  key         String           @id
+  description String
+  roles       RolePermission[]
+}
+
+/// OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT (seeded from lib/permissions.ts).
+model StaffRole {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String
+  createdAt   DateTime         @default(now())
+  permissions RolePermission[]
+  users       UserRole[]
+  invites     StaffInvite[]
+}
+
+model RolePermission {
+  roleId        String
+  permissionKey String
+
+  role       StaffRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+}
+
+model UserRole {
+  userId       String
+  roleId       String
+  assignedAt   DateTime @default(now())
+  assignedById String?
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role StaffRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+/// Owner invites someone by email; they sign in with that email and accept.
+model StaffInvite {
+  id             String    @id @default(cuid())
+  /// Lower case.
+  email          String
+  roleId         String
+  /// SHA-256 of the token in the emailed link.
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  acceptedUserId String?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  role StaffRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([email])
 }
 
 // ───────────────────── Background jobs (Phase 19) ──────────────────

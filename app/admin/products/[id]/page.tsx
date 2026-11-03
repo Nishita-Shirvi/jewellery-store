@@ -7,6 +7,7 @@ import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { isUploadConfigured } from "@/services/upload.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export default async function EditProductPage({
   params,
@@ -15,6 +16,7 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requirePermissionPage("products.edit", "/admin/products");
   const { id } = await params;
   const { created } = await searchParams;
   const [product, categories, placeholderImages] = await Promise.all([

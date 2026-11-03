@@ -8,6 +8,7 @@ import { formatINR } from "@/lib/format";
 import { adminListQuerySchema } from "@/lib/validation/admin";
 import { listProductsAdmin } from "@/services/admin/product-admin.service";
 import { toggleProductActiveAction, updateStockAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requirePermissionPage("products.view", "/admin/products");
   const raw = await searchParams;
   const query = adminListQuerySchema.parse(raw);
   const stockError = raw.stockError?.slice(0, 200);

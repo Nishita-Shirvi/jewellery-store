@@ -1,5 +1,19 @@
 # Changelog
 
+## Week 3 — Phase 21: Staff roles and permissions — 2026-11-03
+
+### Added
+
+- Staff roles: **Owner, Manager, Catalog editor, Order manager, Support**, each with its own permissions; the admin menu shows only what someone may use.
+- **Admin → Staff:** invite by email (link also shown), change roles, deactivate / reactivate, reset someone's two-step sign-in. There is always at least one active owner.
+- **Two-step sign-in** with an authenticator app for every staff member, with one-time recovery codes; `npm run staff:reset-2fa` for emergencies.
+- Every admin change and every refused attempt is written to the activity log.
+
+### Changed
+
+- Existing admins became Owners (same access as before). Revenue on the dashboard is shown only to staff who can see reports.
+- After two-step sign-in you return to the admin page you asked for.
+
 ## Week 3 — Phase 20: Abandoned cart and marketing — 2026-11-03
 
 ### Added

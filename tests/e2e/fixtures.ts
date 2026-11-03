@@ -105,3 +105,72 @@ export async function hideTestProducts(db: PrismaClient) {
     data: { isActive: false },
   });
 }
+
+// ───────────────────────── staff (Phase 21) ─────────────────────────
+
+export interface TestStaff {
+  id: string;
+  email: string;
+  password: string;
+  /** Authenticator secret (null = 2FA not set up yet). */
+  secret: string | null;
+}
+
+/** A staff member with the given roles and (by default) two-step sign-in already set up. */
+export async function createStaff(
+  db: PrismaClient,
+  roleKeys: string[],
+  options: { twoFactor?: boolean } = {},
+): Promise<TestStaff> {
+  const { seal } = await import("@/lib/secret-box");
+  const { generateTotpSecret } = await import("@/lib/totp");
+  const bcrypt = (await import("bcryptjs")).default;
+  const email = `e2e-staff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}@example.com`;
+  const password = "E2eStaffPass2026";
+  const secret = options.twoFactor === false ? null : generateTotpSecret();
+  const user = await db.user.create({
+    data: {
+      email,
+      name: `Staff ${roleKeys.join("+")}`,
+      role: "ADMIN",
+      passwordHash: await bcrypt.hash(password, 10),
+      ...(secret
+        ? {
+            totpSecret: seal(secret, process.env.AUTH_SECRET!, "totp"),
+            totpEnabledAt: new Date(),
+          }
+        : {}),
+    },
+  });
+  for (const key of roleKeys) {
+    const role = await db.staffRole.findUniqueOrThrow({ where: { key } });
+    await db.userRole.create({ data: { userId: user.id, roleId: role.id } });
+  }
+  return { id: user.id, email, password, secret };
+}
+
+/** Logs in and passes two-step sign-in with the current code from the "app". */
+export async function staffLogin(page: Page, staff: TestStaff, then = "/admin") {
+  const { totpAt } = await import("@/lib/totp");
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(staff.email);
+  await page.getByLabel("Password").fill(staff.password);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await page.goto(then);
+  await page.waitForURL(/\/staff\/2fa/);
+  if (!staff.secret) return; // the caller goes through setup
+  await page.getByLabel("Code from your authenticator app").fill(totpAt(staff.secret, new Date()));
+  await page.getByRole("button", { name: "Continue" }).click();
+  await page.waitForURL((url) => !url.pathname.startsWith("/staff/2fa"), { timeout: 20_000 });
+}
+
+/**
+ * A made-up client IP per test (sent as X-Forwarded-For, which the app reads behind Vercel), so
+ * the per-IP sign-up / login limits treat each test as a different visitor — as real customers are.
+ */
+export function visitorIp(title: string): string {
+  let h = 0;
+  for (const c of title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `10.${(h >>> 16) & 255}.${(h >>> 8) & 255}.${(h & 253) + 1}`;
+}

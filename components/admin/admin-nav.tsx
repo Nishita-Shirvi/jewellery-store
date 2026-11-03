@@ -4,26 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/returns", label: "Returns" },
-  { href: "/admin/cod", label: "Cash on delivery" },
-  { href: "/admin/products", label: "Products" },
-  { href: "/admin/categories", label: "Categories" },
-  { href: "/admin/coupons", label: "Coupons" },
-  { href: "/admin/reviews", label: "Reviews" },
-  { href: "/admin/marketing", label: "Marketing" },
-  { href: "/admin/jobs", label: "Jobs" },
-  { href: "/admin/audit", label: "Activity log" },
-];
-
-export function AdminNav() {
+/** Only the pages this staff member may open (filtered by the layout from their permissions). */
+export function AdminNav({ links }: { links: { href: string; label: string }[] }) {
   const pathname = usePathname();
   return (
     <nav aria-label="Admin" className="border-border flex gap-1 overflow-x-auto border-b">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active =
           link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
         return (

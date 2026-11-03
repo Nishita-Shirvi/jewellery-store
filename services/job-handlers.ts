@@ -106,6 +106,11 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
         z.object({ kind: z.literal("cart_reminder"), reminderId: id }),
         z.object({ kind: z.literal("back_in_stock"), alertId: id }),
         z.object({ kind: z.literal("referral_reward"), referralId: id }),
+        z.object({
+          kind: z.literal("staff_invite"),
+          inviteId: id,
+          token: z.string().min(20).max(64),
+        }),
       ]),
       payload,
     );

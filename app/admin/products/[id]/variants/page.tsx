@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { OptionsForm, VariantsGrid } from "@/components/admin/variant-forms";
 import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { getVariantEditor } from "@/services/admin/variant-admin.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductVariantsPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermissionPage("products.edit", "/admin/products");
   const { id } = await params;
   if (!/^[a-z0-9]{1,40}$/i.test(id)) notFound();
   const product = await getVariantEditor(id);

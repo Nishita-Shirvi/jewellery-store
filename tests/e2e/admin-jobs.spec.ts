@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import { uniqueSlug, hideTestProducts } from "./fixtures";
+import { uniqueSlug, hideTestProducts, createStaff, staffLogin, visitorIp } from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /**
  * Phase 19: the store's cached product page shows an admin's edit straight away (cache cleared
@@ -59,19 +62,7 @@ test("admin edits a product → the cached store page shows it at once; Jobs pag
   await page.goto(`/products/${slug}`);
   await expect(page.getByRole("heading", { name: "Cache Test Ring" })).toBeVisible();
 
-  const adminEmail = `e2e-jobs-admin-${Date.now()}@example.com`;
-  await db.user.create({
-    data: {
-      email: adminEmail,
-      role: "ADMIN",
-      passwordHash: await bcrypt.hash("E2eAdminPass2026", 10),
-    },
-  });
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
-  await page.getByLabel("Password").fill("E2eAdminPass2026");
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await staffLogin(page, await createStaff(db, ["OWNER"]));
 
   await page.goto(`/admin/products/${product.id}`);
   await page.getByLabel("Name", { exact: true }).fill("Cache Test Ring Renamed");

@@ -1,5 +1,6 @@
 import { config } from "@/lib/config";
 import { campaignStats } from "@/services/marketing.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ function Stat({
 }
 
 export default async function AdminMarketingPage() {
+  await requirePermissionPage("reports.view", "/admin/marketing");
   const s = await campaignStats(30);
   const m = config.marketing;
   const rate = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");

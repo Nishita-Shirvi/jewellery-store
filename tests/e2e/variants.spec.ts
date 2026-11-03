@@ -1,7 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import { createVariantRing, pickOption, hideTestProducts } from "./fixtures";
+import {
+  createVariantRing,
+  pickOption,
+  hideTestProducts,
+  createStaff,
+  staffLogin,
+  visitorIp,
+} from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /**
  * Phase 17 "done when": a product with 3 sizes × 2 colours can be bought per variant, and stock
@@ -164,21 +174,7 @@ test("admin: add sizes to a product, bulk-set stock, bad SKU refused", async ({ 
     },
   });
 
-  // Its own admin account, so the test doesn't depend on the seeded admin's password.
-  const adminEmail = `e2e-admin-${Date.now()}@example.com`;
-  await db.user.create({
-    data: {
-      email: adminEmail,
-      name: "E2E Admin",
-      role: "ADMIN",
-      passwordHash: await bcrypt.hash("E2eAdminPass2026", 10),
-    },
-  });
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
-  await page.getByLabel("Password").fill("E2eAdminPass2026");
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await staffLogin(page, await createStaff(db, ["OWNER"]));
 
   await page.goto(`/admin/products/${product.id}/variants`);
   await expect(page.getByRole("heading", { name: "Variants: E2E Admin Ring" })).toBeVisible();

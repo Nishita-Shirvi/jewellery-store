@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–20 done 2026-11-03 (variants, cash on delivery, background jobs, marketing). Next: Phase 21 — Staff roles and permissions. Deploy still waits on client accounts.
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–21 done 2026-11-03 (variants, COD, background jobs, marketing, staff roles). Next: Phase 22 — Customer support. Deploy still waits on client accounts.
 
 ---
 
@@ -34,7 +34,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
 | 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
 | 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
-| 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
+| 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA             |
 | 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
 | 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
 | 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 21 — Staff roles and permissions (2026-11-03)
+
+**Done so far:** Phases 1–20 (latest 99ef5f3).
+**Not finished / carried over:** None.
+**Open blockers:** None. Email for invitations works through Resend once B-07 / RESEND_API_KEY are done; until then the owner copies the invite link shown on the page.
+**Plan for this phase:** Role / Permission / RolePermission / UserRole (+ invites); requirePermission() in every admin action, page and admin API; owner invites, assigns roles, deactivates; TOTP two-step sign-in for all staff (with recovery codes, owner reset and a CLI reset); every protected action and every refusal in the activity log.
+**Risks:** Locking out existing admins (migration makes them OWNER); losing the last owner; a missed action or page; stale role in the session cookie; 2FA codes replayed; recovery codes shown once and lost.
+**Git:** after 99ef5f3 on `week3-growth`.
 
 ### Before Phase 20 — Abandoned cart and marketing (2026-11-03)
 

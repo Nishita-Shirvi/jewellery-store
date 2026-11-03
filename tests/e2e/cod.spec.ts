@@ -1,7 +1,18 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-import { createVariantRing, pickOption, uniqueSlug, hideTestProducts } from "./fixtures";
+import {
+  createVariantRing,
+  pickOption,
+  uniqueSlug,
+  hideTestProducts,
+  createStaff,
+  staffLogin,
+  visitorIp,
+} from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /**
  * Phase 18 "done when": a COD order goes placed → shipped → delivered → paid, and COD is blocked
@@ -102,20 +113,8 @@ test("cash on delivery: placed with an SMS code → shipped → delivered → ca
   expect(placed).toMatchObject({ status: "CONFIRMED", paymentMethod: "COD", paidAt: null });
 
   // Admin: ship, deliver, record the cash.
-  const adminEmail = `e2e-cod-admin-${Date.now()}@example.com`;
-  await db.user.create({
-    data: {
-      email: adminEmail,
-      role: "ADMIN",
-      passwordHash: await bcrypt.hash("E2eAdminPass2026", 10),
-    },
-  });
   await page.context().clearCookies();
-  await page.goto("/login");
-  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
-  await page.getByLabel("Password").fill("E2eAdminPass2026");
-  await page.getByRole("button", { name: "Log in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"));
+  await staffLogin(page, await createStaff(db, ["OWNER"]));
 
   await page.goto(`/admin/orders/${orderId}`);
   await expect(page.getByTestId("cod-state")).toHaveText(/To collect at delivery/);

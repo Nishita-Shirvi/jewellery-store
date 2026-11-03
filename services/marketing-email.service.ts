@@ -20,7 +20,8 @@ export type MarketingEmail =
   | { kind: "newsletter_confirm"; to: string; token: string }
   | { kind: "cart_reminder"; reminderId: string }
   | { kind: "back_in_stock"; alertId: string }
-  | { kind: "referral_reward"; referralId: string };
+  | { kind: "referral_reward"; referralId: string }
+  | { kind: "staff_invite"; inviteId: string; token: string };
 
 const app = () => publicEnv.NEXT_PUBLIC_APP_URL;
 
@@ -171,6 +172,29 @@ export async function deliverMarketingEmail(email: MarketingEmail): Promise<"sen
           "You asked us to tell you once — you won't get more emails about it.",
         ],
         button: { label: "See it now", url: `${app()}/products/${v.product.slug}` },
+        marketing: false,
+      });
+      return "sent";
+    }
+
+    case "staff_invite": {
+      const invite = await db.staffInvite.findUnique({
+        where: { id: email.inviteId },
+        include: { role: { select: { name: true } } },
+      });
+      if (!invite || invite.acceptedAt || invite.revokedAt) return "skipped";
+      await send({
+        to: invite.email,
+        subject: `You're invited to the ${publicEnv.NEXT_PUBLIC_SITE_NAME} admin`,
+        heading: "You've been invited to help run the store",
+        paragraphs: [
+          `You've been given the ${invite.role.name} role. Sign in (or create an account) with this email address, then accept the invitation.`,
+          "You'll set up two-step sign-in with an authenticator app (Google Authenticator, Microsoft Authenticator…) the first time. The link works for 7 days.",
+        ],
+        button: {
+          label: "Accept invitation",
+          url: `${app()}/staff/invite?token=${encodeURIComponent(email.token)}`,
+        },
         marketing: false,
       });
       return "sent";

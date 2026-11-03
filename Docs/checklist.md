@@ -150,11 +150,11 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Back-in-stock alerts
 - [x] Referral codes, campaign stats
 
-### 21. Staff roles & permissions
+### 21. Staff roles & permissions ✅
 
-- [ ] Roles (Owner, Manager, Catalog Editor, Order Manager, Support)
-- [ ] Permission checks on every admin action
-- [ ] Staff invites + 2FA
+- [x] Roles (Owner, Manager, Catalog Editor, Order Manager, Support)
+- [x] Permission checks on every admin action
+- [x] Staff invites + 2FA
 
 ### 22. Customer support
 

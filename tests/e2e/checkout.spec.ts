@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { visitorIp } from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /** Replaces Razorpay's checkout.js: "pays" instantly and returns a correctly signed response. */
 const FAKE_RAZORPAY = `

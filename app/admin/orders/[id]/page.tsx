@@ -28,6 +28,7 @@ import { SHIPMENT_LABEL, TrackingTimeline } from "@/components/shipping/tracking
 import { isShiprocketConfigured } from "@/lib/env";
 import { getShipmentForOrder } from "@/services/shipment.service";
 import { lineName } from "@/lib/variants";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function AdminOrderPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string; shipped?: string }>;
 }) {
+  await requirePermissionPage("orders.view", "/admin/orders");
   const { id } = await params;
   const { error, shipped } = await searchParams;
   const [order, shipment, { returns, refunds }] = await Promise.all([

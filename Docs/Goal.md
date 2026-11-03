@@ -307,11 +307,11 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 21 — Staff roles and permissions
 
-- [ ] Role, Permission, RolePermission, UserRole models; seeded roles OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT
-- [ ] `requirePermission()` used in every admin action and API
-- [ ] Owner invites, assigns roles to and deactivates staff
-- [ ] 2FA (TOTP) required for staff
-- [ ] Every protected action written to the audit log
+- [x] Role, Permission, RolePermission, UserRole models; seeded roles OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT (role model is `StaffRole`)
+- [x] `requirePermission()` used in every admin action and API (and every admin page)
+- [x] Owner invites, assigns roles to and deactivates staff
+- [x] 2FA (TOTP) required for staff
+- [x] Every protected action written to the audit log (and every refused attempt)
 
 **Done when:** a SUPPORT user can view orders but gets a 403 on refunds and product edits even via direct API calls, and staff 2FA is enforced.
 
