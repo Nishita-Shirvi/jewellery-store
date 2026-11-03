@@ -130,8 +130,14 @@ export default async function AccountOrderPage({
         </p>
       )}
 
-      {(cancellable || returnOptions?.eligibility.ok || invoiceReady) && (
+      {/* Order shortcuts: track, invoice, cancel, return, get help. */}
+      {
         <div className="flex flex-wrap gap-2">
+          {shipment?.awb && (
+            <Button asChild variant="outline" size="sm">
+              <a href="#tracking-heading">Track parcel</a>
+            </Button>
+          )}
           {invoiceReady && (
             <Button asChild variant="outline" size="sm">
               <a href={`/api/invoices/${order.id}`}>Download invoice</a>
@@ -153,8 +159,11 @@ export default async function AccountOrderPage({
               <Link href={`/account/orders/${order.id}/return`}>Return items</Link>
             </Button>
           )}
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/account/support/new?orderId=${order.id}&category=ORDER`}>Get help</Link>
+          </Button>
         </div>
-      )}
+      }
 
       {(returns.length > 0 || refunds.length > 0) && (
         <section aria-labelledby="returns-heading" className="space-y-3">

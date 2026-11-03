@@ -156,11 +156,11 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Permission checks on every admin action
 - [x] Staff invites + 2FA
 
-### 22. Customer support
+### 22. Customer support ✅
 
-- [ ] Help centre FAQs
-- [ ] Support tickets with attachments + admin inbox
-- [ ] Optional WhatsApp / live chat
+- [x] Help centre FAQs
+- [x] Support tickets with attachments + admin inbox
+- [x] Optional WhatsApp / live chat (WhatsApp button)
 
 ### 23. Security, PWA, release
 

@@ -12,6 +12,7 @@ vi.mock("next/cache", () => ({
 const { db } = await import("@/lib/db");
 const staff = await import("@/services/staff.service");
 const { hotp, stepAt, totpAt } = await import("@/lib/totp");
+const { ROLES } = await import("@/lib/permissions");
 
 const RUN = `st${Date.now().toString(36)}`;
 const ids: string[] = [];
@@ -55,10 +56,9 @@ afterAll(async () => {
 describe("access", () => {
   it("permissions come from roles and change at once; customers and deactivated staff get none", async () => {
     const u = await person(["SUPPORT"]);
-    expect((await staff.getStaffAccess(u.id)).permissions.sort()).toEqual([
-      "orders.view",
-      "products.view",
-    ]);
+    expect((await staff.getStaffAccess(u.id)).permissions.sort()).toEqual(
+      [...ROLES.SUPPORT.permissions].sort(),
+    );
     await staff.setStaffRoles(u.id, ["ORDER_MANAGER"], "owner");
     expect((await staff.getStaffAccess(u.id)).permissions).toContain("refunds.manage");
 

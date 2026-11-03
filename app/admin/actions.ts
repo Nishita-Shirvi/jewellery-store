@@ -41,6 +41,17 @@ import { UploadError, uploadProductImage } from "@/services/upload.service";
 import { ReturnError, approveReturn, rejectReturn } from "@/services/return.service";
 import { markManualRefundPaid, retryRefund } from "@/services/refund.service";
 import { markCashReceived } from "@/services/cod.service";
+import {
+  SupportError,
+  assignTicket,
+  deleteCannedReply,
+  deleteFaq,
+  readAttachments,
+  saveCannedReply,
+  saveFaq,
+  setTicketStatus,
+  staffReply,
+} from "@/services/support.service";
 import { enqueueAndRunNow, retryDeadJob } from "@/services/jobs.service";
 import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
@@ -838,4 +849,179 @@ export async function revokeInviteAction(formData: FormData): Promise<void> {
     summary: "Invitation cancelled",
   });
   revalidatePath("/admin/staff");
+}
+
+// ── Customer support (Phase 22) ──────────────────────────
+
+const ticketIdSchema = z.string().regex(/^[a-z0-9]{1,40}$/i);
+
+function supportBack(ticketId: string, error?: string): never {
+  redirect(
+    `/admin/support/${ticketId}${error ? `?error=${encodeURIComponent(error.slice(0, 200))}` : ""}`,
+  );
+}
+
+export async function staffReplyTicketAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  if (!ticketId.success) redirect("/admin/support");
+  const internal = formData.get("internal") === "on";
+  const resolve = formData.get("resolve") === "on" && !internal;
+  try {
+    const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+    await staffReply(admin.id, ticketId.data, {
+      body: String(formData.get("body") ?? ""),
+      internal,
+      resolve,
+      files: await readAttachments(files),
+    });
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: internal ? "support.note" : resolve ? "support.reply_resolve" : "support.reply",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: internal
+      ? "Internal note added"
+      : resolve
+        ? "Replied and resolved"
+        : "Replied to the customer",
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+export async function assignTicketAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  if (!ticketId.success) redirect("/admin/support");
+  const raw = String(formData.get("assigneeId") ?? "");
+  const assignee =
+    raw === "me" ? admin.id : raw ? (ticketIdSchema.safeParse(raw).data ?? "invalid") : null;
+  try {
+    await assignTicket(ticketId.data, assignee);
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: "support.assign",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: assignee
+      ? `Assigned to ${assignee === admin.id ? "themselves" : assignee}`
+      : "Unassigned",
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+export async function setTicketStatusAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  const status = z.enum(["OPEN", "ANSWERED", "RESOLVED"]).safeParse(formData.get("ticketStatus"));
+  if (!ticketId.success || !status.success) redirect("/admin/support");
+  try {
+    await setTicketStatus(ticketId.data, status.data);
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: "support.status",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: `Ticket status → ${status.data}`,
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+const faqSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[a-z0-9]{1,40}$/i)
+    .optional(),
+  question: z.string().trim().min(5, { message: "Write the question" }).max(200),
+  answer: z.string().trim().min(5, { message: "Write the answer" }).max(4000),
+  category: z.string().trim().min(2).max(40).default("General"),
+  position: z.coerce.number().int().min(0).max(999).default(0),
+  isPublished: z.preprocess((v) => v === "on" || v === "true", z.boolean()),
+});
+
+export async function saveFaqAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const raw = Object.fromEntries(formData);
+  const parsed = faqSchema.safeParse({ ...raw, id: raw.faqId || undefined });
+  if (!parsed.success)
+    redirect(
+      `/admin/faqs?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Check the form")}`,
+    );
+  const saved = await saveFaq(parsed.data);
+  await audit(admin, {
+    action: parsed.data.id ? "faq.update" : "faq.create",
+    entityType: "faq",
+    entityId: saved.id,
+    summary: `FAQ saved: ${parsed.data.question.slice(0, 80)}`,
+  });
+  revalidatePath("/admin/faqs");
+  revalidatePath("/help");
+}
+
+export async function deleteFaqAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const id = ticketIdSchema.safeParse(formData.get("faqId"));
+  if (!id.success) return;
+  await deleteFaq(id.data);
+  await audit(admin, {
+    action: "faq.delete",
+    entityType: "faq",
+    entityId: id.data,
+    summary: "FAQ deleted",
+  });
+  revalidatePath("/admin/faqs");
+  revalidatePath("/help");
+}
+
+export async function saveCannedReplyAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const parsed = z
+    .object({
+      id: z
+        .string()
+        .regex(/^[a-z0-9]{1,40}$/i)
+        .optional(),
+      title: z.string().trim().min(2).max(80),
+      body: z.string().trim().min(5).max(4000),
+    })
+    .safeParse({
+      id: formData.get("cannedId") || undefined,
+      title: formData.get("title"),
+      body: formData.get("cannedBody"),
+    });
+  if (!parsed.success) redirect("/admin/faqs?error=Check%20the%20canned%20reply");
+  const saved = await saveCannedReply(parsed.data);
+  await audit(admin, {
+    action: "canned.save",
+    entityType: "faq",
+    entityId: saved.id,
+    summary: `Canned reply saved: ${parsed.data.title}`,
+  });
+  revalidatePath("/admin/faqs");
+}
+
+export async function deleteCannedReplyAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const id = ticketIdSchema.safeParse(formData.get("cannedId"));
+  if (!id.success) return;
+  await deleteCannedReply(id.data);
+  await audit(admin, {
+    action: "canned.delete",
+    entityType: "faq",
+    entityId: id.data,
+    summary: "Canned reply deleted",
+  });
+  revalidatePath("/admin/faqs");
 }

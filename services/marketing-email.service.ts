@@ -9,6 +9,8 @@ import { logger } from "@/lib/logger";
 import { lineName } from "@/lib/variants";
 import { sendEmail } from "@/services/email.service";
 import { isUnsubscribed, unsubscribeUrl } from "@/services/marketing.service";
+import { config } from "@/lib/config";
+import { displayTicketNumber } from "@/lib/support";
 
 /**
  * Renders and sends marketing emails (job "email.marketing"). Every send re-checks that it's
@@ -21,7 +23,11 @@ export type MarketingEmail =
   | { kind: "cart_reminder"; reminderId: string }
   | { kind: "back_in_stock"; alertId: string }
   | { kind: "referral_reward"; referralId: string }
-  | { kind: "staff_invite"; inviteId: string; token: string };
+  | { kind: "staff_invite"; inviteId: string; token: string }
+  | { kind: "ticket_customer_update"; ticketId: string; messageId: string }
+  | { kind: "ticket_staff_alert"; ticketId: string; messageId: string };
+
+const excerpt = (text: string) => (text.length > 600 ? `${text.slice(0, 600)}…` : text);
 
 const app = () => publicEnv.NEXT_PUBLIC_APP_URL;
 
@@ -172,6 +178,76 @@ export async function deliverMarketingEmail(email: MarketingEmail): Promise<"sen
           "You asked us to tell you once — you won't get more emails about it.",
         ],
         button: { label: "See it now", url: `${app()}/products/${v.product.slug}` },
+        marketing: false,
+      });
+      return "sent";
+    }
+
+    case "ticket_customer_update": {
+      const message = await db.ticketMessage.findUnique({
+        where: { id: email.messageId },
+        include: {
+          ticket: {
+            select: {
+              id: true,
+              subject: true,
+              status: true,
+              user: { select: { email: true, name: true } },
+            },
+          },
+        },
+      });
+      if (!message || message.internal || message.ticketId !== email.ticketId) return "skipped";
+      const t = message.ticket;
+      const number = displayTicketNumber(t.id);
+      await send({
+        to: t.user.email,
+        greetingName: t.user.name?.split(" ")[0],
+        subject: `${t.status === "RESOLVED" ? "Resolved" : "New reply"}: ${t.subject} (${number})`,
+        heading:
+          t.status === "RESOLVED" ? "We've resolved your request" : "We've replied to your request",
+        paragraphs: [
+          excerpt(message.body),
+          t.status === "RESOLVED"
+            ? "If anything is still not right, just reply on the ticket page and we'll pick it up again."
+            : "You can reply on the ticket page.",
+        ],
+        button: { label: "View your ticket", url: `${app()}/account/support/${t.id}` },
+        marketing: false,
+      });
+      return "sent";
+    }
+
+    case "ticket_staff_alert": {
+      const message = await db.ticketMessage.findUnique({
+        where: { id: email.messageId },
+        include: {
+          ticket: {
+            select: {
+              id: true,
+              subject: true,
+              category: true,
+              user: { select: { email: true } },
+              assignedTo: { select: { email: true } },
+            },
+          },
+          attachments: { select: { id: true } },
+        },
+      });
+      if (!message || message.ticketId !== email.ticketId) return "skipped";
+      const t = message.ticket;
+      const to = t.assignedTo?.email ?? config.support.notify_email ?? getBusiness().email;
+      await send({
+        to,
+        subject: `[Support] ${t.subject} (${displayTicketNumber(t.id)})`,
+        heading: `Message from ${t.user.email}`,
+        paragraphs: [
+          excerpt(message.body),
+          ...(message.attachments.length
+            ? [`${message.attachments.length} attachment(s) — open the ticket to see them.`]
+            : []),
+        ],
+        button: { label: "Open in Admin → Support", url: `${app()}/admin/support/${t.id}` },
         marketing: false,
       });
       return "sent";

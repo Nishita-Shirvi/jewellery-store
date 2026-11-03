@@ -92,8 +92,13 @@ describe("secret box (stored authenticator secrets)", () => {
 });
 
 describe("roles and permissions", () => {
-  it("SUPPORT can look at orders and products, nothing else", () => {
-    expect([...ROLES.SUPPORT.permissions].sort()).toEqual(["orders.view", "products.view"]);
+  it("SUPPORT looks up orders/products and answers customers — no refunds, edits or money", () => {
+    expect([...ROLES.SUPPORT.permissions].sort()).toEqual([
+      "faqs.manage",
+      "orders.view",
+      "products.view",
+      "support.manage",
+    ]);
   });
   it("only OWNER manages staff; MANAGER has everything else", () => {
     for (const key of ROLE_KEYS)

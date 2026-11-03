@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–21 done 2026-11-03 (variants, COD, background jobs, marketing, staff roles). Next: Phase 22 — Customer support. Deploy still waits on client accounts.
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–22 done (variants, COD, background jobs, marketing, staff roles, customer support). Next: Phase 23 — Security, PWA, release. Deploy still waits on client accounts.
 
 ---
 
@@ -35,7 +35,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
 | 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
 | 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA             |
-| 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
+| 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                |
 | 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
 | 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
 | 25    | Recommendations                 | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 22 — Customer support (2026-11-04)
+
+**Done so far:** Phases 1–21 (latest 611e456, staff roles).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 / RESEND_API_KEY for ticket emails to arrive (tickets work without them; emails are logged). WhatsApp button needs a business number.
+**Plan for this phase:** FAQs (/help, searchable, admin-managed); tickets linked to orders with threads, statuses, internal notes, private attachments; support inbox with assignment, filters, saved replies, email alerts, 24 h highlighting; order shortcuts; WhatsApp behind config; support.manage / faqs.manage permissions.
+**Risks:** One customer reading another's ticket or photo (IDOR); internal notes leaking; uploaded files run as pages (SVG/HTML); public file URLs.
+**Git:** after 611e456 on `week3-growth`.
 
 ### Before Phase 21 — Staff roles and permissions (2026-11-03)
 

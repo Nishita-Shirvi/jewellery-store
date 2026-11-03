@@ -15,6 +15,8 @@ export const PERMISSIONS = {
   "reviews.moderate": "Approve or reject reviews",
   "reports.view": "Sales reports, CSV export, marketing stats",
   "jobs.manage": "See and retry failed background jobs",
+  "support.manage": "Read and answer customer support tickets",
+  "faqs.manage": "Edit help-centre FAQs and canned replies",
   "audit.view": "Read the activity log",
   "staff.manage": "Invite staff, change roles, deactivate staff, reset two-step sign-in",
 } as const;
@@ -40,13 +42,21 @@ export const ROLES = {
   },
   ORDER_MANAGER: {
     name: "Order manager",
-    description: "Orders, shipping, returns, refunds and COD",
-    permissions: ["orders.view", "orders.update", "refunds.manage", "cod.manage", "products.view"],
+    description: "Orders, shipping, returns, refunds, COD and support tickets",
+    permissions: [
+      "orders.view",
+      "orders.update",
+      "refunds.manage",
+      "cod.manage",
+      "products.view",
+      "support.manage",
+    ],
   },
   SUPPORT: {
     name: "Support",
-    description: "Looks up orders and products to help customers; can't change them",
-    permissions: ["orders.view", "products.view"],
+    description:
+      "Answers customers (tickets, FAQs); can look up orders and products but not change them",
+    permissions: ["orders.view", "products.view", "support.manage", "faqs.manage"],
   },
 } as const satisfies Record<
   string,
@@ -66,6 +76,8 @@ export const PAGE_PERMISSIONS: { href: string; label: string; permission: Permis
   { href: "/admin/reports", label: "Reports", permission: "reports.view" },
   { href: "/admin/orders", label: "Orders", permission: "orders.view" },
   { href: "/admin/returns", label: "Returns", permission: "orders.view" },
+  { href: "/admin/support", label: "Support", permission: "support.manage" },
+  { href: "/admin/faqs", label: "FAQs", permission: "faqs.manage" },
   { href: "/admin/cod", label: "Cash on delivery", permission: "cod.manage" },
   { href: "/admin/products", label: "Products", permission: "products.view" },
   { href: "/admin/categories", label: "Categories", permission: "products.view" },

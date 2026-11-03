@@ -1,5 +1,16 @@
 # Changelog
 
+## Week 3 — Phase 22: Customer support — 2026-11-04
+
+### Added
+
+- **Help centre** at `/help`: searchable questions and answers, managed in Admin → FAQs.
+- **Support requests:** customers write from their account or an order's new **Get help** button, attach up to two photos/PDFs, follow the conversation and mark it solved. Replies arrive by email.
+- **Admin → Support:** inbox with filters, customers waiting over 24 h highlighted first, assignment, saved replies, internal notes, resolve / reopen.
+- Order page shortcuts: Track parcel, Download invoice, Cancel, Return, Get help.
+- Optional "Chat on WhatsApp" button (`config.ini` → `[support] whatsapp_number`).
+- Support role can now answer tickets and edit FAQs; Order managers can answer tickets.
+
 ## Week 3 — Phase 21: Staff roles and permissions — 2026-11-03
 
 ### Added

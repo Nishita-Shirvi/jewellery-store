@@ -88,6 +88,15 @@ const configSchema = z.object({
     referral_reward_rupees: z.coerce.number().int().min(0).max(100_000).default(500),
     referral_min_order_rupees: z.coerce.number().int().min(0).max(10_000_000).default(2000),
   }),
+  support: z.object({
+    // Where new tickets and customer replies are emailed. Empty = [business] email.
+    notify_email: optionalEmail,
+    // WhatsApp business number with country code, e.g. 919876543210. Empty = no WhatsApp button.
+    whatsapp_number: z
+      .string()
+      .regex(/^[0-9+ ]*$/, "digits only, with country code, e.g. 919876543210")
+      .default(""),
+  }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),
   }),

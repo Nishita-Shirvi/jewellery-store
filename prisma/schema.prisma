@@ -172,6 +172,8 @@ model User {
   referredBy        Referral?          @relation("ReferralReferred")
   cartReminders     CartReminder[]
   staffRoles        UserRole[]
+  supportTickets    SupportTicket[]    @relation("TicketCustomer")
+  assignedTickets   SupportTicket[]    @relation("TicketAssignee")
 
   @@index([role])
 }
@@ -493,6 +495,7 @@ model Order {
   coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
   couponRedemption CouponRedemption?
   refunds          Refund[]
+  supportTickets   SupportTicket[]
 
   @@index([userId, createdAt])
   @@index([status])
@@ -959,6 +962,108 @@ model StaffInvite {
   role StaffRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@index([email])
+}
+
+// ───────────────────── Customer support (Phase 22) ─────────────────
+
+/// Help-centre question and answer, shown at /help when published.
+model Faq {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  /// e.g. "Orders", "Returns", "Jewellery care"
+  category    String   @default("General")
+  position    Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished, category, position])
+}
+
+enum TicketStatus {
+  OPEN // waiting for the store
+  ANSWERED // the store replied; waiting for the customer
+  RESOLVED // done (the customer can reopen by replying)
+}
+
+enum TicketCategory {
+  ORDER
+  DELIVERY
+  RETURN
+  PAYMENT
+  PRODUCT
+  OTHER
+}
+
+model SupportTicket {
+  id                    String         @id @default(cuid())
+  userId                String
+  orderId               String?
+  subject               String
+  category              TicketCategory @default(OTHER)
+  status                TicketStatus   @default(OPEN)
+  assignedToId          String?
+  /// Used for "waiting more than 24 h" and sorting.
+  lastCustomerMessageAt DateTime       @default(now())
+  lastStaffReplyAt      DateTime?
+  resolvedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user        User               @relation("TicketCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo  User?              @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  order       Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+
+  @@index([userId, updatedAt])
+  @@index([status, lastCustomerMessageAt])
+  @@index([assignedToId, status])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String?
+  fromStaff Boolean  @default(false)
+  /// Staff-only note: never shown to the customer.
+  internal  Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket      SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+}
+
+/// Customer photos / documents. Stored privately in the database (never on a public URL) and
+/// served only to the ticket's customer or support staff.
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  messageId   String
+  filename    String
+  /// Detected from the file's bytes, not the browser's claim.
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  ticket  SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+/// Saved answers support staff can insert into a reply.
+model CannedReply {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ───────────────────── Background jobs (Phase 19) ──────────────────

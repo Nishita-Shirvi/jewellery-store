@@ -73,6 +73,23 @@ vi.mock("@/services/refund.service", () => ({
 vi.mock("@/services/cod.service", () => ({ markCashReceived: spy("markCashReceived") }));
 vi.mock("@/services/invoice.service", () => ({ createInvoiceForOrder: spy("createInvoice") }));
 vi.mock("@/services/audit.service", () => ({ audit: auditMock, diff: () => ({}) }));
+vi.mock("@/services/support.service", () => ({
+  SupportError: class extends Error {},
+  readAttachments: async () => [],
+  staffReply: spy("staffReply"),
+  assignTicket: spy("assignTicket"),
+  setTicketStatus: spy("setTicketStatus"),
+  saveFaq: vi.fn(async () => {
+    touched.push("saveFaq");
+    return { id: "f1" };
+  }),
+  deleteFaq: spy("deleteFaq"),
+  saveCannedReply: vi.fn(async () => {
+    touched.push("saveCannedReply");
+    return { id: "c1" };
+  }),
+  deleteCannedReply: spy("deleteCannedReply"),
+}));
 vi.mock("@/services/staff.service", () => ({
   TWO_FACTOR_COOKIE: "staff_2fa",
   StaffError: class extends Error {},
@@ -145,6 +162,18 @@ function validForm() {
     active_abc123: "on",
     reference: "UTR123456",
     jobId: "abc123",
+    ticketId: "abc123",
+    ticketStatus: "RESOLVED",
+    assigneeId: "",
+    faqId: "abc123",
+    question: "How long does delivery take?",
+    answer: "Usually 3 to 5 working days.",
+    position: "0",
+    isPublished: "on",
+    cannedId: "abc123",
+    title: "Delivery times",
+    cannedBody: "Usually 3 to 5 working days.",
+    body: "Thanks for your message — it's on its way.",
     email: "new.staff@example.com",
     role: "SUPPORT",
     userId: "abc123",
@@ -193,6 +222,13 @@ const NEEDS: Record<string, Permission> = {
   reactivateStaffAction: "staff.manage",
   resetStaffTwoFactorAction: "staff.manage",
   revokeInviteAction: "staff.manage",
+  staffReplyTicketAction: "support.manage",
+  assignTicketAction: "support.manage",
+  setTicketStatusAction: "support.manage",
+  saveFaqAction: "faqs.manage",
+  deleteFaqAction: "faqs.manage",
+  saveCannedReplyAction: "faqs.manage",
+  deleteCannedReplyAction: "faqs.manage",
 };
 
 type Action = (...args: unknown[]) => Promise<unknown>;
@@ -247,7 +283,22 @@ describe("admin actions are protected on the server", () => {
     expect(touched).toEqual([]);
   });
 
-  it.each(names)("%s → 403 for SUPPORT (can only look)", async (name) => {
+  const notForSupport = names.filter(
+    (n) => !(ROLES.SUPPORT.permissions as readonly string[]).includes(NEEDS[n]!),
+  );
+  it("SUPPORT can't refund, edit products, change orders or manage staff", () => {
+    for (const n of [
+      "approveReturnAction",
+      "retryRefundAction",
+      "markRefundPaidAction",
+      "saveProductAction",
+      "updateOrderStatusAction",
+      "inviteStaffAction",
+    ])
+      expect(notForSupport).toContain(n);
+  });
+
+  it.each(notForSupport)("%s → 403 for SUPPORT", async (name) => {
     signedInAs(ROLES.SUPPORT.permissions);
     await expect(call(name)).rejects.toBeInstanceOf(ForbiddenError);
     expect(touched).toEqual([]);

@@ -317,12 +317,12 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 22 — Customer support
 
-- [ ] Help centre FAQs managed from admin, searchable
-- [ ] Support tickets linked to orders, with attachments, threads and statuses
-- [ ] Support inbox with assignment, filters, canned replies, email notifications
-- [ ] Order shortcuts: Track, Cancel, Return, Get help
-- [ ] Optional WhatsApp/live chat behind a feature flag
-- [ ] Tickets older than 24h without reply highlighted
+- [x] Help centre FAQs managed from admin, searchable
+- [x] Support tickets linked to orders, with attachments, threads and statuses
+- [x] Support inbox with assignment, filters, canned replies, email notifications
+- [x] Order shortcuts: Track, Cancel, Return, Get help
+- [x] Optional WhatsApp/live chat behind a feature flag (WhatsApp button via `[support] whatsapp_number`; no live chat widget)
+- [x] Tickets older than 24h without reply highlighted
 
 **Done when:** a customer can raise and follow a ticket end to end, support can reply and resolve it, and attachments are stored safely.
 

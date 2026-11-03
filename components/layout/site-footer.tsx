@@ -5,6 +5,7 @@ import { NewsletterForm } from "@/components/marketing/marketing-forms";
 import { NEWSLETTER_CONSENT_TEXT } from "@/services/marketing.service";
 
 const help = [
+  { href: "/help", label: "Help centre" },
   { href: "/shipping-policy", label: "Shipping" },
   { href: "/refund-policy", label: "Refunds and cancellations" },
   { href: "/contact", label: "Contact" },
