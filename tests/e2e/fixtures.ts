@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import type { PrismaClient } from "@prisma/client";
 
 /**
@@ -7,8 +8,13 @@ import type { PrismaClient } from "@prisma/client";
  * running in parallel could change each other's stock.
  */
 
+/** Slugs made in this test process (so each file hides only what it created). */
+const made: string[] = [];
+
 export function uniqueSlug(prefix: string): string {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const slug = `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  made.push(slug);
+  return slug;
 }
 
 /**
@@ -77,4 +83,25 @@ export async function createVariantRing(db: PrismaClient, slug = uniqueSlug("e2e
     }
   }
   return { id: product.id, slug, name: product.name, sku };
+}
+
+/**
+ * Chooses a size / colour the way a person does: clicks the visible button (Playwright scrolls it
+ * into view). Forcing a click on the hidden radio can land on the sticky header instead.
+ */
+export async function pickOption(page: Page, option: string, value: string) {
+  await page.getByRole("group", { name: option }).getByText(value, { exact: true }).click();
+}
+
+/**
+ * Hides the products this test file made, so they don't fill the shop listings other tests
+ * browse. Hidden, not deleted: orders may point at them. Only this process's own products, so a
+ * file finishing never hides a product another file is still using.
+ */
+export async function hideTestProducts(db: PrismaClient) {
+  if (made.length === 0) return;
+  await db.product.updateMany({
+    where: { slug: { in: made.splice(0) } },
+    data: { isActive: false },
+  });
 }

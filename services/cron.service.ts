@@ -11,6 +11,8 @@ export async function cronTick(extra: { lowStock?: boolean } = {}) {
   // Active-only dedupe keys: a tick never queues a second copy while one is waiting.
   await enqueue("reservations.release", {}, { dedupeKey: "reservations:release", maxAttempts: 3 });
   if (extra.lowStock) await enqueue("alerts.low_stock", {}, { dedupeKey: "alerts:low-stock" });
+  // Cart reminders, back-in-stock emails, referral rewards (Phase 20).
+  await enqueue("marketing.scan", {}, { dedupeKey: "marketing:scan", maxAttempts: 3 });
   const summary = await runDueJobs({ limit: 100, budgetMs: 45_000 });
   const pruned = await pruneDoneJobs(30);
   logger.info("cron.tick", { ...summary, pruned });

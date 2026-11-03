@@ -68,6 +68,26 @@ const configSchema = z.object({
     // SMS one-time code before every COD order. Needs MSG91 (see INTEGRATIONS.md).
     otp_required: bool.default(true),
   }),
+  marketing: z.object({
+    abandoned_cart: bool.default(true),
+    abandoned_first_minutes: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 60)
+      .default(60),
+    abandoned_second_hours: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(14 * 24)
+      .default(24),
+    // Percent off in the second reminder, as a single-use coupon for that customer. 0 = none.
+    abandoned_coupon_percent: z.coerce.number().int().min(0).max(50).default(0),
+    // Coupon (₹) for the referrer after the friend's first delivered order. 0 = referrals off.
+    referral_reward_rupees: z.coerce.number().int().min(0).max(100_000).default(500),
+    referral_min_order_rupees: z.coerce.number().int().min(0).max(10_000_000).default(2000),
+  }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),
   }),

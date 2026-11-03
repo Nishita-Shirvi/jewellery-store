@@ -34,6 +34,8 @@ export const JOB_TYPES = [
   "webhook.shiprocket",
   "alerts.low_stock",
   "reservations.release",
+  "email.marketing",
+  "marketing.scan",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

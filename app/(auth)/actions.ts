@@ -1,6 +1,8 @@
 "use server";
 
-import { headers } from "next/headers";
+import { REFERRAL_COOKIE, linkReferral } from "@/services/marketing.service";
+
+import { headers, cookies } from "next/headers";
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { logger } from "@/lib/logger";
@@ -76,7 +78,16 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
   }
 
   try {
-    await registerUser(parsed.data);
+    const user = await registerUser(parsed.data);
+    // Signed up through a friend's referral link (/r/CODE)? Never blocks the sign-up.
+    const jar = await cookies();
+    const ref = jar.get(REFERRAL_COOKIE)?.value;
+    if (ref) {
+      await linkReferral(user.id, ref).catch((error) =>
+        logger.warn("auth.referral_link_failed", { error }),
+      );
+      jar.delete(REFERRAL_COOKIE);
+    }
   } catch (error) {
     if (error instanceof EmailAlreadyRegisteredError) {
       return { fieldErrors: { email: [error.message] }, values };

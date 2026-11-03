@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { VariantPurchase } from "@/components/catalog/variant-purchase";
+import { NotifyMe } from "@/components/marketing/marketing-forms";
 import { PincodeChecker } from "@/components/catalog/pincode-checker";
 import { WishlistButton } from "@/components/wishlist/wishlist-button";
 import { ReviewSection } from "@/components/reviews/review-section";
@@ -143,6 +144,7 @@ export default async function ProductPage({
                 productId={product.id}
                 options={product.options}
                 variants={product.variants}
+                viewerEmail={viewer?.email}
               />
             </div>
           ) : (
@@ -157,6 +159,11 @@ export default async function ProductPage({
                   variantId={base?.id}
                   stock={base ? base.available : 0}
                 />
+                {base && base.available === 0 && (
+                  <div className="mt-4">
+                    <NotifyMe variantId={base.id} email={viewer?.email} />
+                  </div>
+                )}
               </div>
             </>
           )}

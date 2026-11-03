@@ -145,6 +145,8 @@ model User {
   /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
   /// [cod] max_refusals in config.ini.
   codRefusals   Int       @default(0)
+  /// Personal referral code (Phase 20), created the first time the customer opens it.
+  referralCode  String?   @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -157,6 +159,9 @@ model User {
   addresses         Address[]
   orders            Order[]
   otpChallenges     OtpChallenge[]
+  referralsMade     Referral[]         @relation("ReferralReferrer")
+  referredBy        Referral?          @relation("ReferralReferred")
+  cartReminders     CartReminder[]
 
   @@index([role])
 }
@@ -363,6 +368,7 @@ model ProductVariant {
   optionValues VariantOptionValue[]
   cartItems    CartItem[]
   orderItems   OrderItem[]
+  stockAlerts  StockAlert[]
 
   @@unique([productId, optionKey])
   @@index([productId, isActive])
@@ -566,6 +572,10 @@ model Coupon {
   perUserLimit       Int?       @default(1)
   /// Paid orders that used this coupon (updated inside the payment transaction).
   usedCount          Int        @default(0)
+  /// Only this customer may use it (personal reward / reminder coupons, Phase 20).
+  assignedUserId     String?
+  /// e.g. "abandoned_cart", "referral" — for campaign stats. Null = made by an admin.
+  campaign           String?
   isActive           Boolean    @default(true)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -787,6 +797,94 @@ model FunnelDaily {
   count Int    @default(0)
 
   @@id([day, event])
+}
+
+// ───────────────────── Marketing (Phase 20) ──────────────────────
+
+enum SubscriberStatus {
+  PENDING // signed up, confirmation email sent (double opt-in)
+  SUBSCRIBED // clicked the confirmation link
+  UNSUBSCRIBED // asked to stop — also blocks cart reminders and any other marketing email
+}
+
+/// One row per email address: newsletter consent and the marketing "do not email" list.
+model Subscriber {
+  id             String           @id @default(cuid())
+  /// Lower case.
+  email          String           @unique
+  status         SubscriberStatus @default(PENDING)
+  /// Hash of the confirmation token (the token itself is only in the email).
+  confirmHash    String?
+  /// When and how consent was given, and the wording shown (proof of consent).
+  consentAt      DateTime?
+  consentSource  String?
+  consentText    String?
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+}
+
+/// One reminder email about a cart left behind. `cartVersion` is the time of the last cart change,
+/// so a cart that changes again gets a fresh pair of reminders, and each step is sent once.
+model CartReminder {
+  id          String    @id @default(cuid())
+  userId      String
+  cartVersion DateTime
+  /// 1 = after an hour, 2 = after a day
+  step        Int
+  couponCode  String?
+  sentAt      DateTime  @default(now())
+  /// The customer ordered within 7 days of this reminder.
+  recoveredAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cartVersion, step])
+  @@index([sentAt])
+}
+
+/// "Email me when this is back in stock" for one variant.
+model StockAlert {
+  id         String    @id @default(cuid())
+  /// Lower case.
+  email      String
+  userId     String?
+  productId  String
+  variantId  String
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([email, variantId])
+  @@index([notifiedAt, variantId])
+}
+
+enum ReferralStatus {
+  PENDING // friend signed up, no delivered order yet
+  REWARDED // friend's first order was delivered; referrer got a coupon
+  VOID // looked like a self-referral
+}
+
+model Referral {
+  id             String         @id @default(cuid())
+  referrerId     String
+  /// A customer can only ever be referred once.
+  referredUserId String         @unique
+  status         ReferralStatus @default(PENDING)
+  rewardCode     String?
+  voidReason     String?
+  createdAt      DateTime       @default(now())
+  decidedAt      DateTime?
+
+  referrer User @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferralReferred", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([status])
 }
 
 // ───────────────────── Background jobs (Phase 19) ──────────────────

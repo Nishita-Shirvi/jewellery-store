@@ -106,6 +106,9 @@ async function unreserveLines(tx: Tx, lines: ReserveLine[]): Promise<void> {
 
 /** Puts units back on the shelf (cancelled paid order, approved return). */
 export async function restockLines(tx: Tx, lines: ReserveLine[]): Promise<void> {
+  // Anyone waiting for these pieces gets their "back in stock" email soon (Phase 20).
+  const { nudgeStockAlerts } = await import("@/services/marketing.service");
+  await nudgeStockAlerts(tx);
   const real = lines.filter((l) => l.quantity > 0);
   for (const line of lockOrder(real)) {
     await tx.$executeRaw`

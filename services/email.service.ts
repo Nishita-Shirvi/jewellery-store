@@ -7,6 +7,8 @@ interface EmailMessage {
   subject: string;
   html: string;
   text: string;
+  /** e.g. List-Unsubscribe for marketing emails. */
+  headers?: Record<string, string>;
 }
 
 /** Sends through Resend's HTTP API. Without RESEND_API_KEY the email is only logged. */

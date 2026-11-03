@@ -143,12 +143,12 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Webhooks queued; dead-letter view with retry
 - [x] Caching (Next.js data cache, cleared on admin edits — no Redis)
 
-### 20. Abandoned cart & marketing
+### 20. Abandoned cart & marketing ✅
 
-- [ ] Abandoned cart emails (1h / 24h)
-- [ ] Newsletter with double opt-in
-- [ ] Back-in-stock alerts
-- [ ] Referral codes, campaign stats
+- [x] Abandoned cart emails (1h / 24h)
+- [x] Newsletter with double opt-in
+- [x] Back-in-stock alerts
+- [x] Referral codes, campaign stats
 
 ### 21. Staff roles & permissions
 

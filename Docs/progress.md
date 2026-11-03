@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17 (variants), 18 (cash on delivery) and 19 (background jobs) done 2026-11-03. Next: Phase 20 — Abandoned cart and marketing. Deploy still waits on client accounts.
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–20 done 2026-11-03 (variants, cash on delivery, background jobs, marketing). Next: Phase 21 — Staff roles and permissions. Deploy still waits on client accounts.
 
 ---
 
@@ -33,7 +33,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
 | 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
 | 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
-| 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
+| 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
 | 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
 | 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
 | 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 20 — Abandoned cart and marketing (2026-11-03)
+
+**Done so far:** Phases 1–19 (latest 598d865, background jobs).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 (domain + SPF/DKIM/DMARC) before marketing emails go to real customers — otherwise they land in spam. B-09/legal: privacy policy should mention newsletter, reminders and referrals (Phase 27).
+**Plan for this phase:** One subscriber/"do not email" list with double opt-in and signed unsubscribe links; cart reminders at 1 h / 24 h with optional personal coupon; back-in-stock alerts; referral links with a reward coupon after the friend's first delivered order; personal coupons; admin campaign stats. All emails through the Phase 19 job queue.
+**Risks:** Emailing people who unsubscribed; reminders sent twice or after a purchase; mail scanners "clicking" confirm/unsubscribe links; self-referrals; reward coupons used by others or issued twice.
+**Git:** after 598d865 on `week3-growth`.
 
 ### Before Phase 19 — Background jobs (2026-11-03)
 

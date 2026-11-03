@@ -7,6 +7,7 @@ import { slugify, type ProductFormInput } from "@/lib/validation/admin";
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { reindexSearchText } from "@/services/search.service";
 import { syncProductSummaries } from "@/services/inventory.service";
+import { nudgeStockAlerts } from "@/services/marketing.service";
 
 export const ADMIN_PAGE_SIZE = 20;
 
@@ -153,6 +154,7 @@ export async function updateProduct(id: string, input: ProductFormInput, adminId
       return saved;
     });
     revalidateTag(CATALOG_TAG);
+    await nudgeStockAlerts();
     await reindexSearchText({ productId: id });
     logger.info("admin.product_updated", { adminId, productId: id });
     return product;
@@ -219,6 +221,7 @@ export async function setProductStock(id: string, stock: number, adminId: string
     await syncProductSummaries(tx, [id]);
   });
   revalidateTag(CATALOG_TAG);
+  await nudgeStockAlerts();
   logger.info("admin.product_stock_changed", { adminId, productId: id, stock });
 }
 

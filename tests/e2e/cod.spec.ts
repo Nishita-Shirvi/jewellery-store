@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { createVariantRing, uniqueSlug } from "./fixtures";
+import { createVariantRing, pickOption, uniqueSlug, hideTestProducts } from "./fixtures";
 
 /**
  * Phase 18 "done when": a COD order goes placed → shipped → delivered → paid, and COD is blocked
@@ -10,6 +10,7 @@ import { createVariantRing, uniqueSlug } from "./fixtures";
 
 const db = new PrismaClient();
 test.afterAll(async () => {
+  await hideTestProducts(db);
   await db.$disconnect();
 });
 
@@ -18,7 +19,7 @@ async function registerAndAddAddress(page: Page, name: string, mobile: string) {
   await page.getByRole("link", { name: "Create an account" }).click();
   await page.getByLabel("Full name").fill(name);
   await page
-    .getByLabel("Email")
+    .getByLabel("Email", { exact: true })
     .fill(`cod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@example.com`);
   await page.getByLabel("Password", { exact: true }).fill("Playwright2026");
   await page.getByLabel("Confirm password").fill("Playwright2026");
@@ -111,7 +112,7 @@ test("cash on delivery: placed with an SMS code → shipped → delivered → ca
   });
   await page.context().clearCookies();
   await page.goto("/login");
-  await page.getByLabel("Email").fill(adminEmail);
+  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
   await page.getByLabel("Password").fill("E2eAdminPass2026");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
@@ -151,8 +152,8 @@ test("COD is refused above the limit, with the reason shown", async ({ page }) =
   const ring = await createVariantRing(db); // ₹30,000 for size 12 — far above the ₹10,000 COD limit
   await page.goto(`/products/${ring.slug}`);
   await page.waitForLoadState("networkidle");
-  await page.getByRole("radio", { name: "12" }).check({ force: true });
-  await page.getByRole("radio", { name: "Yellow" }).check({ force: true });
+  await pickOption(page, "Ring size", "12");
+  await pickOption(page, "Metal colour", "Yellow");
   await page.getByRole("button", { name: "Add to cart" }).click();
   await expect(page.getByText("Added to cart.")).toBeVisible();
   await page.goto("/cart");

@@ -297,11 +297,11 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 20 — Abandoned cart and marketing
 
-- [ ] Abandoned cart emails at 1h and 24h (optional single-use coupon); stop on purchase or unsubscribe
-- [ ] Newsletter with double opt-in, unsubscribe link, consent stored with timestamp
-- [ ] Back-in-stock "Notify me" emails
-- [ ] Referral codes with reward after the referred user's first delivered order; no self-referral
-- [ ] Campaign stats in admin
+- [x] Abandoned cart emails at 1h and 24h (optional single-use coupon); stop on purchase or unsubscribe
+- [x] Newsletter with double opt-in, unsubscribe link, consent stored with timestamp
+- [x] Back-in-stock "Notify me" emails
+- [x] Referral codes with reward after the referred user's first delivered order; no self-referral
+- [x] Campaign stats in admin
 
 **Done when:** the abandoned-cart sequence works with short test timers, unsubscribe is honoured, and back-in-stock emails fire on restock.
 

@@ -95,6 +95,29 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
     await sendLowStockAlert();
   },
 
+  "email.marketing": async (payload) => {
+    const p = parse(
+      z.discriminatedUnion("kind", [
+        z.object({
+          kind: z.literal("newsletter_confirm"),
+          to: z.email(),
+          token: z.string().min(20).max(64),
+        }),
+        z.object({ kind: z.literal("cart_reminder"), reminderId: id }),
+        z.object({ kind: z.literal("back_in_stock"), alertId: id }),
+        z.object({ kind: z.literal("referral_reward"), referralId: id }),
+      ]),
+      payload,
+    );
+    const { deliverMarketingEmail } = await import("@/services/marketing-email.service");
+    await deliverMarketingEmail(p);
+  },
+
+  "marketing.scan": async () => {
+    const { runMarketingScan } = await import("@/services/marketing.service");
+    await runMarketingScan();
+  },
+
   "reservations.release": async () => {
     const { releaseExpiredReservations } = await import("@/services/inventory.service");
     const result = await releaseExpiredReservations();

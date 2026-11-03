@@ -19,6 +19,8 @@ const behaviour = vi.hoisted(() => ({
   failFor: new Set<string>(),
   permanentFor: new Set<string>(),
   slowMs: 0,
+  /** When set, the handler waits until it's resolved (lets a test hold a job "running"). */
+  gate: null as Promise<void> | null,
 }));
 vi.mock("@/services/job-handlers", async () => {
   const { PermanentJobError } = await import("@/services/jobs.service");
@@ -26,6 +28,7 @@ vi.mock("@/services/job-handlers", async () => {
     runJobHandler: async (_type: string, payload: { key: string }) => {
       runs.set(payload.key, (runs.get(payload.key) ?? 0) + 1);
       if (behaviour.slowMs) await new Promise((r) => setTimeout(r, behaviour.slowMs));
+      if (behaviour.gate) await behaviour.gate;
       if (behaviour.permanentFor.has(payload.key)) throw new PermanentJobError("can't ever work");
       if (behaviour.failFor.has(payload.key)) throw new Error(`boom ${payload.key}`);
     },
@@ -47,6 +50,7 @@ beforeEach(async () => {
   behaviour.failFor.clear();
   behaviour.permanentFor.clear();
   behaviour.slowMs = 0;
+  behaviour.gate = null;
   // Only this file's jobs exist while it runs: older leftovers would be picked up by runDueJobs.
   await db.job.deleteMany({});
 });
@@ -198,13 +202,23 @@ describe("running", () => {
 
   it("button jobs: a second click while running doesn't run the work twice", async () => {
     const k = key();
-    behaviour.slowMs = 200;
-    const [r1, r2] = await Promise.all([
-      jobs.enqueueAndRunNow("shipment.create", { key: k }, `ship:${k}`),
-      jobs.enqueueAndRunNow("shipment.create", { key: k }, `ship:${k}`),
-    ]);
+    // Hold the first run open until the second click has been answered (no timing guesswork).
+    let release!: () => void;
+    behaviour.gate = new Promise<void>((r) => (release = r));
+    const first = jobs.enqueueAndRunNow("shipment.create", { key: k }, `ship:${k}`);
+    for (let i = 0; i < 200 && !runs.get(k); i++) await new Promise((r) => setTimeout(r, 10));
+    expect(runs.get(k)).toBe(1); // first is running now
+    const second = await jobs.enqueueAndRunNow("shipment.create", { key: k }, `ship:${k}`);
+    expect(second.outcome).toBe("busy");
+    release();
+    expect((await first).outcome).toBe("done");
     expect(runs.get(k)).toBe(1);
-    expect([r1.outcome, r2.outcome].sort()).toEqual(["busy", "done"].sort());
+    // A click AFTER it finished is a new request and runs again (e.g. retry after a failure).
+    behaviour.gate = null;
+    expect((await jobs.enqueueAndRunNow("shipment.create", { key: k }, `ship:${k}`)).outcome).toBe(
+      "done",
+    );
+    expect(runs.get(k)).toBe(2);
   });
 
   it("old finished jobs are pruned; failed ones are kept", async () => {

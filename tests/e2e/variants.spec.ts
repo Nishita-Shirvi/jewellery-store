@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { createVariantRing } from "./fixtures";
+import { createVariantRing, pickOption, hideTestProducts } from "./fixtures";
 
 /**
  * Phase 17 "done when": a product with 3 sizes × 2 colours can be bought per variant, and stock
@@ -28,6 +28,7 @@ test.beforeAll(async () => {
   ring = await createVariantRing(db);
 });
 test.afterAll(async () => {
+  await hideTestProducts(db);
   await db.$disconnect();
 });
 
@@ -51,12 +52,12 @@ test("buy two different variants of one ring; stock drops only for those variant
   await page.waitForLoadState("networkidle");
 
   // Sold-out combination can't be bought.
-  await page.getByRole("radio", { name: "14" }).check({ force: true });
-  await page.getByRole("radio", { name: "Rose" }).check({ force: true });
+  await pickOption(page, "Ring size", "14");
+  await pickOption(page, "Metal colour", "Rose");
   await expect(page.getByRole("button", { name: "Out of stock" })).toBeDisabled();
 
   // Size 12 / Rose × 2: price and SKU follow the choice.
-  await page.getByRole("radio", { name: "12" }).check({ force: true });
+  await pickOption(page, "Ring size", "12");
   await expect(page.getByTestId("variant-price")).toHaveText("₹30,000");
   await expect(page.getByTestId("variant-details")).toContainText(SKU("12", "ROSE"));
   await expect(page.getByTestId("variant-details")).toContainText("rose gold");
@@ -65,8 +66,8 @@ test("buy two different variants of one ring; stock drops only for those variant
   await expect(page.getByText("Added to cart.")).toBeVisible();
 
   // Size 10 / Yellow × 1
-  await page.getByRole("radio", { name: "10" }).check({ force: true });
-  await page.getByRole("radio", { name: "Yellow" }).check({ force: true });
+  await pickOption(page, "Ring size", "10");
+  await pickOption(page, "Metal colour", "Yellow");
   await expect(page.getByTestId("variant-price")).toHaveText("₹28,500");
   await page.getByRole("button", { name: "Add to cart" }).click();
   await expect(page.getByText("Added to cart.")).toBeVisible();
@@ -81,11 +82,12 @@ test("buy two different variants of one ring; stock drops only for those variant
   await page.getByRole("link", { name: "Proceed to checkout" }).click();
   await page.getByRole("link", { name: "Create an account" }).click();
   await page.getByLabel("Full name").fill("Variant Buyer");
-  await page.getByLabel("Email").fill(`variant-${Date.now()}@example.com`);
+  await page.getByLabel("Email", { exact: true }).fill(`variant-${Date.now()}@example.com`);
   await page.getByLabel("Password", { exact: true }).fill("Playwright2026");
   await page.getByLabel("Confirm password").fill("Playwright2026");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/checkout$/);
+  // Password hashing + sign-in can be slow while other browser tests run in parallel.
+  await expect(page).toHaveURL(/\/checkout$/, { timeout: 20_000 });
   await page.waitForLoadState("networkidle");
   await page.getByLabel("Full name").fill("Variant Buyer");
   await page.getByLabel("Mobile number").fill("9876501234");
@@ -173,7 +175,7 @@ test("admin: add sizes to a product, bulk-set stock, bad SKU refused", async ({ 
     },
   });
   await page.goto("/login");
-  await page.getByLabel("Email").fill(adminEmail);
+  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
   await page.getByLabel("Password").fill("E2eAdminPass2026");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));

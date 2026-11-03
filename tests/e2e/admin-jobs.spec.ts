@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { uniqueSlug } from "./fixtures";
+import { uniqueSlug, hideTestProducts } from "./fixtures";
 
 /**
  * Phase 19: the store's cached product page shows an admin's edit straight away (cache cleared
@@ -10,6 +10,7 @@ import { uniqueSlug } from "./fixtures";
 
 const db = new PrismaClient();
 test.afterAll(async () => {
+  await hideTestProducts(db);
   await db.$disconnect();
 });
 
@@ -49,7 +50,7 @@ test("admin edits a product → the cached store page shows it at once; Jobs pag
       payload: { orderId: "e2ejoborder01", event: "shipped" },
       status: "DEAD",
       attempts: 6,
-      lastError: "Resend responded 401: invalid API key",
+      lastError: `Resend responded 401: invalid API key (${slug})`,
       finishedAt: new Date(),
     },
   });
@@ -67,7 +68,7 @@ test("admin edits a product → the cached store page shows it at once; Jobs pag
     },
   });
   await page.goto("/login");
-  await page.getByLabel("Email").fill(adminEmail);
+  await page.getByLabel("Email", { exact: true }).fill(adminEmail);
   await page.getByLabel("Password").fill("E2eAdminPass2026");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL((url) => !url.pathname.startsWith("/login"));
@@ -82,7 +83,7 @@ test("admin edits a product → the cached store page shows it at once; Jobs pag
 
   await page.goto("/admin/jobs");
   await expect(page.getByRole("heading", { name: "Background jobs" })).toBeVisible();
-  const row = page.getByTestId("dead-job").filter({ hasText: "invalid API key" });
+  const row = page.getByTestId("dead-job").filter({ hasText: slug });
   await expect(row).toBeVisible();
   await expect(row).toContainText("Order #E2EJOB01".slice(0, 6)); // "Order "
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## Week 3 — Phase 20: Abandoned cart and marketing — 2026-11-03
+
+### Added
+
+- **Cart reminders** to signed-in customers after 1 hour and 24 hours (optional single-use coupon in the second). Stop as soon as they order or unsubscribe.
+- **Newsletter** sign-up in the footer with double opt-in; consent saved with time and wording. Every marketing email has an unsubscribe link (and one-click unsubscribe in Gmail/Outlook).
+- **"Notify me"** on sold-out pieces and sizes; one email when it's back.
+- **Referrals:** each customer's link on their account page; a reward coupon after a friend's first delivered order; self-referrals (shared phone number) are voided.
+- **Admin → Marketing:** subscribers, reminders and recovered orders, back-in-stock, referrals and coupon use.
+- Personal coupons that only their owner can use.
+
 ## Week 3 — Phase 19: Background jobs — 2026-11-03
 
 ### Added

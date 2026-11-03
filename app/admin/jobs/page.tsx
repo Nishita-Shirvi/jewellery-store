@@ -19,6 +19,8 @@ const TYPE_LABEL: Record<string, string> = {
   "webhook.shiprocket": "Courier tracking event",
   "alerts.low_stock": "Low-stock email",
   "reservations.release": "Release expired stock holds",
+  "email.marketing": "Marketing email",
+  "marketing.scan": "Cart reminders / back-in-stock / referrals",
 };
 
 /** What the job was about, for people (order number when there is one). */

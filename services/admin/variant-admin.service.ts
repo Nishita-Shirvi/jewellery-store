@@ -16,6 +16,7 @@ import {
 import { AdminInputError } from "@/services/admin/product-admin.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { syncProductSummaries } from "@/services/inventory.service";
+import { nudgeStockAlerts } from "@/services/marketing.service";
 
 /**
  * Admin side of product variants (Phase 17).
@@ -280,6 +281,7 @@ export async function bulkUpdateVariants(
     throw error;
   }
   revalidateTag(CATALOG_TAG);
+  await nudgeStockAlerts();
   logger.info("admin.variants_updated", {
     adminId,
     productId,

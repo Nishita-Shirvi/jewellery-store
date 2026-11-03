@@ -19,9 +19,10 @@ vi.mock("next/headers", () => ({
 }));
 
 /** The email provider: slow (2 s) and failing unless told otherwise. */
-const mail = vi.hoisted(() => ({ ok: false, delayMs: 2000, sent: [] as string[] }));
+const mail = vi.hoisted(() => ({ ok: false, delayMs: 2000, calls: 0, sent: [] as string[] }));
 vi.stubGlobal("fetch", async (url: string, init?: { body?: string }) => {
   if (String(url).startsWith("https://api.resend.com")) {
+    mail.calls++;
     await new Promise((r) => setTimeout(r, mail.delayMs));
     if (!mail.ok) return new Response("provider down", { status: 503 });
     mail.sent.push(JSON.parse(init?.body ?? "{}").subject);
@@ -135,7 +136,7 @@ afterAll(async () => {
 describe("payment never waits for email or the invoice", () => {
   it("paying takes well under the email provider's 2 s and succeeds while email is down", async () => {
     const o = await pendingOrder();
-    const started = Date.now();
+    const callsBefore = mail.calls;
     const result = await markOrderPaid({
       razorpayOrderId: o.rzpOrderId,
       razorpayPaymentId: `pay_${RUN}a1`,
@@ -144,7 +145,8 @@ describe("payment never waits for email or the invoice", () => {
       source: "callback",
     });
     expect(result.outcome).toBe("paid");
-    expect(Date.now() - started).toBeLessThan(1500);
+    // Payment never touched the (slow, failing) email provider: it only queued the email.
+    expect(mail.calls - callsBefore).toBe(0);
     // Both follow-ups were queued in the payment transaction.
     expect((await jobsFor(o.orderId)).map((j) => j.type)).toEqual([
       "email.order",
@@ -322,7 +324,10 @@ describe("webhooks: save, queue, process in the background", () => {
   });
 
   it("a job with an unknown type or a broken payload goes DEAD at once", async () => {
-    await db.job.create({ data: { type: "nonsense.job", payload: {} } });
+    // Explicit runAt (like enqueue() does): a DB-default "now" can round up past the run's clock.
+    await db.job.create({
+      data: { type: "nonsense.job", payload: {}, runAt: new Date(Date.now() - 1000) },
+    });
     await jobs.enqueue("invoice.create", { orderId: "x y z" });
     await jobs.runDueJobs();
     expect(await db.job.count({ where: { status: "DEAD", attempts: 1 } })).toBe(2);

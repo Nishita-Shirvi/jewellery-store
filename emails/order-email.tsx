@@ -22,6 +22,8 @@ export interface OrderEmailProps {
   total?: string;
   button?: { label: string; url: string };
   footer: string;
+  /** Marketing emails: a visible unsubscribe link (required). */
+  unsubscribeUrl?: string;
 }
 
 export function OrderEmail(p: OrderEmailProps) {
@@ -87,6 +89,14 @@ export function OrderEmail(p: OrderEmailProps) {
           )}
           <Hr style={{ margin: "24px 0", borderColor: "#eee" }} />
           <Text style={{ fontSize: 12, color: "#777" }}>{p.footer}</Text>
+          {p.unsubscribeUrl ? (
+            <Text style={{ fontSize: 12, color: "#777" }}>
+              Don&apos;t want these emails?{" "}
+              <a href={p.unsubscribeUrl} style={{ color: "#777" }}>
+                Unsubscribe
+              </a>
+            </Text>
+          ) : null}
         </Container>
       </Body>
     </Html>

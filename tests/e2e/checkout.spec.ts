@@ -42,11 +42,12 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fcheckout/);
   await page.getByRole("link", { name: "Create an account" }).click();
   await page.getByLabel("Full name").fill("Playwright Buyer");
-  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill("Playwright2026");
   await page.getByLabel("Confirm password").fill("Playwright2026");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/checkout$/);
+  // Password hashing + sign-in can be slow while other browser tests run in parallel.
+  await expect(page).toHaveURL(/\/checkout$/, { timeout: 20_000 });
   await expect(page.getByTestId("checkout-total")).toHaveText("₹4,400");
   await page.waitForLoadState("networkidle");
 

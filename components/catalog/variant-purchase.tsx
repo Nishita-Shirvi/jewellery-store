@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AddToCart } from "@/components/cart/add-to-cart";
+import { NotifyMe } from "@/components/marketing/marketing-forms";
 import { formatINR } from "@/lib/format";
 import { stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
@@ -18,10 +19,12 @@ export function VariantPurchase({
   productId,
   options,
   variants,
+  viewerEmail,
 }: {
   productId: string;
   options: OptionView[];
   variants: VariantView[];
+  viewerEmail?: string | null;
 }) {
   const first = variants.find((v) => v.available > 0) ?? variants[0];
   const [chosen, setChosen] = useState<Record<string, string>>(() => {
@@ -65,7 +68,7 @@ export function VariantPurchase({
                 <label
                   key={val.id}
                   className={cn(
-                    "cursor-pointer rounded-md border px-3 py-1.5 text-sm has-[:focus-visible]:ring-2",
+                    "relative cursor-pointer rounded-md border px-3 py-1.5 text-sm has-[:focus-visible]:ring-2",
                     active ? "border-foreground bg-foreground text-background" : "border-input",
                     !buyable && !active && "text-muted-foreground line-through",
                   )}
@@ -108,6 +111,9 @@ export function VariantPurchase({
         variantId={selected?.id}
         stock={selected?.available ?? 0}
       />
+      {selected && selected.available === 0 && (
+        <NotifyMe key={selected.id} variantId={selected.id} email={viewerEmail} />
+      )}
     </div>
   );
 }
