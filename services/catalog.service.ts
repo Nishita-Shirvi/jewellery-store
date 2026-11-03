@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
 import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
+import { variantJewellery } from "@/lib/variants";
 import { PAGE_SIZE, slugSchema, type ProductListQuery } from "@/lib/validation/catalog";
 import type {
   CategorySummary,
@@ -176,6 +177,32 @@ export const getProductBySlug = unstable_cache(
         huid: true,
         isReturnable: true,
         category: { select: { name: true, slug: true } },
+        options: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            name: true,
+            values: { orderBy: { position: "asc" }, select: { id: true, value: true } },
+          },
+        },
+        variants: {
+          where: { isActive: true },
+          orderBy: [{ position: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            sku: true,
+            label: true,
+            priceInPaise: true,
+            stock: true,
+            reservedStock: true,
+            images: true,
+            netWeightMg: true,
+            grossWeightMg: true,
+            purity: true,
+            metalColour: true,
+            optionValues: { select: { optionValueId: true } },
+          },
+        },
       },
     });
     if (!row) return null;
@@ -195,6 +222,19 @@ export const getProductBySlug = unstable_cache(
       huid: row.huid,
       isReturnable: row.isReturnable,
       category: row.category,
+      options: row.options.filter((o) => o.values.length > 0),
+      variants: row.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        label: v.label,
+        priceInPaise: v.priceInPaise,
+        available: availableStock(v),
+        images: v.images,
+        netWeightMg: v.netWeightMg,
+        grossWeightMg: v.grossWeightMg,
+        materialSummary: materialSummary(variantJewellery(row, v)),
+        optionValueIds: v.optionValues.map((o) => o.optionValueId),
+      })),
     };
   },
   ["catalog:product"],

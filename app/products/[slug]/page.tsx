@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AddToCart } from "@/components/cart/add-to-cart";
+import { VariantPurchase } from "@/components/catalog/variant-purchase";
 import { PincodeChecker } from "@/components/catalog/pincode-checker";
 import { WishlistButton } from "@/components/wishlist/wishlist-button";
 import { ReviewSection } from "@/components/reviews/review-section";
@@ -67,9 +68,14 @@ export default async function ProductPage({
       `${metalLabel[product.metalType]} (${colourLabel[product.metalColour].toLowerCase()})`,
     ],
     ["Purity", purityLabel[product.purity]],
-    ["Net weight", formatWeight(product.netWeightMg)],
   ];
-  if (product.grossWeightMg) details.push(["Gross weight", formatWeight(product.grossWeightMg)]);
+  // With options (sizes…), weight differs per variant and is shown next to the picker instead.
+  const hasOptions = product.options.length > 0;
+  const base = product.variants[0];
+  if (!hasOptions) {
+    details.push(["Net weight", formatWeight(product.netWeightMg)]);
+    if (product.grossWeightMg) details.push(["Gross weight", formatWeight(product.grossWeightMg)]);
+  }
   if (product.gemstone) details.push(["Stones", product.gemstone]);
   if (product.huid) details.push(["BIS hallmark (HUID)", product.huid]);
   details.push([
@@ -131,13 +137,29 @@ export default async function ProductPage({
               </span>
             </a>
           )}
-          <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
-          <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
-          <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
+          {hasOptions ? (
+            <div className="mt-5">
+              <VariantPurchase
+                productId={product.id}
+                options={product.options}
+                variants={product.variants}
+              />
+            </div>
+          ) : (
+            <>
+              <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
+              <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
+              <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 
-          <div className="mt-6">
-            <AddToCart productId={product.id} stock={product.stock} />
-          </div>
+              <div className="mt-6">
+                <AddToCart
+                  productId={product.id}
+                  variantId={base?.id}
+                  stock={base ? base.available : 0}
+                />
+              </div>
+            </>
+          )}
           <div className="mt-4">
             <WishlistButton productId={product.id} slug={product.slug} initial={saved} />
           </div>

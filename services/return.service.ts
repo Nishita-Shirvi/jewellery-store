@@ -13,18 +13,18 @@ import {
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { sendOrderUpdateEmail } from "@/services/email.service";
 import { createRefundRecord, issueRefund } from "@/services/refund.service";
+import { restockLines } from "@/services/inventory.service";
+import { lineName } from "@/lib/variants";
 
 export class ReturnError extends Error {}
 
 type Tx = Prisma.TransactionClient;
 
-async function restockItems(tx: Tx, items: { productId: string; quantity: number }[]) {
-  for (const item of items) {
-    await tx.product.update({
-      where: { id: item.productId },
-      data: { stock: { increment: item.quantity } },
-    });
-  }
+async function restockItems(
+  tx: Tx,
+  items: { productId: string; variantId: string; quantity: number }[],
+) {
+  await restockLines(tx, items); // per variant, product summary re-synced in the same transaction
 }
 
 // ───────────────────────── Cancellations ─────────────────────────
@@ -51,7 +51,7 @@ export async function cancelPaidOrder(input: {
   const order = await db.order.findFirst({
     where: { id: input.orderId, ...(input.userId ? { userId: input.userId } : {}) },
     include: {
-      items: { select: { id: true, productId: true, quantity: true } },
+      items: { select: { id: true, productId: true, variantId: true, quantity: true } },
       shipment: { select: { awb: true } },
     },
   });
@@ -162,7 +162,7 @@ export async function getReturnOptions(userId: string, orderId: string) {
     eligibility: ctx.eligibility,
     items: ctx.order.items.map((i) => ({
       orderItemId: i.id,
-      name: i.productName,
+      name: lineName(i.productName, i.variantLabel),
       priceInPaise: i.priceInPaise,
       returnable: i.product.isReturnable,
       remaining: i.quantity - i.returnedQuantity,
@@ -268,7 +268,11 @@ export async function approveReturn(
     if (options.restock)
       await restockItems(
         tx,
-        request.items.map((i) => ({ productId: i.orderItem.productId, quantity: i.quantity })),
+        request.items.map((i) => ({
+          productId: i.orderItem.productId,
+          variantId: i.orderItem.variantId,
+          quantity: i.quantity,
+        })),
       );
     return createRefundRecord(tx, {
       orderId: request.orderId,
@@ -315,7 +319,9 @@ export async function getReturnsAndRefunds(orderId: string) {
     db.returnRequest.findMany({
       where: { orderId },
       orderBy: { createdAt: "desc" },
-      include: { items: { include: { orderItem: { select: { productName: true } } } } },
+      include: {
+        items: { include: { orderItem: { select: { productName: true, variantLabel: true } } } },
+      },
     }),
     db.refund.findMany({ where: { orderId }, orderBy: { createdAt: "desc" } }),
   ]);

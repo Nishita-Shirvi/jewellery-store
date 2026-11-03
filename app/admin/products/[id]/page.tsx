@@ -28,15 +28,23 @@ export default async function EditProductPage({
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Edit: {product.name}</h1>
-        {product.isActive && (
+        <div className="flex gap-4 text-sm">
           <Link
-            href={`/products/${product.slug}`}
-            className="text-sm underline underline-offset-4"
-            target="_blank"
+            href={`/admin/products/${product.id}/variants`}
+            className="underline underline-offset-4"
           >
-            View in store
+            {product.hasOptions ? "Variants (sizes, colours…)" : "Add sizes / colours"}
           </Link>
-        )}
+          {product.isActive && (
+            <Link
+              href={`/products/${product.slug}`}
+              className="underline underline-offset-4"
+              target="_blank"
+            >
+              View in store
+            </Link>
+          )}
+        </div>
       </div>
       {created && (
         <p
@@ -75,6 +83,7 @@ export default async function EditProductPage({
             isActive: product.isActive,
             isFeatured: product.isFeatured,
             isReturnable: product.isReturnable,
+            hasOptions: product.hasOptions,
           }}
         />
       </div>

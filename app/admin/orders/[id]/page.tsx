@@ -25,6 +25,7 @@ import { db } from "@/lib/db";
 import { SHIPMENT_LABEL, TrackingTimeline } from "@/components/shipping/tracking-timeline";
 import { isShiprocketConfigured } from "@/lib/env";
 import { getShipmentForOrder } from "@/services/shipment.service";
+import { lineName } from "@/lib/variants";
 
 export const dynamic = "force-dynamic";
 
@@ -146,7 +147,14 @@ export default async function AdminOrderPage({
               <p className="font-medium">
                 {r.status} · {RETURN_REASON_LABEL[r.reason]}
               </p>
-              <p>{r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}</p>
+              <p>
+                {r.items
+                  .map(
+                    (i) =>
+                      `${lineName(i.orderItem.productName, i.orderItem.variantLabel)} × ${i.quantity}`,
+                  )
+                  .join(", ")}
+              </p>
               {r.details && <p className="text-muted-foreground">“{r.details}”</p>}
               {r.photoUrl && (
                 <a href={r.photoUrl} target="_blank" rel="noreferrer" className="underline">
@@ -370,7 +378,8 @@ export default async function AdminOrderPage({
               {order.items.map((i) => (
                 <tr key={i.id}>
                   <td className="p-3">
-                    {i.productName}
+                    {lineName(i.productName, i.variantLabel)}
+                    {i.sku && <span className="text-muted-foreground text-xs"> · SKU {i.sku}</span>}
                     <br />
                     <span className="text-muted-foreground text-xs">
                       {(i.productSnapshot as { materialSummary?: string }).materialSummary}

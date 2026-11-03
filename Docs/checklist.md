@@ -124,11 +124,11 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 
 ## Week 3 — Growth and scale ⬜
 
-### 17. Product variants
+### 17. Product variants ✅
 
-- [ ] Options, variants, per-variant SKU / price / stock
-- [ ] Migrate existing products to default variants
-- [ ] Cart, orders, invoices per variant; admin bulk edit
+- [x] Options, variants, per-variant SKU / price / stock
+- [x] Migrate existing products to default variants
+- [x] Cart, orders, invoices per variant; admin bulk edit
 
 ### 18. Cash on delivery & payment options
 

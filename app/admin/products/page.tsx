@@ -16,7 +16,9 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const query = adminListQuerySchema.parse(await searchParams);
+  const raw = await searchParams;
+  const query = adminListQuerySchema.parse(raw);
+  const stockError = raw.stockError?.slice(0, 200);
   const { items, total, pageCount } = await listProductsAdmin(query);
 
   return (
@@ -28,6 +30,14 @@ export default async function AdminProductsPage({
         <Button asChild>
           <Link href="/admin/products/new">Add product</Link>
         </Button>
+        {stockError && (
+          <p
+            role="alert"
+            className="w-full rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
+            Stock not changed: {stockError}
+          </p>
+        )}
       </div>
 
       <form className="mt-6 flex flex-wrap gap-2" action="/admin/products" role="search">
@@ -87,22 +97,37 @@ export default async function AdminProductsPage({
                   </div>
                 </td>
                 <td className="p-3">{p.category.name}</td>
-                <td className="p-3">{formatINR(p.priceInPaise)}</td>
                 <td className="p-3">
-                  <form action={updateStockAction} className="flex items-center gap-1">
-                    <input type="hidden" name="id" value={p.id} />
-                    <Input
-                      name="stock"
-                      type="number"
-                      min={0}
-                      defaultValue={p.stock}
-                      aria-label={`Stock for ${p.name}`}
-                      className="h-8 w-20"
-                    />
-                    <Button type="submit" variant="ghost" size="sm">
-                      Save
-                    </Button>
-                  </form>
+                  {p._count.options > 0 && <span className="text-muted-foreground">from </span>}
+                  {formatINR(p.priceInPaise)}
+                </td>
+                <td className="p-3">
+                  {p._count.options > 0 ? (
+                    <p>
+                      {p.stock} in {p._count.variants} variants ·{" "}
+                      <Link
+                        href={`/admin/products/${p.id}/variants`}
+                        className="underline underline-offset-4"
+                      >
+                        Edit
+                      </Link>
+                    </p>
+                  ) : (
+                    <form action={updateStockAction} className="flex items-center gap-1">
+                      <input type="hidden" name="id" value={p.id} />
+                      <Input
+                        name="stock"
+                        type="number"
+                        min={0}
+                        defaultValue={p.stock}
+                        aria-label={`Stock for ${p.name}`}
+                        className="h-8 w-20"
+                      />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Save
+                      </Button>
+                    </form>
+                  )}
                   {p.reservedStock > 0 && (
                     <p className="mt-1 text-xs text-amber-700">
                       {p.reservedStock} held in checkouts

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { AdminInputError, ADMIN_PAGE_SIZE } from "@/services/admin/product-admin.service";
-import { releaseReservation } from "@/services/inventory.service";
+import { releaseReservation, restockLines } from "@/services/inventory.service";
 
 const STATUSES: OrderStatus[] = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
 
@@ -102,14 +102,9 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
     if (next === "CANCELLED" && order.status === "PAID") {
       const items = await tx.orderItem.findMany({
         where: { orderId: id },
-        select: { productId: true, quantity: true },
+        select: { productId: true, variantId: true, quantity: true },
       });
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
-      }
+      await restockLines(tx, items);
     }
   });
 

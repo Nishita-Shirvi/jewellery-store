@@ -263,10 +263,10 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 17 — Product variants
 
-- [ ] ProductOption, ProductOptionValue, ProductVariant (unique SKU, price, stock, images, active)
-- [ ] Every existing product converted to one default variant with no data lost
-- [ ] Cart, reservations, orders, invoices, coupons and shipping work per variant
-- [ ] Admin: generate combinations, bulk edit price/stock, SKU validation
+- [x] ProductOption, ProductOptionValue, ProductVariant (unique SKU, price, stock, images, active)
+- [x] Every existing product converted to one default variant with no data lost
+- [x] Cart, reservations, orders, invoices, coupons and shipping work per variant
+- [x] Admin: generate combinations, bulk edit price/stock, SKU validation
 
 **Jewellery-specific:** typical options are ring size (Indian sizes), metal colour (yellow/white/rose), purity (22K/18K/14K), chain length and bangle size. Weight differs per variant, so weight moves to the variant.
 

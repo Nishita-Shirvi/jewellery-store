@@ -12,6 +12,7 @@ import {
 import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
 import type { AddressSnapshot } from "@/services/address.service";
+import { lineName } from "@/lib/variants";
 
 export interface InvoiceLine {
   name: string;
@@ -84,7 +85,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
           }
         : taxForLine(item.lineTotalInPaise - item.discountInPaise, item.gstRateBps, intra);
     return {
-      name: item.productName,
+      name: lineName(item.productName, item.variantLabel),
       hsn: item.hsnCode,
       quantity: item.quantity,
       unitPriceInPaise: item.priceInPaise,

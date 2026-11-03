@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { maxAllowed, mergeLines, priceCart, type PricedProduct } from "@/services/pricing";
+import { maxAllowed, mergeLines, priceCart, type PricedVariant } from "@/services/pricing";
 
-function product(overrides: Partial<PricedProduct> & { id: string }): PricedProduct {
+function product(overrides: Partial<PricedVariant> & { id: string }): PricedVariant {
+  const { id, ...rest } = overrides;
   return {
+    variantId: id,
+    productId: `p-${id}`,
+    sku: id.toUpperCase(),
+    variantLabel: "",
     slug: overrides.id,
     name: overrides.id,
     image: "/x.svg",
@@ -10,18 +15,18 @@ function product(overrides: Partial<PricedProduct> & { id: string }): PricedProd
     stock: 5,
     isAvailable: true,
     materialSummary: "22K yellow gold · 4 g",
-    ...overrides,
+    ...rest,
   };
 }
 
-const map = (...products: PricedProduct[]) => new Map(products.map((p) => [p.id, p]));
+const map = (...variants: PricedVariant[]) => new Map(variants.map((v) => [v.variantId, v]));
 
 describe("priceCart", () => {
   it("uses database prices and adds up line totals in paise", () => {
     const cart = priceCart(
       [
-        { productId: "ring", quantity: 2 },
-        { productId: "chain", quantity: 1 },
+        { variantId: "ring", quantity: 2 },
+        { variantId: "chain", quantity: 1 },
       ],
       map(
         product({ id: "ring", priceInPaise: 68_500_00 }),
@@ -36,7 +41,7 @@ describe("priceCart", () => {
 
   it("reduces quantities above stock and flags them", () => {
     const cart = priceCart(
-      [{ productId: "ring", quantity: 4 }],
+      [{ variantId: "ring", quantity: 4 }],
       map(product({ id: "ring", stock: 1 })),
     );
     expect(cart.items[0]).toMatchObject({ quantity: 1, requestedQuantity: 4, issue: "reduced" });
@@ -45,7 +50,7 @@ describe("priceCart", () => {
 
   it("caps at the per-item maximum even with plenty of stock", () => {
     const cart = priceCart(
-      [{ productId: "ring", quantity: 10 }],
+      [{ variantId: "ring", quantity: 10 }],
       map(product({ id: "ring", stock: 500 })),
     );
     expect(cart.items[0]?.maxQuantity).toBe(10);
@@ -54,9 +59,9 @@ describe("priceCart", () => {
   it("excludes out-of-stock and unavailable products from the total", () => {
     const cart = priceCart(
       [
-        { productId: "sold", quantity: 1 },
-        { productId: "hidden", quantity: 1 },
-        { productId: "ok", quantity: 1 },
+        { variantId: "sold", quantity: 1 },
+        { variantId: "hidden", quantity: 1 },
+        { variantId: "ok", quantity: 1 },
       ],
       map(
         product({ id: "sold", stock: 0 }),
@@ -72,7 +77,7 @@ describe("priceCart", () => {
   });
 
   it("drops lines for products that no longer exist", () => {
-    const cart = priceCart([{ productId: "deleted", quantity: 2 }], map());
+    const cart = priceCart([{ variantId: "deleted", quantity: 2 }], map());
     expect(cart.items).toHaveLength(0);
     expect(cart.subtotalInPaise).toBe(0);
   });
@@ -82,15 +87,15 @@ describe("mergeLines", () => {
   it("adds quantities of the same product from guest and saved carts", () => {
     expect(
       mergeLines(
-        [{ productId: "a", quantity: 1 }],
+        [{ variantId: "a", quantity: 1 }],
         [
-          { productId: "a", quantity: 2 },
-          { productId: "b", quantity: 1 },
+          { variantId: "a", quantity: 2 },
+          { variantId: "b", quantity: 1 },
         ],
       ),
     ).toEqual([
-      { productId: "a", quantity: 3 },
-      { productId: "b", quantity: 1 },
+      { variantId: "a", quantity: 3 },
+      { variantId: "b", quantity: 1 },
     ]);
   });
 });

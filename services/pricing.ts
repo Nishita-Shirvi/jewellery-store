@@ -1,53 +1,65 @@
 /**
  * Pure cart maths (no database, no cookies) so it can be unit-tested.
  * Prices ALWAYS come from the database rows passed in — never from the browser.
+ * Since Phase 17 every line is one VARIANT (size/colour) of a product.
  */
-import { MAX_QTY_PER_ITEM, type CartLine } from "@/lib/validation/cart";
+import { MAX_QTY_PER_ITEM } from "@/lib/validation/cart";
 import type { CartItemView, CartView } from "@/types/cart";
 
-export interface PricedProduct {
-  id: string;
+/** A cart line once its variant is known. */
+export interface ResolvedLine {
+  variantId: string;
+  quantity: number;
+}
+
+export interface PricedVariant {
+  variantId: string;
+  productId: string;
+  sku: string;
+  variantLabel: string;
   slug: string;
   name: string;
   image: string;
   priceInPaise: number;
+  /** Units customers can buy right now (stock − held). */
   stock: number;
-  isAvailable: boolean; // product and its category are active
+  /** Product, its category and this variant are all active. */
+  isAvailable: boolean;
   materialSummary: string;
 }
 
-/** Most a customer may hold of one product right now. */
+/** Most a customer may hold of one variant right now. */
 export function maxAllowed(stock: number): number {
   return Math.max(0, Math.min(stock, MAX_QTY_PER_ITEM));
 }
 
 /** Combines duplicate lines (e.g. guest cart + saved cart) by adding quantities. */
-export function mergeLines(...lists: CartLine[][]): CartLine[] {
+export function mergeLines(...lists: ResolvedLine[][]): ResolvedLine[] {
   const totals = new Map<string, number>();
   for (const list of lists) {
     for (const line of list) {
-      totals.set(line.productId, (totals.get(line.productId) ?? 0) + line.quantity);
+      totals.set(line.variantId, (totals.get(line.variantId) ?? 0) + line.quantity);
     }
   }
-  return [...totals].map(([productId, quantity]) => ({ productId, quantity }));
+  return [...totals].map(([variantId, quantity]) => ({ variantId, quantity }));
 }
 
 /**
- * Builds what the customer sees. Lines for missing/unavailable products are flagged and
+ * Builds what the customer sees. Lines for missing/unavailable variants are flagged and
  * excluded from the subtotal; quantities above stock are reduced to what's available.
  */
-export function priceCart(lines: CartLine[], products: Map<string, PricedProduct>): CartView {
+export function priceCart(lines: ResolvedLine[], variants: Map<string, PricedVariant>): CartView {
   const items: CartItemView[] = [];
 
   for (const line of lines) {
-    const product = products.get(line.productId);
-    if (!product) continue; // deleted product: silently dropped
+    const v = variants.get(line.variantId);
+    if (!v) continue; // deleted variant/product: silently dropped
 
-    const limit = product.isAvailable ? maxAllowed(product.stock) : 0;
+    const limit = v.isAvailable ? maxAllowed(v.stock) : 0;
     let quantity = line.quantity;
     let issue: CartItemView["issue"] = null;
 
-    if (!product.isAvailable) {
+    if (!v.isAvailable) {
       issue = "unavailable";
       quantity = 0;
     } else if (limit === 0) {
@@ -59,16 +71,19 @@ export function priceCart(lines: CartLine[], products: Map<string, PricedProduct
     }
 
     items.push({
-      productId: product.id,
-      slug: product.slug,
-      name: product.name,
-      image: product.image,
-      materialSummary: product.materialSummary,
-      unitPriceInPaise: product.priceInPaise,
+      productId: v.productId,
+      variantId: v.variantId,
+      sku: v.sku,
+      variantLabel: v.variantLabel,
+      slug: v.slug,
+      name: v.name,
+      image: v.image,
+      materialSummary: v.materialSummary,
+      unitPriceInPaise: v.priceInPaise,
       quantity,
       requestedQuantity: line.quantity,
       maxQuantity: limit,
-      lineTotalInPaise: product.priceInPaise * quantity,
+      lineTotalInPaise: v.priceInPaise * quantity,
       issue,
     });
   }

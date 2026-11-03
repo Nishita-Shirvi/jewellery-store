@@ -35,6 +35,13 @@ import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
+import { MAX_OPTIONS, optionsInputSchema, parseValueList } from "@/lib/variants";
+import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
+import {
+  bulkUpdateVariants,
+  saveOptions,
+  type VariantRowInput,
+} from "@/services/admin/variant-admin.service";
 
 /**
  * Every admin action starts with requireAdmin(), which re-reads the role from the database.
@@ -161,7 +168,19 @@ export async function updateStockAction(formData: FormData): Promise<void> {
   });
   if (!parsed.success) return;
   const beforeStock = (await getProductAdmin(parsed.data.id))?.stock;
-  await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  try {
+    await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  } catch (error) {
+    // Refused (piece has options, or stock below units held in checkouts): nothing changed.
+    if (error instanceof AdminInputError) {
+      logger.warn("admin.stock_update_refused", {
+        productId: parsed.data.id,
+        reason: error.message,
+      });
+      redirect(`/admin/products?stockError=${encodeURIComponent(error.message)}`);
+    }
+    throw error;
+  }
   await audit(admin, {
     action: "product.stock",
     entityType: "product",
@@ -470,4 +489,106 @@ export async function moderateReviewAction(formData: FormData): Promise<void> {
     if (!(error instanceof ReviewError)) throw error;
   }
   revalidatePath("/admin/reviews");
+}
+
+// ── Product variants (Phase 17) ──────────────────────────
+
+function readOptions(formData: FormData) {
+  const options: { name: string; values: string[] }[] = [];
+  for (let i = 0; i < MAX_OPTIONS; i++) {
+    const name = String(formData.get(`option${i}Name`) ?? "").trim();
+    const values = parseValueList(String(formData.get(`option${i}Values`) ?? ""));
+    if (name || values.length) options.push({ name, values });
+  }
+  return options;
+}
+
+export async function saveVariantOptionsAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requireAdmin();
+  const id = idSchema.safeParse({ id: formData.get("productId") });
+  if (!id.success) return { error: "Invalid product." };
+  const parsed = optionsInputSchema.safeParse(readOptions(formData));
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the options.",
+      values: typedValues(formData),
+    };
+  try {
+    const result = await saveOptions(id.data.id, parsed.data, admin.id);
+    await audit(admin, {
+      action: "product.variants_options",
+      entityType: "product",
+      entityId: id.data.id,
+      summary: `Options saved: ${parsed.data.map((o) => `${o.name} (${o.values.length})`).join(", ") || "none"}; ${result.created} variant(s) created, ${result.deactivated} switched off`,
+    });
+    revalidatePath(`/admin/products/${id.data.id}/variants`);
+    revalidatePath("/admin/products");
+    return {
+      ok: true,
+      message: `Saved. ${result.combinations} combination(s); ${result.created} new, ${result.deactivated} switched off.`,
+    };
+  } catch (error) {
+    return { ...fail(error), values: typedValues(formData) };
+  }
+}
+
+export async function saveVariantsAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requireAdmin();
+  const id = idSchema.safeParse({ id: formData.get("productId") });
+  if (!id.success) return { error: "Invalid product." };
+  const allPrice = String(formData.get("setAllPrice") ?? "").trim();
+  const allStock = String(formData.get("setAllStock") ?? "").trim();
+
+  const rows: VariantRowInput[] = [];
+  for (const raw of formData.getAll("variantId")) {
+    const vid = idSchema.safeParse({ id: raw });
+    if (!vid.success) return { error: "Invalid variant." };
+    const v = vid.data.id;
+    const price = parseRupeesToPaise(allPrice || String(formData.get(`price_${v}`) ?? ""));
+    const stockText = allStock || String(formData.get(`stock_${v}`) ?? "");
+    const stock = /^\d{1,6}$/.test(stockText) ? Number(stockText) : null;
+    const net = parseGramsToMg(String(formData.get(`net_${v}`) ?? ""));
+    const grossText = String(formData.get(`gross_${v}`) ?? "").trim();
+    const gross = grossText ? parseGramsToMg(grossText) : null;
+    const sku = String(formData.get(`sku_${v}`) ?? "");
+    if (price === null || price <= 0)
+      return { error: `${sku || v}: enter a price in rupees`, values: typedValues(formData) };
+    if (stock === null || stock > 100000)
+      return { error: `${sku || v}: stock must be a whole number`, values: typedValues(formData) };
+    if (!net)
+      return { error: `${sku || v}: enter the net weight in grams`, values: typedValues(formData) };
+    if (grossText && !gross)
+      return { error: `${sku || v}: gross weight must be in grams`, values: typedValues(formData) };
+    rows.push({
+      id: v,
+      sku,
+      priceInPaise: price,
+      stock,
+      netWeightMg: net,
+      grossWeightMg: gross,
+      isActive: formData.get(`active_${v}`) === "on",
+    });
+  }
+  try {
+    const changes = await bulkUpdateVariants(id.data.id, rows, admin.id);
+    if (Object.keys(changes).length)
+      await audit(admin, {
+        action: "product.variants_update",
+        entityType: "product",
+        entityId: id.data.id,
+        summary: `Variants updated (${Object.keys(changes).length} change(s))`,
+        changes,
+      });
+    revalidatePath(`/admin/products/${id.data.id}/variants`);
+    revalidatePath("/admin/products");
+    return { ok: true, message: "Variants saved." };
+  } catch (error) {
+    return { ...fail(error), values: typedValues(formData) };
+  }
 }

@@ -2,8 +2,8 @@
 
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
-**Last updated:** 2026-10-25
-**Current phase:** Week 2 complete + production hardening pass (2026-10-25: missing Phase 14–16 migration added, `config.ini`, structured logger, docs + `Docs/learning/`). Next: deploy (waits on client accounts), then Week 3, Phase 17 — Product variants.
+**Last updated:** 2026-11-03
+**Current phase:** Week 3 in progress on branch `week3-growth`. Phase 17 (product variants) done 2026-11-03. Next: Phase 18 — COD and payment options. Deploy still waits on client accounts.
 
 ---
 
@@ -30,7 +30,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 14    | Reviews and ratings             | ✅     | 2026-10-11 | 2026-10-11 | 20/20 browser checks + DB concurrency test (found and fixed a stale-average race)                                |
 | 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                             |
 | 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
-| 17    | Product variants                | ⬜     |            |            |                                                                                                                  |
+| 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
 | 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                                                                |
 | 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
 | 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 17 — Product variants (2026-11-03)
+
+**Done so far:** Phases 1–16 + production hardening.
+**Not finished / carried over:** Frontend design (F) partly done; deploy waits on client accounts (B-01, B-04, B-05, B-10).
+**Open blockers:** B-03 (pricing model) — variants keep a fixed price per variant, so a later switch to rate-based pricing stays possible.
+**Plan for this phase:** ProductOption / ProductOptionValue / ProductVariant; migration gives every product one base variant (no data lost); cart, holds, orders, invoices, shipping, returns per variant; admin options + combinations + bulk edit; product page picker.
+**Risks:** Data loss in migration (verified on a snapshot, one transaction, forced-failure rollback tested); deadlocks between variant and product rows (fixed lock order, 30-buyer storm test); product summary drifting from variants (synced in the same transaction, asserted in tests); old guest-cart cookies (resolved to the base variant).
+**Git:** branch `week3-growth` from `main` @ e351c12. Baseline before starting: 165 unit, 25 DB, 3 E2E, build — all green.
 
 ### Production hardening pass (2026-10-25)
 

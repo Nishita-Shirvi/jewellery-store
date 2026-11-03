@@ -15,6 +15,7 @@ import {
   trackingUrlFor,
 } from "@/lib/shipping/shiprocket";
 import type { AddressSnapshot } from "@/services/address.service";
+import { lineName } from "@/lib/variants";
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -48,7 +49,7 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
     where: { id: orderId },
     include: {
       user: { select: { email: true, name: true } },
-      items: { include: { product: { select: { netWeightMg: true, grossWeightMg: true } } } },
+      items: { include: { variant: { select: { netWeightMg: true, grossWeightMg: true } } } },
       shipment: true,
     },
   });
@@ -67,7 +68,7 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
     if (!shipment.providerShipmentId) {
       const weightGrams = order.items.reduce(
         (sum, i) =>
-          sum + Math.ceil((i.product.grossWeightMg ?? i.product.netWeightMg) / 1000) * i.quantity,
+          sum + Math.ceil((i.variant.grossWeightMg ?? i.variant.netWeightMg) / 1000) * i.quantity,
         0,
       );
       const created = await createShiprocketOrder({
@@ -76,8 +77,9 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
         customer: { name: address.fullName, email: order.user.email, phone: address.phone },
         address,
         items: order.items.map((i) => ({
-          name: i.productName,
-          sku: i.productSlug,
+          name: lineName(i.productName, i.variantLabel),
+          // Each variant has its own SKU, so two sizes of one ring are two lines at Shiprocket.
+          sku: i.sku || i.productSlug,
           units: i.quantity,
           sellingPriceInPaise: i.priceInPaise,
         })),

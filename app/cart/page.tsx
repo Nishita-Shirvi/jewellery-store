@@ -43,7 +43,7 @@ export default async function CartPage() {
       <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_320px]">
         <ul className="divide-border border-border divide-y border-y" aria-label="Cart items">
           {cart.items.map((item) => (
-            <li key={item.productId} className="flex gap-4 py-5">
+            <li key={item.variantId} className="flex gap-4 py-5">
               <Link
                 href={`/products/${item.slug}`}
                 className="border-border bg-muted w-24 shrink-0 overflow-hidden rounded-md border sm:w-28"
@@ -55,6 +55,11 @@ export default async function CartPage() {
                   <Link href={`/products/${item.slug}`} className="font-medium hover:underline">
                     {item.name}
                   </Link>
+                  {item.variantLabel && (
+                    <p className="text-sm" data-testid="cart-variant">
+                      {item.variantLabel}
+                    </p>
+                  )}
                   <p className="text-muted-foreground text-xs">{item.materialSummary}</p>
                   <p className="mt-1 text-sm">{formatINR(item.unitPriceInPaise)} each</p>
                   {item.issue && (
@@ -64,7 +69,7 @@ export default async function CartPage() {
                   )}
                   <div className="mt-3">
                     <CartLineControls
-                      productId={item.productId}
+                      variantId={item.variantId}
                       name={item.name}
                       quantity={item.quantity}
                       maxQuantity={item.maxQuantity}

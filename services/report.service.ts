@@ -124,7 +124,7 @@ export async function ordersForExport(from: Date, to: Date) {
     take: 20_000,
     include: {
       user: { select: { email: true } },
-      items: { select: { productName: true, quantity: true } },
+      items: { select: { productName: true, variantLabel: true, quantity: true } },
       invoice: { select: { number: true } },
     },
   });

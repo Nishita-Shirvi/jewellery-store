@@ -5,6 +5,7 @@ import { istDay, istMidnight } from "@/lib/report/dates";
 import { audit } from "@/services/audit.service";
 import { displayOrderNumber } from "@/services/order.service";
 import { ordersForExport } from "@/services/report.service";
+import { lineName } from "@/lib/variants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,7 +54,7 @@ export async function GET(request: Request) {
       istDay(o.createdAt),
       o.status,
       o.user.email,
-      o.items.map((i) => `${i.productName} x${i.quantity}`).join("; "),
+      o.items.map((i) => `${lineName(i.productName, i.variantLabel)} x${i.quantity}`).join("; "),
       (o.subtotalInPaise / 100).toFixed(2),
       (o.discountInPaise / 100).toFixed(2),
       (o.shippingInPaise / 100).toFixed(2),

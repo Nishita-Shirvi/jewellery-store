@@ -21,6 +21,7 @@ import {
 } from "@/services/return.service";
 import { cancelOrderAction } from "../actions";
 import { hasInvoice } from "@/services/invoice.service";
+import { lineName } from "@/lib/variants";
 
 export const metadata: Metadata = { title: "Order details", robots: { index: false } };
 
@@ -161,7 +162,12 @@ export default async function AccountOrderPage({
                 · {RETURN_REASON_LABEL[r.reason]}
               </p>
               <p className="text-muted-foreground text-xs">
-                {r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}
+                {r.items
+                  .map(
+                    (i) =>
+                      `${lineName(i.orderItem.productName, i.orderItem.variantLabel)} × ${i.quantity}`,
+                  )
+                  .join(", ")}
               </p>
               {r.status === "REJECTED" && r.adminNote && (
                 <p className="mt-1 text-xs">Reason: {r.adminNote}</p>
@@ -195,10 +201,10 @@ export default async function AccountOrderPage({
 
       <ul className="divide-border border-border divide-y rounded-md border text-sm">
         {order.items.map((item) => (
-          <li key={item.slug} className="flex justify-between gap-4 p-4">
+          <li key={`${item.slug}:${item.sku}`} className="flex justify-between gap-4 p-4">
             <span>
               <Link href={`/products/${item.slug}`} className="hover:underline">
-                {item.name}
+                {lineName(item.name, item.variantLabel)}
               </Link>{" "}
               × {item.quantity}
               {(order.status === "DELIVERED" || order.status === "RETURN_REQUESTED") && (

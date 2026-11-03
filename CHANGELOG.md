@@ -1,5 +1,19 @@
 # Changelog
 
+## Week 3 — Phase 17: Product variants — 2026-11-03
+
+### Added
+
+- Product options (up to 3, e.g. Ring size, Metal colour) and variants with their own SKU, price, stock, weight and optional colour/purity. Admin → product → **Variants**: generate every combination, bulk edit SKU/price/stock/weight, switch variants on/off.
+- Size/colour picker on the product page; price, weight, SKU and stock follow the choice.
+- Cart lines, stock holds, orders, invoices, emails, Shiprocket lines, returns and restocks are per variant; order lines keep the SKU and variant name.
+- Demo product "Plain Gold Band" (3 sizes × 2 colours) in the seed.
+
+### Changed
+
+- Every existing product now has one base variant (migration, no data lost). Listing prices are "from" prices for products with options.
+- Stock can no longer be set below the units held in checkouts at that moment.
+
 ## Production hardening — 2026-10-25
 
 ### Fixed

@@ -3,6 +3,7 @@ import type { OrderStatus, Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { materialSummary } from "@/lib/jewellery";
+import { variantJewellery } from "@/lib/variants";
 import { logger } from "@/lib/logger";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
 import { addressSnapshot, getAddressForUser } from "@/services/address.service";
@@ -110,60 +111,76 @@ export async function startCheckout(
   try {
     order = await db.$transaction(async (tx) => {
       // Re-read price and stock inside the transaction: the cart view could be a moment old.
-      const products = await tx.product.findMany({
-        where: { id: { in: cart.items.map((i) => i.productId) }, isActive: true },
+      const variants = await tx.productVariant.findMany({
+        where: {
+          id: { in: cart.items.map((i) => i.variantId) },
+          isActive: true,
+          product: { isActive: true },
+        },
         select: {
           id: true,
-          name: true,
-          slug: true,
+          productId: true,
+          sku: true,
+          label: true,
           priceInPaise: true,
           stock: true,
-          metalType: true,
           purity: true,
           metalColour: true,
           netWeightMg: true,
           grossWeightMg: true,
-          gemstone: true,
-          huid: true,
-          hsnCode: true,
-          gstRateBps: true,
+          product: {
+            select: {
+              name: true,
+              slug: true,
+              metalType: true,
+              purity: true,
+              metalColour: true,
+              gemstone: true,
+              huid: true,
+              hsnCode: true,
+              gstRateBps: true,
+            },
+          },
         },
       });
-      const byId = new Map(products.map((p) => [p.id, p]));
+      const byId = new Map(variants.map((v) => [v.id, v]));
 
       const items: Prisma.OrderItemCreateWithoutOrderInput[] = [];
       let recomputed = 0;
       for (const [index, line] of cart.items.entries()) {
-        const p = byId.get(line.productId);
-        if (!p || p.stock < line.quantity)
+        const v = byId.get(line.variantId);
+        if (!v || v.productId !== line.productId || v.stock < line.quantity)
           throw new CheckoutConflict("Some items just sold out. Please review your cart.");
-        if (p.priceInPaise !== line.unitPriceInPaise)
+        if (v.priceInPaise !== line.unitPriceInPaise)
           throw new CheckoutConflict("A price just changed. Please review your cart.");
-        recomputed += p.priceInPaise * line.quantity;
+        const p = v.product;
+        const facts = variantJewellery(p, v);
+        recomputed += v.priceInPaise * line.quantity;
         items.push({
-          product: { connect: { id: p.id } },
+          product: { connect: { id: v.productId } },
+          variant: { connect: { id: v.id } },
+          sku: v.sku,
+          variantLabel: v.label,
           productName: p.name,
           productSlug: p.slug,
-          priceInPaise: p.priceInPaise,
+          priceInPaise: v.priceInPaise,
           quantity: line.quantity,
-          lineTotalInPaise: p.priceInPaise * line.quantity,
+          lineTotalInPaise: v.priceInPaise * line.quantity,
           hsnCode: p.hsnCode,
           gstRateBps: p.gstRateBps,
           discountInPaise: lineShares[index] ?? 0,
           ...gstSnapshot(
-            p.priceInPaise * line.quantity - (lineShares[index] ?? 0),
+            v.priceInPaise * line.quantity - (lineShares[index] ?? 0),
             p.gstRateBps,
             intraState,
           ),
           productSnapshot: {
-            metalType: p.metalType,
-            purity: p.purity,
-            metalColour: p.metalColour,
-            netWeightMg: p.netWeightMg,
-            grossWeightMg: p.grossWeightMg,
+            ...facts,
             gemstone: p.gemstone,
             huid: p.huid,
-            materialSummary: materialSummary(p),
+            sku: v.sku,
+            variantLabel: v.label,
+            materialSummary: materialSummary(facts),
           },
         });
       }
@@ -191,7 +208,11 @@ export async function startCheckout(
       // Hold the stock for [inventory] reservation_minutes (atomic; rolls back the whole order if anything is gone).
       await reserveLines(
         tx,
-        cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        cart.items.map((i) => ({
+          productId: i.productId,
+          variantId: i.variantId,
+          quantity: i.quantity,
+        })),
       );
       return created;
     });
@@ -380,7 +401,7 @@ export async function markOrderPaid(input: {
 
       const items = await tx.orderItem.findMany({
         where: { orderId: payment.orderId },
-        select: { productId: true, quantity: true },
+        select: { variantId: true },
       });
       const paidOrder = await tx.order.findUniqueOrThrow({
         where: { id: payment.orderId },
@@ -416,7 +437,7 @@ export async function markOrderPaid(input: {
         select: { userId: true },
       });
       await tx.cartItem.deleteMany({
-        where: { cart: { userId }, productId: { in: items.map((i) => i.productId) } },
+        where: { cart: { userId }, variantId: { in: items.map((i) => i.variantId) } },
       });
       return true;
     });
@@ -562,6 +583,8 @@ export interface OrderSummary {
   items: {
     name: string;
     slug: string;
+    sku: string;
+    variantLabel: string;
     quantity: number;
     priceInPaise: number;
     lineTotalInPaise: number;
@@ -594,6 +617,8 @@ export async function getOrderForUser(
     items: order.items.map((i) => ({
       name: i.productName,
       slug: i.productSlug,
+      sku: i.sku,
+      variantLabel: i.variantLabel,
       quantity: i.quantity,
       priceInPaise: i.priceInPaise,
       lineTotalInPaise: i.lineTotalInPaise,

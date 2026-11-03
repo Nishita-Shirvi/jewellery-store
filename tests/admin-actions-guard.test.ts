@@ -58,6 +58,10 @@ vi.mock("@/services/admin/coupon-admin.service", () => ({
   saveCoupon: spy("saveCoupon"),
   setCouponActive: spy("setCouponActive"),
 }));
+vi.mock("@/services/admin/variant-admin.service", () => ({
+  saveOptions: spy("saveOptions"),
+  bulkUpdateVariants: spy("bulkUpdateVariants"),
+}));
 vi.mock("@/services/shipment.service", () => ({
   ShipmentError: class extends Error {},
   createShipmentForOrder: spy("createShipment"),
@@ -88,6 +92,15 @@ function validForm() {
     metalColour: "YELLOW",
     netWeight: "1",
     images: "/images/products/infinity-ring.svg",
+    productId: "abc123",
+    option0Name: "Ring size",
+    option0Values: "10, 12",
+    variantId: "abc123",
+    sku_abc123: "SKU-ONE",
+    price_abc123: "100",
+    stock_abc123: "1",
+    net_abc123: "1",
+    active_abc123: "on",
     file: new File([new Uint8Array([1])], "a.png"),
   }))
     fd.append(k, v as string | Blob);
@@ -110,6 +123,8 @@ const calls: [string, () => Promise<unknown>][] = [
   ["saveCouponAction", () => actions.saveCouponAction({}, validForm())],
   ["toggleCouponAction", () => actions.toggleCouponAction(validForm())],
   ["moderateReviewAction", () => actions.moderateReviewAction(validForm())],
+  ["saveVariantOptionsAction", () => actions.saveVariantOptionsAction({}, validForm())],
+  ["saveVariantsAction", () => actions.saveVariantsAction({}, validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {
@@ -149,5 +164,13 @@ describe("admin actions are protected on the server", () => {
     dbRole.current = "ADMIN";
     await actions.toggleProductActiveAction(validForm());
     expect(touched).toEqual(["setProductActive"]);
+  });
+
+  it("an admin's variant grid save reaches the service with parsed rows", async () => {
+    session.current = { user: { id: "a1", role: "ADMIN" } };
+    dbRole.current = "ADMIN";
+    const result = await actions.saveVariantsAction({}, validForm());
+    expect(result).toMatchObject({ ok: true });
+    expect(touched).toEqual(["bulkUpdateVariants"]);
   });
 });

@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { removeItemAction, updateQuantityAction } from "@/app/cart/actions";
 
 export function CartLineControls({
-  productId,
+  variantId,
   name,
   quantity,
   maxQuantity,
 }: {
-  productId: string;
+  variantId: string;
   name: string;
   quantity: number;
   maxQuantity: number;
@@ -22,7 +22,7 @@ export function CartLineControls({
   function change(next: number) {
     setError(null);
     startTransition(async () => {
-      const res = await updateQuantityAction({ productId, quantity: next });
+      const res = await updateQuantityAction({ variantId, quantity: next });
       if (!res.ok) setError(res.error);
     });
   }
@@ -30,7 +30,7 @@ export function CartLineControls({
   function remove() {
     setError(null);
     startTransition(async () => {
-      const res = await removeItemAction({ productId });
+      const res = await removeItemAction({ variantId });
       if (!res.ok) setError(res.error);
     });
   }

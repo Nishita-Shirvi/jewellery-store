@@ -43,9 +43,10 @@ export default async function CheckoutPage() {
           <h2 className="font-medium">Order summary</h2>
           <ul className="mt-4 space-y-2 text-sm">
             {cart.items.map((item) => (
-              <li key={item.productId} className="flex justify-between gap-4">
+              <li key={item.variantId} className="flex justify-between gap-4">
                 <span>
-                  {item.name} × {item.quantity}
+                  {item.name}
+                  {item.variantLabel && ` (${item.variantLabel})`} × {item.quantity}
                 </span>
                 <span>{formatINR(item.lineTotalInPaise)}</span>
               </li>

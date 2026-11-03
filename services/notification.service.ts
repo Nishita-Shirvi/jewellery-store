@@ -8,6 +8,7 @@ import { env, publicEnv } from "@/lib/env";
 import { formatINR } from "@/lib/format";
 import { logger } from "@/lib/logger";
 import { sendEmail } from "@/services/email.service";
+import { lineName } from "@/lib/variants";
 
 /**
  * The single place that tells customers about their order (email, and SMS when switched on).
@@ -47,7 +48,7 @@ export async function notifyOrder(
       : formatINR(order.totalInPaise);
     const business = getBusiness();
     const items = order.items.map((i) => ({
-      name: i.productName,
+      name: lineName(i.productName, i.variantLabel),
       quantity: i.quantity,
       amount: formatINR(i.lineTotalInPaise),
     }));
