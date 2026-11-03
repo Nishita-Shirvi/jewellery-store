@@ -56,6 +56,7 @@ test("forgot password: same answer for any email; the link works once and the ol
 }) => {
   const email = await customer();
   await page.goto("/login");
+  await page.waitForLoadState("networkidle");
   await page.getByRole("link", { name: "Forgot your password?" }).click();
   await page.waitForURL(/\/forgot-password$/);
   await page.getByLabel("Email", { exact: true }).fill(`nobody-${Date.now()}@example.com`);
@@ -65,8 +66,13 @@ test("forgot password: same answer for any email; the link works once and the ol
   await page.getByRole("button", { name: "Send reset link" }).click();
   await expect(page.getByRole("main").getByRole("status")).toHaveText(neutral);
 
-  // The emailed link (emails aren't sent in tests) — made the same way the app makes it.
+  // The message was already showing from the first request, so wait for the server to have
+  // stored this one — otherwise it could land after our link below and (rightly) cancel it.
   const user = await db.user.findUniqueOrThrow({ where: { email } });
+  await expect
+    .poll(() => db.passwordResetToken.count({ where: { userId: user.id } }))
+    .toBeGreaterThan(0);
+  // The emailed link (emails aren't sent in tests) — made the same way the app makes it.
   const token = randomBytes(32).toString("base64url");
   await db.passwordResetToken.updateMany({
     where: { userId: user.id, usedAt: null },
@@ -80,6 +86,7 @@ test("forgot password: same answer for any email; the link works once and the ol
     },
   });
   await page.goto(`/reset-password?token=${token}`);
+  await page.waitForLoadState("networkidle"); // form ready before typing
   await page.getByLabel("New password", { exact: true }).fill("Changed2026");
   await page.getByLabel("Confirm new password").fill("Changed2026");
   await page.getByRole("button", { name: "Set new password" }).click();
