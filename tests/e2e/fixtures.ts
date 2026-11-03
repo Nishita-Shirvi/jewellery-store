@@ -174,3 +174,13 @@ export function visitorIp(title: string): string {
   for (const c of title) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return `10.${(h >>> 16) & 255}.${(h >>> 8) & 255}.${(h & 253) + 1}`;
 }
+
+/** Collects Content-Security-Policy violations the browser reports (they show as console errors). */
+export function watchCsp(page: Page): string[] {
+  const violations: string[] = [];
+  page.on("console", (msg) => {
+    const text = msg.text();
+    if (/Content Security Policy|Content-Security-Policy/i.test(text)) violations.push(text);
+  });
+  return violations;
+}

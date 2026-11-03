@@ -1,4 +1,5 @@
 import "server-only";
+import { isOwnUpload } from "@/services/upload.service";
 import { revalidateTag } from "next/cache";
 import type { Prisma, ReviewStatus } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -57,6 +58,8 @@ export async function submitReview(user: { id: string; name: string | null }, in
   if (!(await canReview(user.id, input.productId))) {
     throw new ReviewError("Only customers who received this piece can review it.");
   }
+  if (input.images.some((url) => !isOwnUpload(url, "jewellery-store/reviews")))
+    throw new ReviewError("Please upload photos with the form.");
   await db.$transaction(async (tx) => {
     await lockProduct(tx, input.productId);
     await tx.review.upsert({

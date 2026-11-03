@@ -328,14 +328,15 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 23 — Security, PWA, release
 
-- [ ] OWASP Top 10 review, including IDOR tests for orders, addresses and tickets
-- [ ] CSP, secure cookies, session expiry, account lockout, password reset with expiring tokens
-- [ ] Installable PWA with offline fallback page
-- [ ] k6 load test at 200 concurrent users; bottlenecks fixed
-- [ ] E2E tests for variants, COD, coupons, support
-- [ ] Week 3 release checklist and changelog
+- [x] OWASP Top 10 review, including IDOR tests for orders, addresses and tickets (Docs/SECURITY_REVIEW.md)
+- [x] CSP, secure cookies, session expiry, account lockout, password reset with expiring tokens
+- [x] Installable PWA with offline fallback page
+- [x] k6 load test at 200 concurrent users; bottlenecks fixed (none found: 0% errors, p95 under 700 ms locally)
+- [x] E2E tests for variants, COD, coupons, support
+- [x] Week 3 release checklist and changelog (Docs/RELEASE_WEEK3.md, CHANGELOG.md)
 
 **Done when:** no high/critical security findings remain, k6 targets pass, CI is green, and the release is deployed.
+**Status:** all done except **deployed**, which waits on the client's GitHub/Vercel accounts (B-10).
 
 ---
 

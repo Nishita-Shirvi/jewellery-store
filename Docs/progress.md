@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 in progress on branch `week3-growth`. Phases 17–22 done (variants, COD, background jobs, marketing, staff roles, customer support). Next: Phase 23 — Security, PWA, release. Deploy still waits on client accounts.
+**Current phase:** Week 3 built and tested on branch `week3-growth` (Phases 17–23). Release checklist: Docs/RELEASE_WEEK3.md. Deploy waits on client accounts (B-10). Next: Week 4 (Phase 24).
 
 ---
 
@@ -36,7 +36,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
 | 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA             |
 | 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                |
-| 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
+| 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10             |
 | 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
 | 25    | Recommendations                 | ⬜     |            |            |                                                                                                                  |
 | 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 23 — Security, PWA, release (2026-11-03)
+
+**Done so far:** Phases 1–22 (latest dd986e1, customer support).
+**Not finished / carried over:** None.
+**Open blockers:** B-10 (GitHub/Vercel) for the deploy; B-07 for reset emails to arrive.
+**Plan for this phase:** independent OWASP review and fixes; IDOR tests; CSP; lockout; password reset; session expiry; PWA with offline page; k6 at 200 users; coupon E2E; release checklist and changelog.
+**Risks:** CSP blocking Razorpay/GA; service worker caching private pages; lockout used to annoy customers.
+**Git:** after dd986e1 on `week3-growth`.
 
 ### Before Phase 22 — Customer support (2026-11-04)
 

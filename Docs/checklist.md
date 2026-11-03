@@ -162,12 +162,12 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Support tickets with attachments + admin inbox
 - [x] Optional WhatsApp / live chat (WhatsApp button)
 
-### 23. Security, PWA, release
+### 23. Security, PWA, release ✅ (deploy waits on B-10)
 
-- [ ] OWASP review, IDOR tests
-- [ ] CSP, account lockout, password reset
-- [ ] Installable PWA
-- [ ] k6 load test (200 users)
+- [x] OWASP review, IDOR tests
+- [x] CSP, account lockout, password reset
+- [x] Installable PWA
+- [x] k6 load test (200 users)
 
 ---
 

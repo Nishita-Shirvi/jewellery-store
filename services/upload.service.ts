@@ -31,6 +31,17 @@ export async function uploadProductImage(file: File): Promise<string> {
   return uploadImage(file, "jewellery-store/products");
 }
 
+/**
+ * Was this URL produced by OUR upload into this folder? (Customers submit photo URLs with
+ * reviews and returns; any other Cloudinary account or folder is refused — Phase 23 review L1.)
+ */
+export function isOwnUpload(url: string, folder: string): boolean {
+  if (!env.CLOUDINARY_CLOUD_NAME) return false;
+  const prefix = `https://res.cloudinary.com/${env.CLOUDINARY_CLOUD_NAME}/image/upload/`;
+  // e.g. https://res.cloudinary.com/<our cloud>/image/upload/v1730000000/jewellery-store/reviews/x.jpg
+  return url.startsWith(prefix) && url.includes(`/${folder}/`) && !/[\s"'<>\\]/.test(url);
+}
+
 /** Signed upload into a Cloudinary folder. */
 export async function uploadImage(file: File, folder: string): Promise<string> {
   if (!isUploadConfigured())

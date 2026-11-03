@@ -42,8 +42,15 @@ const { recordWebhook } = await import("@/services/webhook.service");
 const RUN = `job${Date.now().toString(36)}`;
 let n = 0;
 const key = () => `${RUN}-${++n}`;
-const jobFor = (k: string) =>
-  db.job.findFirstOrThrow({ where: { payload: { path: ["key"], equals: k } } });
+/** Finds a job by its payload key, then by id (finished jobs have their payload wiped). */
+const known = new Map<string, string>();
+const jobFor = async (k: string) => {
+  const id = known.get(k);
+  if (id) return db.job.findUniqueOrThrow({ where: { id } });
+  const job = await db.job.findFirstOrThrow({ where: { payload: { path: ["key"], equals: k } } });
+  known.set(k, job.id);
+  return job;
+};
 
 beforeEach(async () => {
   runs.clear();
@@ -219,6 +226,18 @@ describe("running", () => {
       "done",
     );
     expect(runs.get(k)).toBe(2);
+  });
+
+  it("a finished job keeps no payload (one-time tokens don't linger); a failed one keeps it for retry", async () => {
+    const ok = key();
+    const bad = key();
+    behaviour.permanentFor.add(bad);
+    await jobs.enqueue("email.order", { key: ok, token: "one-time-secret" });
+    await jobs.enqueue("email.order", { key: bad, token: "kept-for-retry" });
+    const okJob = await jobFor(ok);
+    await jobs.runDueJobs();
+    expect((await db.job.findUniqueOrThrow({ where: { id: okJob.id } })).payload).toEqual({});
+    expect((await jobFor(bad)).payload).toMatchObject({ token: "kept-for-retry" });
   });
 
   it("old finished jobs are pruned; failed ones are kept", async () => {

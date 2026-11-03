@@ -156,6 +156,11 @@ model User {
   totpLastStep       Int?
   /// SHA-256 hashes of unused one-time recovery codes.
   recoveryCodes      String[]  @default([])
+  /// Account lockout (Phase 23): wrong passwords in a row, and when the lock ends.
+  failedLogins       Int       @default(0)
+  lockedUntil        DateTime?
+  /// Sessions started before this are signed out (password changed / reset).
+  passwordChangedAt  DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
@@ -168,12 +173,13 @@ model User {
   addresses         Address[]
   orders            Order[]
   otpChallenges     OtpChallenge[]
-  referralsMade     Referral[]         @relation("ReferralReferrer")
-  referredBy        Referral?          @relation("ReferralReferred")
+  referralsMade     Referral[]           @relation("ReferralReferrer")
+  referredBy        Referral?            @relation("ReferralReferred")
   cartReminders     CartReminder[]
   staffRoles        UserRole[]
-  supportTickets    SupportTicket[]    @relation("TicketCustomer")
-  assignedTickets   SupportTicket[]    @relation("TicketAssignee")
+  passwordResets    PasswordResetToken[]
+  supportTickets    SupportTicket[]      @relation("TicketCustomer")
+  assignedTickets   SupportTicket[]      @relation("TicketAssignee")
 
   @@index([role])
 }
@@ -1064,6 +1070,20 @@ model CannedReply {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// "Forgot password" link (Phase 23): one use, 30 minutes, only a hash stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // ───────────────────── Background jobs (Phase 19) ──────────────────

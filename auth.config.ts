@@ -24,7 +24,9 @@ export const authConfig = {
     // Credentials login requires JWT sessions. Role is copied into the token at sign-in;
     // admin actions re-check the role in the database (lib/auth-guards.ts).
     strategy: "jwt",
-    maxAge: 60 * 60 * 24 * 30, // 30 days
+    // Signed out after 14 days without a visit; an active session is extended once a day.
+    maxAge: 60 * 60 * 24 * 14,
+    updateAge: 60 * 60 * 24,
   },
   providers: [],
   callbacks: {

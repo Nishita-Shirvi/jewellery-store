@@ -1,5 +1,31 @@
 # Changelog
 
+## Week 3 release summary (Phases 17–23)
+
+Sizes and variants, cash on delivery, background jobs, cart reminders and newsletter, staff roles with two-step sign-in, customer support, and a security pass. Release steps: `Docs/RELEASE_WEEK3.md`. Not yet deployed (waits on client accounts, B-10).
+
+## Week 3 — Phase 23: Security, PWA, release — 2026-11-03
+
+### Added
+
+- **Forgot your password?** on the login page: a reset link by email, valid 30 minutes and once.
+- **Account lockout:** 8 wrong passwords lock the account for 15 minutes (resetting the password unlocks it).
+- **Install as an app:** customers can add the store to their phone's home screen; a friendly page shows when they're offline.
+- Content-Security-Policy on every page; load test script for 200 shoppers (`tests/load/k6-shop.js`).
+- `Docs/SECURITY_REVIEW.md` (findings and OWASP Top 10 coverage) and `Docs/RELEASE_WEEK3.md`.
+
+### Changed
+
+- Sign-ins last 14 days (was 30). Changing your password signs you out on other devices.
+- Next.js 15.5.28 (security fix).
+- Logs mask customer emails and phone numbers.
+
+### Fixed
+
+- Login links could be crafted to send people to another website after signing in.
+- Rate limits could be dodged by faking a header.
+- Review and return photos must now be uploaded through the store (not linked from elsewhere).
+
 ## Week 3 — Phase 22: Customer support — 2026-11-04
 
 ### Added

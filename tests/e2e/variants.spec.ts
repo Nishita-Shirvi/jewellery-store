@@ -4,6 +4,7 @@ import {
   createVariantRing,
   pickOption,
   hideTestProducts,
+  uniqueSlug,
   createStaff,
   staffLogin,
   visitorIp,
@@ -148,7 +149,7 @@ test("buy two different variants of one ring; stock drops only for those variant
 test("admin: add sizes to a product, bulk-set stock, bad SKU refused", async ({ page }) => {
   // A throwaway product with a single base variant, like every product after the migration.
   const category = await db.category.findFirstOrThrow({ where: { slug: "rings" } });
-  const slug = `e2e-variant-admin-${Date.now()}`;
+  const slug = uniqueSlug("e2e-variant-admin");
   const product = await db.product.create({
     data: {
       name: "E2E Admin Ring",

@@ -25,7 +25,8 @@ export type MarketingEmail =
   | { kind: "referral_reward"; referralId: string }
   | { kind: "staff_invite"; inviteId: string; token: string }
   | { kind: "ticket_customer_update"; ticketId: string; messageId: string }
-  | { kind: "ticket_staff_alert"; ticketId: string; messageId: string };
+  | { kind: "ticket_staff_alert"; ticketId: string; messageId: string }
+  | { kind: "password_reset"; resetId: string; token: string };
 
 const excerpt = (text: string) => (text.length > 600 ? `${text.slice(0, 600)}…` : text);
 
@@ -178,6 +179,31 @@ export async function deliverMarketingEmail(email: MarketingEmail): Promise<"sen
           "You asked us to tell you once — you won't get more emails about it.",
         ],
         button: { label: "See it now", url: `${app()}/products/${v.product.slug}` },
+        marketing: false,
+      });
+      return "sent";
+    }
+
+    case "password_reset": {
+      const reset = await db.passwordResetToken.findUnique({
+        where: { id: email.resetId },
+        include: { user: { select: { email: true, name: true } } },
+      });
+      // Used, replaced or expired before we got to it: don't send a dead link.
+      if (!reset || reset.usedAt || reset.expiresAt < new Date()) return "skipped";
+      await send({
+        to: reset.user.email,
+        greetingName: reset.user.name?.split(" ")[0],
+        subject: "Reset your password",
+        heading: "Reset your password",
+        paragraphs: [
+          "Someone (hopefully you) asked to reset the password for your account. The link works once, for 30 minutes.",
+          "If it wasn't you, ignore this email — your password stays the same.",
+        ],
+        button: {
+          label: "Choose a new password",
+          url: `${app()}/reset-password?token=${encodeURIComponent(email.token)}`,
+        },
         marketing: false,
       });
       return "sent";

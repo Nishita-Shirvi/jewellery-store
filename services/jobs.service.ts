@@ -110,7 +110,15 @@ async function finish(job: ClaimedJob, error: unknown) {
   if (!error) {
     await db.job.update({
       where: { id: job.id },
-      data: { status: "DONE", finishedAt: now, lockedAt: null, dedupeKey: null, lastError: null },
+      // Payload wiped: done jobs keep no one-time tokens (reset links, invites) lying around.
+      data: {
+        status: "DONE",
+        finishedAt: now,
+        lockedAt: null,
+        dedupeKey: null,
+        lastError: null,
+        payload: {},
+      },
     });
     return "done" as const;
   }

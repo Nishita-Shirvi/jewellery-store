@@ -10,13 +10,21 @@ import { logger } from "@/lib/logger";
 import { getClientIp } from "@/lib/request";
 import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validation/auth";
-import { verifyCredentials } from "@/services/auth.service";
+import { AccountLockedError, verifyCredentials } from "@/services/auth.service";
 import { mergeGuestCartIntoUser } from "@/services/cart.service";
 
 /** Thrown from authorize() when there are too many attempts. */
 export class TooManyAttempts extends CredentialsSignin {
   code = "rate_limited";
 }
+
+/** Thrown from authorize() while the account is locked after too many wrong passwords. */
+export class AccountLocked extends CredentialsSignin {
+  code = "locked";
+}
+
+/** How often a signed-in session re-checks the database (password changed → signed out). */
+const SESSION_RECHECK_MS = 5 * 60_000;
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LIMIT_PER_EMAIL = 5; // per email + IP
@@ -43,7 +51,16 @@ const providers: Provider[] = [
         throw new TooManyAttempts();
       }
 
-      const user = await verifyCredentials(parsed.data);
+      let user;
+      try {
+        user = await verifyCredentials(parsed.data);
+      } catch (error) {
+        if (error instanceof AccountLockedError) {
+          logger.warn("auth.login_locked", { ip });
+          throw new AccountLocked();
+        }
+        throw error;
+      }
       if (!user) return null;
 
       resetRateLimit(emailKey);
@@ -71,6 +88,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   callbacks: {
     ...authConfig.callbacks,
+    /**
+     * Server-side (Node) token check: sessions started before the password was last changed or
+     * reset are ended. Re-checked at most every few minutes to keep the database load small.
+     */
+    async jwt(params) {
+      const token = await authConfig.callbacks.jwt(params);
+      if (params.user?.id) {
+        token.signedInAt = Date.now();
+        token.checkedAt = Date.now();
+        return token;
+      }
+      if (!token.id || Date.now() - (token.checkedAt ?? 0) < SESSION_RECHECK_MS) return token;
+      const current = await db.user.findUnique({
+        where: { id: token.id },
+        select: { passwordChangedAt: true },
+      });
+      if (!current) return null;
+      if (
+        current.passwordChangedAt &&
+        current.passwordChangedAt.getTime() > (token.signedInAt ?? 0)
+      ) {
+        logger.info("auth.session_ended_password_changed", { userId: token.id });
+        return null;
+      }
+      token.checkedAt = Date.now();
+      return token;
+    },
     signIn({ account, profile }) {
       // Only accept Google accounts whose email Google has verified.
       if (account?.provider === "google") return profile?.email_verified === true;

@@ -20,6 +20,18 @@ type Fields = Record<string, unknown>;
 
 const LEVELS: Record<LogLevel, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 const SECRET_KEY = /pass(word)?|secret|token|authorization|cookie|signature|otp|api_?key|cvv/i;
+/** Personal data: kept recognisable for support, but not readable in full in log storage. */
+const PERSONAL_KEY = /^(to|email|actorEmail|phone|mobile)$/i;
+
+/** "priya.sharma@gmail.com" → "pr***@gmail.com"; "9876543210" → "98******10". */
+export function maskPersonal(value: string): string {
+  const at = value.indexOf("@");
+  if (at > 0) return `${value.slice(0, Math.min(2, at))}***${value.slice(at)}`;
+  const digits = value.replace(/\D/g, "");
+  if (digits.length >= 6)
+    return `${digits.slice(0, 2)}${"*".repeat(digits.length - 4)}${digits.slice(-2)}`;
+  return "***";
+}
 const pretty = process.env.NODE_ENV === "development";
 
 let minLevel: number = LEVELS[config.logging.level];
@@ -38,7 +50,11 @@ function sanitize(value: unknown, depth = 0): unknown {
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => sanitize(v, depth + 1));
   const out: Fields = {};
   for (const [key, v] of Object.entries(value)) {
-    out[key] = SECRET_KEY.test(key) ? "[redacted]" : sanitize(v, depth + 1);
+    out[key] = SECRET_KEY.test(key)
+      ? "[redacted]"
+      : PERSONAL_KEY.test(key) && typeof v === "string"
+        ? maskPersonal(v)
+        : sanitize(v, depth + 1);
   }
   return out;
 }

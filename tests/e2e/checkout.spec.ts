@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { visitorIp } from "./fixtures";
+import { visitorIp, watchCsp } from "./fixtures";
 
 test.beforeEach(async ({ context }, info) => {
   await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
@@ -18,6 +18,7 @@ window.Razorpay = function (o) {
 };`;
 
 test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async ({ page }) => {
+  const csp = watchCsp(page);
   await page.route("https://checkout.razorpay.com/**", (route) =>
     route.fulfill({ contentType: "application/javascript", body: FAKE_RAZORPAY }),
   );
@@ -75,6 +76,8 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await page.getByRole("link", { name: "View order" }).click();
   await expect(page.getByText("Order confirmed")).toBeVisible();
   await expect(page.getByText("₹4,400").first()).toBeVisible();
+  // The whole browse → pay journey ran under the Content-Security-Policy without a violation.
+  expect(csp).toEqual([]);
 });
 
 test("security headers are set", async ({ request }) => {

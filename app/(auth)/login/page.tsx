@@ -21,7 +21,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string; reset?: string }>;
 }) {
   const params = await searchParams;
   const callbackUrl = safeRedirectPath(params.callbackUrl, "/account");
@@ -47,7 +47,20 @@ export default async function LoginPage({
           <OrDivider />
         </>
       )}
+      {params.reset && (
+        <p
+          role="status"
+          className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          Your password has been changed. Log in with the new one.
+        </p>
+      )}
       <LoginForm callbackUrl={callbackUrl} />
+      <p className="text-sm">
+        <Link href="/forgot-password" className="underline underline-offset-4">
+          Forgot your password?
+        </Link>
+      </p>
       <p className="text-muted-foreground text-sm">
         New here?{" "}
         <Link

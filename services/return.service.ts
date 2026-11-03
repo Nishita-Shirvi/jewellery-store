@@ -1,4 +1,5 @@
 import "server-only";
+import { isOwnUpload } from "@/services/upload.service";
 import { revalidateTag } from "next/cache";
 import type { Prisma, ReturnReason } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -220,6 +221,8 @@ export async function requestReturn(
   if (!ctx.eligibility.ok) throw new ReturnError(ctx.eligibility.reason);
   const problem = validateReturnSelection(ctx.lines, input.items);
   if (problem) throw new ReturnError(problem);
+  if (input.photoUrl && !isOwnUpload(input.photoUrl, "jewellery-store/returns"))
+    throw new ReturnError("Please upload the photo with the form.");
 
   const created = await db.$transaction(async (tx) => {
     const switched = await tx.order.updateMany({

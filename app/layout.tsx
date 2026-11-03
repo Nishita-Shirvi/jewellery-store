@@ -6,6 +6,7 @@ import { publicEnv } from "@/lib/env";
 import "@fontsource/marcellus/400.css";
 import "@fontsource-variable/figtree";
 import "./globals.css";
+import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_APP_URL),
@@ -14,11 +15,14 @@ export const metadata: Metadata = {
     template: `%s | ${publicEnv.NEXT_PUBLIC_SITE_NAME}`,
   },
   description: "Hallmarked gold, silver and diamond jewellery, delivered insured across India.",
+  appleWebApp: { capable: true, title: publicEnv.NEXT_PUBLIC_SITE_NAME, statusBarStyle: "default" },
+  icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#4a1528",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -29,6 +33,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <main className="flex-1">{children}</main>
         <SiteFooter />
         <Analytics gaId={publicEnv.NEXT_PUBLIC_GA_ID} />
+        <RegisterServiceWorker />
       </body>
     </html>
   );
