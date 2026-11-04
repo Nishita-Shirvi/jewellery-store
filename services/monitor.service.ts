@@ -218,8 +218,13 @@ export async function evaluateAlerts(keys: AlertKey[] = ALERT_KEYS, now = new Da
       alert: key,
       detail: result.detail,
     });
+    // One job per recipient (and one for chat): a failure retries only that delivery, so
+    // nobody gets the same alert twice because someone else's email or the chat failed.
     const { enqueue, kickJobs } = await import("@/services/jobs.service");
-    await enqueue("alerts.notify", { key, change, detail: result.detail, at: now.toISOString() });
+    const base = { key, change, detail: result.detail, at: now.toISOString() };
+    const { env } = await import("@/lib/env");
+    for (const to of await alertRecipients()) await enqueue("alerts.notify", { ...base, to });
+    if (env.ALERT_WEBHOOK_URL) await enqueue("alerts.notify", { ...base, chat: true });
     await kickJobs();
   }
   return changes;
@@ -265,11 +270,14 @@ export async function alertRecipients(): Promise<string[]> {
 }
 
 /** Sends one alert notification (run by the alerts.notify job, so it's retried if it fails). */
+/** Sends ONE alert delivery: an email to `to`, or the chat message when `chat` is set. */
 export async function deliverAlert(p: {
   key: AlertKey;
   change: AlertChange;
   detail: string;
   at: string;
+  to?: string;
+  chat?: boolean;
 }) {
   const { publicEnv, env } = await import("@/lib/env");
   const { sendEmail } = await import("@/services/email.service");
@@ -285,8 +293,8 @@ export async function deliverAlert(p: {
   const text = `${alert.title}\n\n${p.detail}\n\n${what}\n\nSystem page: ${page}\nTime: ${p.at}`;
   const esc = (s: string) => s.replace(/[<>&"]/g, "");
   const html = `<h2>${esc(alert.title)}</h2><p>${esc(p.detail)}</p><p>${esc(what)}</p><p><a href="${page}">Open the system page</a> · ${esc(p.at)}</p>`;
-  for (const to of await alertRecipients()) await sendEmail({ to, subject, text, html });
-  if (env.ALERT_WEBHOOK_URL) {
+  if (p.to) await sendEmail({ to: p.to, subject, text, html });
+  if (p.chat && env.ALERT_WEBHOOK_URL) {
     const res = await fetch(env.ALERT_WEBHOOK_URL, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -299,5 +307,5 @@ export async function deliverAlert(p: {
     });
     if (!res.ok) throw new Error(`Alert webhook responded ${res.status}`);
   }
-  logger.info("alert.delivered", { alert: p.key, change: p.change });
+  logger.info("alert.delivered", { alert: p.key, change: p.change, to: p.to, chat: p.chat });
 }

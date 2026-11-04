@@ -99,6 +99,8 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
         change: z.enum(["started", "reminder", "resolved"]),
         detail: z.string().max(2000),
         at: z.string().max(40),
+        to: z.email().optional(),
+        chat: z.boolean().optional(),
       }),
       payload,
     );

@@ -3,6 +3,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/db", () => ({ db: {} }));
+const metricWrites = vi.hoisted(() => [] as number[]);
+vi.mock("@/lib/metrics", () => ({
+  addMetric: async (_key: string, n: number) => {
+    await new Promise((r) => setTimeout(r, 5)); // a write takes a moment
+    metricWrites.push(n);
+  },
+}));
 
 import { logger } from "@/lib/logger";
 import { requestIdFrom, runWithContext } from "@/lib/request-context";
@@ -42,6 +49,16 @@ describe("request ids", () => {
     vi.spyOn(console, "info").mockImplementation((l: string) => void lines.push(l));
     runWithContext({ requestId: "req-abcdef" }, () => logger.info("test.override", { other: 1 }));
     expect(lines.at(-1)).toContain("req-abcdef");
+  });
+});
+
+describe("error counting for the error-spike alert", () => {
+  it("a burst of 40 errors is counted as 40, in a few writes, with nothing left behind", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    metricWrites.length = 0;
+    for (let i = 0; i < 40; i++) logger.error("test.burst", { i });
+    await vi.waitFor(() => expect(metricWrites.reduce((a, b) => a + b, 0)).toBe(40));
+    expect(metricWrites.length).toBeLessThan(10);
   });
 });
 

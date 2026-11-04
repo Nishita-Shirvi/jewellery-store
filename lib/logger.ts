@@ -2,18 +2,29 @@ import { config } from "@/lib/config";
 import { currentContext } from "@/lib/request-context";
 
 /**
- * Error lines are counted for the "error spike" alert (Phase 26). Counted in memory and written
- * at most every 10 seconds per server instance, so an error storm can't flood the database.
+ * Error lines are counted for the "error spike" alert (Phase 26). At most one write is in
+ * flight per server instance: errors arriving meanwhile are added up and written together as
+ * soon as it finishes. So an error storm costs a handful of writes (it can't flood the database)
+ * and every error is counted — none waits for a later error to be written.
  */
 let pendingErrors = 0;
-let lastErrorFlush = 0;
+let writingErrors = false;
 function countError() {
   pendingErrors += 1;
-  if (Date.now() - lastErrorFlush < 10_000) return;
-  lastErrorFlush = Date.now();
-  const n = pendingErrors;
-  pendingErrors = 0;
-  import("@/lib/metrics").then((m) => m.addMetric("log.error", n)).catch(() => {});
+  if (writingErrors) return;
+  writingErrors = true;
+  const flush = () => {
+    const n = pendingErrors;
+    pendingErrors = 0;
+    import("@/lib/metrics")
+      .then((m) => m.addMetric("log.error", n))
+      .catch(() => {})
+      .finally(() => {
+        if (pendingErrors > 0) flush();
+        else writingErrors = false;
+      });
+  };
+  flush();
 }
 
 /**

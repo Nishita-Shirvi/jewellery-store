@@ -17,13 +17,17 @@ vi.mock("next/cache", () => ({
   unstable_cache: <T>(fn: T) => fn,
 }));
 
+const chatDown = vi.hoisted(() => ({ value: false }));
 const sent = vi.hoisted(() => ({
   emails: [] as { to: string; subject: string; text: string }[],
   chat: [] as string[],
 }));
 vi.stubGlobal("fetch", async (url: string, init?: { body?: string }) => {
   if (String(url).startsWith("https://api.resend.com")) sent.emails.push(JSON.parse(init!.body!));
-  else if (String(url).startsWith("https://chat.example.com")) sent.chat.push(init!.body!);
+  else if (String(url).startsWith("https://chat.example.com")) {
+    if (chatDown.value) return new Response("down", { status: 500 });
+    sent.chat.push(init!.body!);
+  }
   return new Response("{}", { status: 200 });
 });
 
@@ -99,7 +103,37 @@ describe("payment outage", () => {
       Array.from({ length: 5 }, () => monitor.evaluateAlerts(["payments"])),
     );
     expect(results.flat().filter((c) => c.change === "started")).toHaveLength(1);
-    expect(await db.job.count({ where: { type: "alerts.notify" } })).toBe(1);
+    const recipients = await monitor.alertRecipients();
+    expect(await db.job.count({ where: { type: "alerts.notify" } })).toBe(recipients.length + 1);
+  });
+
+  it("a failing chat webhook is retried on its own — nobody gets the email twice", async () => {
+    chatDown.value = true;
+    try {
+      for (let i = 0; i < 5; i++) await addMetric("payments.gateway_error");
+      await monitor.evaluateAlerts(["payments"]);
+      // Run the queue several times, making retries due at once each time.
+      for (let round = 0; round < 4; round++) {
+        await db.job.updateMany({
+          where: { type: "alerts.notify", status: "PENDING" },
+          data: { runAt: new Date(Date.now() - 1000) },
+        });
+        await runDueJobs();
+      }
+      const alerts = sent.emails.filter((e) => e.subject === "[Alert] Payments are failing");
+      const recipients = await monitor.alertRecipients();
+      expect(alerts).toHaveLength(recipients.length);
+      expect(new Set(alerts.map((e) => e.to)).size).toBe(recipients.length);
+      // Only the chat job is still failing / retrying.
+      const notDone = await db.job.findMany({
+        where: { type: "alerts.notify", status: { not: "DONE" } },
+        select: { payload: true },
+      });
+      expect(notDone.length).toBe(1);
+      expect(notDone[0]!.payload).toMatchObject({ chat: true });
+    } finally {
+      chatDown.value = false;
+    }
   });
 
   it("no alert when most payments succeed, or when there are too few failures", async () => {
@@ -130,8 +164,9 @@ describe("payment outage", () => {
     // An hour after that, nothing new has failed: resolved.
     const clear = new Date(later.getTime() + 60 * MIN);
     expect((await monitor.evaluateAlerts(["payments"], clear))[0]?.change).toBe("resolved");
-    await runDueJobs();
-    // One email per change, to each recipient (the three jobs may run in any order).
+    // One job per recipient per change: run the queue until they're all sent.
+    while ((await runDueJobs({ limit: 200 })).done > 0);
+    // One email per change, to each recipient (the jobs may run in any order).
     const subjects = sent.emails
       .map((e) => e.subject)
       .filter((x) => x.includes("Payments are failing"));
