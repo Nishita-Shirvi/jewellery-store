@@ -38,6 +38,7 @@ import {
 } from "@/lib/cod";
 import { OtpError, checkOtp, consumeOtp, otpAvailable, sendOtp } from "@/services/otp.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import { addMetric } from "@/lib/metrics";
 
 /** Short reference shown to customers, e.g. #K3F9Q2ZA. */
 export function displayOrderNumber(orderId: string): string {
@@ -314,6 +315,9 @@ export async function startCheckout(
       orderId: order.id,
       error,
     });
+    // Phase 26: a gateway outage must alert within minutes, not at the next cron run.
+    await addMetric("payments.gateway_error");
+    await (await import("@/services/monitor.service")).checkSoon(["payments"]);
     return { ok: false, error: "We couldn't reach the payment provider. Please try again." };
   }
 }
@@ -807,6 +811,7 @@ export async function markPaymentFailed(input: {
     razorpayPaymentId: input.razorpayPaymentId,
     reason: input.reason,
   });
+  await (await import("@/services/monitor.service")).checkSoon(["payments"]);
   return { outcome: updated.count > 0 ? "failed" : "ignored" };
 }
 

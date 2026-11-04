@@ -58,6 +58,20 @@ const configSchema = z.object({
   }),
   alerts: z.object({
     admin_email: optionalEmail,
+    // Phase 26 business alerts (Docs/RUNBOOK.md has what to do for each). 0 = that alert is off.
+    no_orders_hours: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 30)
+      .default(48),
+    payment_failures_min: z.coerce.number().int().min(0).max(1000).default(5),
+    payment_failure_rate_percent: z.coerce.number().int().min(1).max(100).default(50),
+    payment_window_minutes: z.coerce.number().int().min(5).max(240).default(15),
+    error_spike_count: z.coerce.number().int().min(0).max(100_000).default(25),
+    bad_webhook_signatures_per_hour: z.coerce.number().int().min(0).max(10_000).default(10),
+    stockout_top_sellers: z.coerce.number().int().min(0).max(100).default(10),
+    repeat_hours: z.coerce.number().int().min(1).max(168).default(6),
   }),
   features: z.object({
     sms: bool.default(false),

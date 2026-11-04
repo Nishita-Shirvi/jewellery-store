@@ -34,6 +34,8 @@ const serverSchema = z.object({
 
   // Email via Resend (emails are logged instead of sent until RESEND_API_KEY is set)
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
+  // Optional chat alerts (Phase 26): a Slack / Google Chat / Discord incoming-webhook URL.
+  ALERT_WEBHOOK_URL: z.url({ protocol: /^https$/ }).optional(),
   EMAIL_FROM: z.string().min(3).default("Jewellery Store <onboarding@resend.dev>"),
 
   // Product image uploads (Cloudinary). Without these, admins pick from placeholder images.

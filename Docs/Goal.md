@@ -368,14 +368,15 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 26 — Monitoring and alerts
 
-- [ ] Structured JSON logs with request/correlation IDs; no personal data or secrets in logs
-- [ ] Sentry tracing and release tracking
-- [ ] Uptime checks on home, health, checkout and webhooks
-- [ ] Business alerts (no orders, high payment failures, dead-letter jobs, webhook failures, top-seller stock-outs, error spikes)
-- [ ] `/admin/system` health page
-- [ ] `RUNBOOK.md` entry for every alert
+- [x] Structured JSON logs with request/correlation IDs; no personal data or secrets in logs
+- [x] Sentry tracing and release tracking
+- [x] Uptime checks on home, health, checkout and webhooks
+- [x] Business alerts (no orders, high payment failures, dead-letter jobs, webhook failures, top-seller stock-outs, error spikes)
+- [x] `/admin/system` health page
+- [x] `RUNBOOK.md` entry for every alert
 
 **Done when:** a simulated payment outage alerts within 5 minutes, and every alert has a runbook entry.
+**Status:** done — a simulated payment outage (5 failed checkouts) alerted 8 ms after the last failure in the browser test; every alert has a RUNBOOK.md section (checked by a unit test).
 
 ### Phase 27 — Privacy and legal compliance
 

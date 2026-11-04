@@ -3,6 +3,24 @@ import { config, envOverrides } from "@/lib/config";
 import { env, isGoogleAuthEnabled, isRazorpayConfigured, isShiprocketConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
+/** Which integrations are switched on (yes/no only, never secrets). Also on Admin → System. */
+export function integrationsSummary() {
+  return {
+    razorpay: isRazorpayConfigured,
+    razorpayMode: env.RAZORPAY_KEY_ID?.startsWith("rzp_live_")
+      ? ("live" as const)
+      : ("test" as const),
+    email: Boolean(env.RESEND_API_KEY),
+    imageUploads: Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY),
+    shiprocket: isShiprocketConfigured,
+    googleLogin: isGoogleAuthEnabled,
+    sms: config.features.sms && Boolean(env.MSG91_AUTH_KEY),
+    sentry: Boolean(env.SENTRY_DSN),
+    cronJobs: Boolean(env.CRON_SECRET),
+    chatAlerts: Boolean(env.ALERT_WEBHOOK_URL),
+  };
+}
+
 /**
  * One log line when the server starts, saying which integrations are switched on.
  * First thing to check when "emails aren't sending" or "checkout says payments not set up":
@@ -15,17 +33,7 @@ export function logStartupSummary() {
     logLevel: config.logging.level,
     // Env vars overriding config.ini — if you edited config.ini and nothing changed, look here.
     configOverriddenByEnv: envOverrides(),
-    integrations: {
-      razorpay: isRazorpayConfigured,
-      razorpayMode: env.RAZORPAY_KEY_ID?.startsWith("rzp_live_") ? "live" : "test",
-      email: Boolean(env.RESEND_API_KEY),
-      imageUploads: Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY),
-      shiprocket: isShiprocketConfigured,
-      googleLogin: isGoogleAuthEnabled,
-      sms: config.features.sms && Boolean(env.MSG91_AUTH_KEY),
-      sentry: Boolean(env.SENTRY_DSN),
-      cronJobs: Boolean(env.CRON_SECRET),
-    },
+    integrations: integrationsSummary(),
     shipping: config.shipping,
     inventory: config.inventory,
   });

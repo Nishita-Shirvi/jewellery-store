@@ -6,6 +6,8 @@ import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { bodyHash, razorpayWebhookSchema, recordWebhook } from "@/services/webhook.service";
+import { addMetric } from "@/lib/metrics";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ const MAX_BODY_BYTES = 256 * 1024;
  * Set this URL in Razorpay Dashboard → Webhooks with events payment.captured, payment.failed,
  * refund.processed and refund.failed. Verifies, saves, queues — the work happens in a job.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const limit = rateLimit(`webhook:${getClientIp(request.headers)}`, 300, 60_000);
   if (!limit.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
@@ -33,6 +35,7 @@ export async function POST(request: Request) {
   const signature = request.headers.get("x-razorpay-signature") ?? "";
   if (!verifyWebhookSignature(rawBody, signature, env.RAZORPAY_WEBHOOK_SECRET)) {
     logger.warn("webhook.razorpay_bad_signature", { ip: getClientIp(request.headers) });
+    await addMetric("webhook.bad_signature");
     return NextResponse.json({ error: "invalid_signature" }, { status: 400 });
   }
 
@@ -61,3 +64,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const POST = withRequestId(handlePOST);

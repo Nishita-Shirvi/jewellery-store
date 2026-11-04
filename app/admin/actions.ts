@@ -57,6 +57,7 @@ import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
+import { evaluateAlerts } from "@/services/monitor.service";
 import {
   announcementFormSchema,
   collectionFormSchema,
@@ -1321,4 +1322,19 @@ export async function deletePageAction(formData: FormData): Promise<void> {
   });
   revalidatePath("/admin/content");
   backTo("/admin/content", { saved: "Page deleted." });
+}
+
+// ───────────────────────── System (Phase 26) ─────────────────────────
+
+/** Runs every alert check now (otherwise they run with each cron tick). */
+export async function runAlertChecksAction(): Promise<void> {
+  const admin = await requirePermission("system.view");
+  const changes = await evaluateAlerts();
+  await audit(admin, {
+    action: "system.check_alerts",
+    entityType: "job",
+    entityId: "alerts",
+    summary: `Alert checks run (${changes.length} change(s))`,
+  });
+  revalidatePath("/admin/system");
 }

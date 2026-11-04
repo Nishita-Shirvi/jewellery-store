@@ -32,7 +32,10 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] `/api/health` returns ok on the live domain
 - [ ] GitHub Actions CI is green on `main`
 - [ ] Resend domain verified (SPF, DKIM, DMARC); test order email arrives and isn't in spam
-- [ ] Sentry receiving errors (optional but recommended)
+- [ ] Sentry receiving errors (optional but recommended); in Sentry → Alerts add "Number of errors > 25 in 10 minutes" → email
+- [ ] Vercel → Settings → Environment Variables → "Automatically expose System Environment Variables" ON (Sentry release tags)
+- [ ] Monitoring (Phase 26): `[alerts] admin_email` set; GitHub Actions "Uptime" green (needs ENABLE_CRON, SITE_URL, CRON_SECRET); Admin → System shows the scheduler running and no firing alerts
+- [ ] Optional: add `https://<site>/api/health` to a free uptime service (1-minute checks, SMS)
 - [ ] `CRON_SECRET` set; `/api/cron/jobs` returns 200 with the bearer token; GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`)
 - [ ] Admin → Jobs shows no failed jobs after a test order (email, invoice, webhook all DONE)
 - [ ] Owner signs in to /admin, sets up two-step sign-in on their phone and **stores the 8 recovery codes offline**; staff invited from Admin → Staff with the smallest role that fits

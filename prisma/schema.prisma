@@ -1322,3 +1322,29 @@ model RecoStat {
 
   @@id([day, widget, event, shard])
 }
+
+// ─────────────────────── Monitoring and alerts (Phase 26) ───────────────────────
+
+/// Per-minute counters for things that leave no other trace: payment gateway errors, bad webhook
+/// signatures, error log lines. Kept 3 days (pruned by the cron).
+model Metric {
+  key    String
+  /// Start of the minute (UTC).
+  minute DateTime
+  count  Int      @default(0)
+
+  @@id([key, minute])
+  @@index([minute])
+}
+
+/// One row per business alert: whether it's firing and when we last told someone.
+/// Alerts email once when they start, remind every few hours while firing, and say when resolved.
+model AlertState {
+  key            String    @id
+  firing         Boolean   @default(false)
+  since          DateTime?
+  lastNotifiedAt DateTime?
+  /// What the last check saw (shown in Admin → System).
+  detail         String    @default("")
+  checkedAt      DateTime  @default(now())
+}

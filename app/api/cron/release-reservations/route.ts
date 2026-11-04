@@ -3,6 +3,7 @@ import { isAuthorizedCron } from "@/lib/cron-auth";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { cronTick } from "@/services/cron.service";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
  * Kept for existing schedules: same as /api/cron/jobs (releases expired stock holds as a job and
  * runs every due background job).
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   if (!env.CRON_SECRET) return NextResponse.json({ error: "not_configured" }, { status: 503 });
   if (!isAuthorizedCron(request.headers.get("authorization"), env.CRON_SECRET)) {
     logger.warn("cron.unauthorized", { path: "release-reservations" });
@@ -26,3 +27,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

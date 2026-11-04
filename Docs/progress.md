@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4 in progress on branch `week4-launch`: Phases 24–25 done. Next: Phase 26 — Monitoring and alerts.
+**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4 in progress on branch `week4-launch`: Phases 24–26 done. Next: Phase 27 — Privacy and compliance.
 
 ---
 
@@ -39,7 +39,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10              |
 | 24    | Merchandising and CMS           | ✅     | 2026-11-04 | 2026-11-04 | 33 unit + 14 DB checks (6 mutations caught), 3 E2E incl. real-time schedule go-live/expiry; full regression green |
 | 25    | Recommendations                 | ✅     | 2026-11-04 | 2026-11-04 | 8 unit + 12 DB checks (5 mutations caught), 2 E2E; page speed equal to pre-Week-4 build side by side              |
-| 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                   |
+| 26    | Monitoring and alerts           | ✅     | 2026-11-04 | 2026-11-04 | 10 unit + 13 DB checks, 1 E2E (outage alerted in 8 ms); every alert has a runbook entry                           |
 | 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                                                             |
 | 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                      |
 | 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                   |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 26 — Monitoring and alerts (2026-11-04)
+
+**Done so far:** Phases 1–25 (latest 3ee5efb, recommendations).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 (Resend + domain) for alert emails to arrive; Sentry DSN (B-10) for error tracking. Alerts still show on Admin → System without them.
+**Plan for this phase:** correlation ids in logs; Sentry releases; uptime checks; six business alerts with start / reminder / resolved emails; Admin → System; RUNBOOK.md.
+**Risks:** alert storms (duplicate emails), logging floods during an error storm, alerts nobody can act on, an outage noticed too late.
+**Git:** after 3ee5efb on `week4-launch`.
 
 ### Before Phase 25 — Recommendations (2026-11-04)
 

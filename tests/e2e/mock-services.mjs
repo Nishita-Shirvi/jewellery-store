@@ -13,6 +13,16 @@ http
     const url = new URL(req.url ?? "/", "http://localhost");
     res.setHeader("Access-Control-Allow-Origin", "*");
 
+    // Phase 26: simulate a Razorpay outage for orders of one amount (in paise), so only the
+    // monitoring test is affected while other tests keep paying normally:
+    // POST /test/razorpay-outage?amount=1313100 (and ?amount= to end it).
+    if (url.pathname === "/test/razorpay-outage") {
+      globalThis.__razorpayDownFor = Number(url.searchParams.get("amount")) || null;
+      return res
+        .writeHead(200, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ downFor: globalThis.__razorpayDownFor }));
+    }
+
     if (req.method === "POST" && url.pathname === "/v1/orders") {
       let body = "";
       req.on("data", (c) => (body += c));
@@ -24,6 +34,12 @@ http
         if (auth !== `${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)
           return res.writeHead(401).end("{}");
         const b = JSON.parse(body);
+        if (globalThis.__razorpayDownFor && b.amount === globalThis.__razorpayDownFor)
+          return res
+            .writeHead(503, { "Content-Type": "application/json" })
+            .end(
+              JSON.stringify({ error: { code: "SERVER_ERROR", description: "Simulated outage" } }),
+            );
         res.writeHead(200, { "Content-Type": "application/json" }).end(
           JSON.stringify({
             id: `order_${randomBytes(7).toString("hex")}`,

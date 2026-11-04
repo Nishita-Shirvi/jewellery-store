@@ -1,5 +1,19 @@
 # Changelog
 
+## Week 4 — Phase 26: Monitoring and alerts — 2026-11-04
+
+### Added
+
+- **Business alerts** by email (and optional Slack / Google Chat / Discord): payments failing, no orders for a long time, failed background jobs, webhook problems, best-sellers out of stock, many errors. One email when it starts, reminders while it lasts, and a "Resolved" email. A payment outage is detected within seconds.
+- **Admin → System:** database, scheduler, background jobs, alert status, integrations and the deployed version; "Run alert checks now".
+- **`Docs/RUNBOOK.md`:** what each alert means, what to check, how to fix it.
+- **Uptime checks** every 5 minutes (GitHub Actions) on the home page, health, checkout and webhooks, plus a deeper health check for the scheduler and stuck jobs.
+- Log lines from one request or job share an id (`requestId`, `jobId`); API responses return it as `x-request-id`. Sentry errors are tagged with the deployed version.
+
+### Changed
+
+- Business alert emails go to `[alerts] admin_email`, else to Owners and Managers only (the low-stock email is unchanged).
+
 ## Week 4 — Phase 25: Recommendations — 2026-11-04
 
 ### Added

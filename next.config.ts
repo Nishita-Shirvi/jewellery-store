@@ -87,6 +87,11 @@ export default withSentryConfig(nextConfig, {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // Phase 26: one Sentry release per deployed commit (matches Sentry.init release).
+  release: {
+    name: process.env.VERCEL_GIT_COMMIT_SHA,
+    create: Boolean(process.env.SENTRY_AUTH_TOKEN),
+  },
   widenClientFileUpload: true,
   webpack: { treeshake: { removeDebugLogging: true } },
   telemetry: false,

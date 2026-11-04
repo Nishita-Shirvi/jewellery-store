@@ -132,6 +132,12 @@ vi.mock("@/services/merch.service", () => ({
   unpublishPage: spy("unpublishPage"),
   deletePage: spy("deletePage"),
 }));
+vi.mock("@/services/monitor.service", () => ({
+  evaluateAlerts: vi.fn(async () => {
+    touched.push("evaluateAlerts");
+    return [];
+  }),
+}));
 vi.mock("@/services/jobs.service", () => ({
   enqueueAndRunNow: vi.fn(async () => {
     touched.push("enqueueAndRunNow");
@@ -263,6 +269,7 @@ const NEEDS: Record<string, Permission> = {
   publishPageAction: "content.manage",
   unpublishPageAction: "content.manage",
   deletePageAction: "content.manage",
+  runAlertChecksAction: "system.view",
   saveFaqAction: "faqs.manage",
   deleteFaqAction: "faqs.manage",
   saveCannedReplyAction: "faqs.manage",

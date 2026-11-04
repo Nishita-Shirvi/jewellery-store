@@ -2,6 +2,12 @@ import "server-only";
 import { logger } from "@/lib/logger";
 import { enqueue, pruneDoneJobs, runDueJobs } from "@/services/jobs.service";
 import { recoIsDue } from "@/services/reco.service";
+import { db } from "@/lib/db";
+import { pruneMetrics } from "@/lib/metrics";
+import { evaluateAlerts } from "@/services/monitor.service";
+
+/** AppSetting key holding the last cron tick (Admin → System, /api/health). */
+export const CRON_TICK_KEY = "cron.lastTickAt";
 
 /**
  * One tick of the scheduler (Phase 19): queue the periodic work, then run whatever is due —
@@ -19,6 +25,19 @@ export async function cronTick(extra: { lowStock?: boolean } = {}) {
     await enqueue("reco.compute", {}, { dedupeKey: "reco:compute", maxAttempts: 3 });
   const summary = await runDueJobs({ limit: 100, budgetMs: 45_000 });
   const pruned = await pruneDoneJobs(30);
+  // Monitoring (Phase 26): business alerts, last-tick time for the health page, old counters.
+  const alerts = await evaluateAlerts().catch((error) => {
+    logger.error("cron.alerts_failed", { error });
+    return [];
+  });
+  await pruneMetrics(3);
+  await db.appSetting.upsert({
+    where: { key: CRON_TICK_KEY },
+    create: { key: CRON_TICK_KEY, value: new Date().toISOString() },
+    update: { value: new Date().toISOString() },
+  });
+  if (alerts.length)
+    logger.info("cron.alert_changes", { changes: alerts.map((a) => `${a.key}:${a.change}`) });
   logger.info("cron.tick", { ...summary, pruned });
   return { ...summary, pruned };
 }

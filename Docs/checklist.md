@@ -184,10 +184,10 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Frequently bought together, similar, recently viewed, trending
 - [x] Free-shipping upsell in cart
 
-### 26. Monitoring & alerts
+### 26. Monitoring & alerts ✅
 
-- [ ] Structured logs, Sentry tracing, uptime checks
-- [ ] Business alerts + `/admin/system` page + runbook
+- [x] Structured logs, Sentry tracing, uptime checks
+- [x] Business alerts + `/admin/system` page + runbook
 
 ### 27. Privacy & legal compliance
 

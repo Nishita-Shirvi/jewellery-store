@@ -1,0 +1,51 @@
+# Uptime checks (Phase 26). Every 5 minutes, checks that the live site answers:
+# home page, health (including database, scheduler and stuck jobs), checkout and both webhooks.
+# A failed run makes GitHub email the repository owner (Settings → Notifications → Actions).
+#
+# Switched on with the same repository settings as cron.yml (Settings → Secrets and variables
+# → Actions): variable ENABLE_CRON=true, secrets SITE_URL and CRON_SECRET.
+# GitHub may run schedules a few minutes late; for 1-minute checks with SMS, also add the site to
+# a free uptime service (Docs/RUNBOOK.md → "Site down").
+name: Uptime
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: vars.ENABLE_CRON == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the live site
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -u
+          fail=0
+          check() { # name, expected status codes (regex), curl args…
+            name="$1"; want="$2"; shift 2
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$@")
+            if [[ "$code" =~ ^($want)$ ]]; then echo "OK   $name ($code)"; else echo "FAIL $name (got $code, want $want)"; fail=1; fi
+          }
+          check "home page"        "200"         "$SITE_URL/"
+          check "health"           "200"         "$SITE_URL/api/health"
+          check "checkout"         "200|307|302" "$SITE_URL/checkout"
+          # Webhook routes: a GET must be refused (405) — proves the route is deployed and
+          # answering, without sending fake events (those would count as bad signatures).
+          check "razorpay webhook" "405"         "$SITE_URL/api/webhooks/razorpay"
+          check "courier webhook"  "405"         "$SITE_URL/api/webhooks/courier-updates"
+
+          deep=$(curl -s --max-time 20 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/health?deep=1")
+          echo "deep health: $deep"
+          cron=$(echo "$deep" | jq -r '.cronMinutesAgo // "null"')
+          overdue=$(echo "$deep" | jq -r '.overdueJobs // 0')
+          if [ "$cron" = "null" ] || [ "$cron" -gt 45 ]; then echo "FAIL scheduler last ran: $cron min ago"; fail=1; fi
+          if [ "$overdue" -gt 20 ]; then echo "FAIL $overdue background jobs overdue"; fail=1; fi
+          exit $fail
