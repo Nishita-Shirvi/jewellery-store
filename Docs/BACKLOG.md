@@ -1,5 +1,16 @@
 # Backlog
 
+## Needs Vineet review
+
+Decisions or actions for the client before going live. Nothing here is broken in the code.
+
+| #    | Added      | Area                            | What's needed                                                                                                                                                                                                                                                                                                                                                                                                                            | Status                  |
+| ---- | ---------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| BL-4 | 2026-11-04 | Encryption key (Phase 27)       | Before the Phase 27 deploy, set `PII_ENCRYPTION_KEY` in Vercel (`openssl rand -base64 48`) and keep a copy somewhere safe (password manager). Without it, saved addresses and phone numbers can't be read. After deploying, run `npm run pii:encrypt` once against the live database; `npm run pii:encrypt -- --dry` should then show zeros. Also in `Docs/GO_LIVE_CHECKLIST.md`; rotation steps in `Docs/RUNBOOK.md` → "Rotating keys". | **Needs Vineet review** |
+| BL-5 | 2026-11-04 | Legal text and business details | A lawyer or CA should read the privacy policy and terms (blocker B-09). Fill in the business and grievance officer details in `config.ini` → `[business]` and `[grievance_officer]` (blocker B-04) — they appear on product pages, policies and invoices.                                                                                                                                                                                | **Needs Vineet review** |
+
+## Code review findings
+
 Known issues worth fixing that don't lose data or break anything today. Found by code review; newest first. When one is fixed, delete it here and mention it in `CHANGELOG.md`.
 
 | #    | Found                       | Area                                                         | Issue                                                                                                                                                             | Why it matters                                                                                                       | Suggested fix                                                                                                      |
