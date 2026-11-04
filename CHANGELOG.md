@@ -1,5 +1,20 @@
 # Changelog
 
+## Week 4 — Phase 27: Privacy and compliance — 2026-11-04
+
+### Added
+
+- **Account → Privacy:** turn offers / cart-reminder emails, order-update SMS and analytics cookies on or off (each choice is recorded), **download my data**, and **delete my account**.
+- Sign-up has an optional, unticked "email me offers" box.
+- Phone numbers and addresses are **encrypted in the database**; `npm run pii:encrypt` encrypts older rows (and re-encrypts after a key change).
+- A daily clean-up deletes data no longer needed (one-time codes, old reset links, old reminder records…); periods in `config.ini` → `[privacy]`.
+- Product pages show who sells it (legal name, address, GSTIN), the grievance officer, country of origin, and links to returns and delivery policies.
+- Privacy policy and terms describe exactly what the store does, including retention periods.
+
+### Changed
+
+- **Cart reminders and offers are only emailed to customers who opted in** (existing customers start opted out). Unsubscribe links also turn the account's offers off.
+
 ## Week 4 — Phase 26: Monitoring and alerts — 2026-11-04
 
 ### Added

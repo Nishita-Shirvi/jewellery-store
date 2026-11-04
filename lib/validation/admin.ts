@@ -99,6 +99,13 @@ export const productFormSchema = z
       .max(200)
       .optional()
       .transform((v) => v || null),
+    /** Shown on the product page (Phase 27). */
+    countryOfOrigin: z
+      .string()
+      .trim()
+      .max(60)
+      .optional()
+      .transform((v) => v || "India"),
     /** "Bridal, daily wear" → ["bridal", "daily-wear"]: used by rule-based collections (Phase 24). */
     tags: z
       .string()

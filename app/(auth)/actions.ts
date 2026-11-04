@@ -13,6 +13,7 @@ import { loginSchema, registerSchema, resetSchema } from "@/lib/validation/auth"
 import { redirect } from "next/navigation";
 import { ResetError, requestPasswordReset, resetPassword } from "@/services/password.service";
 import { EmailAlreadyRegisteredError, registerUser } from "@/services/auth.service";
+import { setConsent } from "@/services/privacy.service";
 
 export interface FormState {
   error?: string;
@@ -84,6 +85,9 @@ export async function registerAction(_prev: FormState, formData: FormData): Prom
 
   try {
     const user = await registerUser(parsed.data);
+    // Phase 27: marketing emails only with an explicit, unticked-by-default opt-in (logged).
+    if (formData.get("marketingConsent") === "on")
+      await setConsent(user.id, "email_marketing", true, "register");
     // Signed up through a friend's referral link (/r/CODE)? Never blocks the sign-up.
     const jar = await cookies();
     const ref = jar.get(REFERRAL_COOKIE)?.value;

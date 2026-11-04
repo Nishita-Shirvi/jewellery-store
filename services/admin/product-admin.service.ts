@@ -86,6 +86,7 @@ function toData(input: ProductFormInput) {
     grossWeightMg: input.grossWeight,
     gemstone: input.gemstone,
     tags: input.tags,
+    countryOfOrigin: input.countryOfOrigin,
     huid: input.huid,
     hsnCode: input.hsnCode,
     gstRateBps: input.gstRate,

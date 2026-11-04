@@ -6,7 +6,6 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/lib/format";
 import { ADMIN_TRANSITIONS, READY_TO_SHIP_STATUSES, STATUS_LABEL } from "@/lib/order-status";
-import type { AddressSnapshot } from "@/services/address.service";
 import { getOrderAdmin } from "@/services/admin/order-admin.service";
 import { displayOrderNumber } from "@/services/order.service";
 import {
@@ -29,6 +28,7 @@ import { isShiprocketConfigured } from "@/lib/env";
 import { getShipmentForOrder } from "@/services/shipment.service";
 import { lineName } from "@/lib/variants";
 import { requirePermissionPage } from "@/lib/auth-guards";
+import { openSnapshot } from "@/services/address.service";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +67,7 @@ export default async function AdminOrderPage({
   const canCreateShipment =
     READY_TO_SHIP_STATUSES.includes(order.status) &&
     (!shipment || !shipment.awb || shipment.status === "AWB_ASSIGNED" || !shipment.labelUrl);
-  const address = order.addressSnapshot as AddressSnapshot;
+  const address = openSnapshot(order.addressSnapshot);
   const next = ADMIN_TRANSITIONS[order.status];
 
   return (

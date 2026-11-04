@@ -36,6 +36,9 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] Vercel → Settings → Environment Variables → "Automatically expose System Environment Variables" ON (Sentry release tags)
 - [ ] Monitoring (Phase 26): `[alerts] admin_email` set; GitHub Actions "Uptime" green (needs ENABLE_CRON, SITE_URL, CRON_SECRET); Admin → System shows the scheduler running and no firing alerts
 - [ ] Optional: add `https://<site>/api/health` to a free uptime service (1-minute checks, SMS)
+- [ ] **Before deploying Phase 27:** set `PII_ENCRYPTION_KEY` in Vercel (`openssl rand -base64 48`, keep a copy in your password manager — without it saved addresses can't be read). After the deploy, run `npm run pii:encrypt` once against the live database, then `npm run pii:encrypt -- --dry` should show zeros
+- [ ] Account → Privacy works on the live site: download your data, and (with a test account) delete it
+- [ ] Ask your lawyer / CA to read the privacy policy and terms (B-09)
 - [ ] `CRON_SECRET` set; `/api/cron/jobs` returns 200 with the bearer token; GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`)
 - [ ] Admin → Jobs shows no failed jobs after a test order (email, invoice, webhook all DONE)
 - [ ] Owner signs in to /admin, sets up two-step sign-in on their phone and **stores the 8 recovery codes offline**; staff invited from Admin → Staff with the smallest role that fits

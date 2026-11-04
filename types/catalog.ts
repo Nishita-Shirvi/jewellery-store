@@ -100,6 +100,7 @@ export interface ProductDetail extends ProductCardData {
   grossWeightMg: number | null;
   gemstone: string | null;
   huid: string | null;
+  countryOfOrigin: string;
   isReturnable: boolean;
   category: { name: string; slug: string };
   /** Empty for products without options (they have a single base variant). */

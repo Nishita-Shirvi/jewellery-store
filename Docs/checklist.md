@@ -189,12 +189,12 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Structured logs, Sentry tracing, uptime checks
 - [x] Business alerts + `/admin/system` page + runbook
 
-### 27. Privacy & legal compliance
+### 27. Privacy & legal compliance ✅
 
-- [ ] Download my data / delete my account
-- [ ] Consent management (email, SMS, analytics)
-- [ ] Seller / grievance info on product pages
-- [ ] Encrypted phone numbers and addresses
+- [x] Download my data / delete my account
+- [x] Consent management (email, SMS, analytics)
+- [x] Seller / grievance info on product pages
+- [x] Encrypted phone numbers and addresses
 
 ### 28. Accessibility, Hindi, UX polish
 

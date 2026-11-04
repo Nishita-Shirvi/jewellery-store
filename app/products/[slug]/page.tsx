@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import { getProductBySlug } from "@/services/catalog.service";
 import { ViewTracker } from "@/components/reco/view-tracker";
 import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
+import { getBusiness } from "@/lib/business";
 
 type Params = Promise<{ slug: string }>;
 
@@ -66,6 +67,7 @@ export default async function ProductPage({
   const saved = viewer ? await isWishlisted(viewer.id, product.id) : false;
 
   const stock = stockStatus(product.stock);
+  const business = getBusiness();
   const details: [string, string][] = [
     [
       "Metal",
@@ -82,6 +84,7 @@ export default async function ProductPage({
   }
   if (product.gemstone) details.push(["Stones", product.gemstone]);
   if (product.huid) details.push(["BIS hallmark (HUID)", product.huid]);
+  details.push(["Country of origin", product.countryOfOrigin]);
   details.push([
     "Returns",
     product.isReturnable ? "Returnable within 7 days of delivery" : "Not returnable",
@@ -195,6 +198,30 @@ export default async function ProductPage({
               </div>
             ))}
           </dl>
+
+          {/* Seller details (Consumer Protection (E-Commerce) Rules, 2020; Phase 27). */}
+          <section aria-labelledby="seller-h" className="mt-8 text-sm" data-testid="seller-details">
+            <h2 id="seller-h" className="text-sm font-semibold">
+              Sold by
+            </h2>
+            <p className="text-muted-foreground mt-2 leading-relaxed">
+              {business.legalName}, {business.address}
+              {business.gstin ? ` · GSTIN ${business.gstin}` : ""}
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Grievance officer: {business.grievanceName} ({business.grievanceEmail}) ·{" "}
+              <Link href="/refund-policy" className="underline">
+                Returns and refunds
+              </Link>{" "}
+              ·{" "}
+              <Link href="/shipping-policy" className="underline">
+                Delivery
+              </Link>
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Price includes all taxes (GST). Delivery charges, if any, are shown at checkout.
+            </p>
+          </section>
         </div>
       </div>
       <script

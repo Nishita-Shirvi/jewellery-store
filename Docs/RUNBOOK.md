@@ -95,6 +95,18 @@ The alert clears 24 hours after the last failure (retried jobs that succeed no l
 
 ---
 
+## Rotating keys
+
+Customers' phone numbers and addresses are encrypted with `PII_ENCRYPTION_KEY` (or, if that isn't set, a key derived from `AUTH_SECRET`). **Never change either without these steps, or saved addresses become unreadable.**
+
+1. Vercel → Environment Variables: set `PII_PREVIOUS_KEY` to the current key (for a derived key: `derived-from-auth-secret:<current AUTH_SECRET>`), and `PII_ENCRYPTION_KEY` to a new random value (`openssl rand -base64 48`). Redeploy. The site reads both keys from now on.
+2. Run `npm run pii:encrypt` against the live database (from a computer with the same env values). It re-encrypts every address with the new key; `npm run pii:encrypt -- --dry` afterwards should show all zeros.
+3. Remove `PII_PREVIOUS_KEY` and redeploy.
+
+To change `AUTH_SECRET` while addresses use the derived key: first set a dedicated `PII_ENCRYPTION_KEY` with the steps above, then change `AUTH_SECRET` (everyone is signed out; staff set up two-step sign-in again).
+
+---
+
 ## Testing the alerts
 
 - **Admin → System → Run alert checks now** runs every check immediately.

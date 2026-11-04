@@ -33,6 +33,7 @@ export default async function NewProductPage() {
             grossWeight: "",
             gemstone: "",
             tags: "",
+            countryOfOrigin: "India",
             huid: "",
             hsnCode: "7113",
             gstRate: "3",

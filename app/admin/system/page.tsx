@@ -20,6 +20,7 @@ const INTEGRATION_LABELS: Record<string, string> = {
   sentry: "Error tracking (Sentry)",
   cronJobs: "Scheduled jobs (CRON_SECRET)",
   chatAlerts: "Chat alerts (ALERT_WEBHOOK_URL)",
+  piiKey: "Own key for customer addresses (PII_ENCRYPTION_KEY)",
 };
 
 function Pill({ ok, children }: { ok: boolean; children: React.ReactNode }) {

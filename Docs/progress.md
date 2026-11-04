@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4 in progress on branch `week4-launch`: Phases 24–26 done. Next: Phase 27 — Privacy and compliance.
+**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4: Phases 24–26 in PR #12 (`week4-launch`); Phase 27 on `week4-part2`. Next: Phase 28 — Accessibility, Hindi, UX polish.
 
 ---
 
@@ -40,7 +40,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 24    | Merchandising and CMS           | ✅     | 2026-11-04 | 2026-11-04 | 33 unit + 14 DB checks (6 mutations caught), 3 E2E incl. real-time schedule go-live/expiry; full regression green |
 | 25    | Recommendations                 | ✅     | 2026-11-04 | 2026-11-04 | 8 unit + 12 DB checks (5 mutations caught), 2 E2E; page speed equal to pre-Week-4 build side by side              |
 | 26    | Monitoring and alerts           | ✅     | 2026-11-04 | 2026-11-04 | 10 unit + 13 DB checks, 1 E2E (outage alerted in 8 ms); every alert has a runbook entry                           |
-| 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                                                             |
+| 27    | Privacy and compliance          | ✅     | 2026-11-04 | 2026-11-04 | 7 unit + 9 DB checks (6 mutations caught), 2 E2E; legal text still to be checked by a lawyer/CA (B-09)            |
 | 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                      |
 | 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                   |
 | 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                                                                   |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 27 — Privacy and compliance (2026-11-04)
+
+**Done so far:** Phases 1–26; PR #12 (Phases 24–26) open, CI green, code-review fixes applied, Docs/BACKLOG.md started.
+**Not finished / carried over:** BL-1…BL-3 in Docs/BACKLOG.md (non-breaking).
+**Open blockers:** B-04 (business and grievance details in config.ini — shown on product pages and policies), B-09 (lawyer/CA review of the policy wording).
+**Plan for this phase:** consents with a log; download my data; delete my account (orders kept); scheduled clean-up; seller / grievance / country of origin on product pages; addresses and phone numbers encrypted; policy text matching the system.
+**Risks:** making existing addresses unreadable (key handling); deleting tax records; consents that don't change anything; marketing to people who never opted in.
+**Git:** branch `week4-part2` from aac4ddd.
 
 ### Before Phase 26 — Monitoring and alerts (2026-11-04)
 

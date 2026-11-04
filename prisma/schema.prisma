@@ -134,35 +134,42 @@ enum Purity {
 // ─────────────────────── Users and Auth.js ───────────────────────
 
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String    @unique
-  emailVerified      DateTime?
-  image              String?
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String    @unique
+  emailVerified         DateTime?
+  image                 String?
   /// bcrypt hash. Null for users who only sign in with Google.
-  passwordHash       String?
-  role               Role      @default(CUSTOMER)
+  passwordHash          String?
+  role                  Role      @default(CUSTOMER)
   /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
   /// [cod] max_refusals in config.ini.
-  codRefusals        Int       @default(0)
+  codRefusals           Int       @default(0)
   /// Personal referral code (Phase 20), created the first time the customer opens it.
-  referralCode       String?   @unique
+  referralCode          String?   @unique
   /// Staff (Phase 21): set when the owner deactivates this person (role goes back to CUSTOMER).
-  staffDeactivatedAt DateTime?
+  staffDeactivatedAt    DateTime?
   /// Authenticator-app secret, encrypted (lib/secret-box.ts). Null = two-step sign-in not set up.
-  totpSecret         String?
-  totpEnabledAt      DateTime?
+  totpSecret            String?
+  totpEnabledAt         DateTime?
   /// Last accepted 30-second step: a code can't be used twice.
-  totpLastStep       Int?
+  totpLastStep          Int?
   /// SHA-256 hashes of unused one-time recovery codes.
-  recoveryCodes      String[]  @default([])
+  recoveryCodes         String[]  @default([])
   /// Account lockout (Phase 23): wrong passwords in a row, and when the lock ends.
-  failedLogins       Int       @default(0)
-  lockedUntil        DateTime?
+  failedLogins          Int       @default(0)
+  lockedUntil           DateTime?
   /// Sessions started before this are signed out (password changed / reset).
-  passwordChangedAt  DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  passwordChangedAt     DateTime?
+  /// Phase 27 consents (DPDP Act). Marketing emails (cart reminders, offers) need an opt-in;
+  /// order-update SMS are service messages, on until the customer turns them off.
+  /// Every change is also written to ConsentEvent.
+  emailMarketingConsent Boolean   @default(false)
+  smsUpdatesConsent     Boolean   @default(true)
+  /// Set when the customer deleted their account: personal data removed, orders kept for tax.
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   accounts          Account[]
   wishlist          WishlistItem[]
@@ -178,6 +185,7 @@ model User {
   cartReminders     CartReminder[]
   staffRoles        UserRole[]
   passwordResets    PasswordResetToken[]
+  consentEvents     ConsentEvent[]
   supportTickets    SupportTicket[]      @relation("TicketCustomer")
   assignedTickets   SupportTicket[]      @relation("TicketAssignee")
 
@@ -305,6 +313,8 @@ model Product {
   /// Lower-case words used by search (name, stones, category, metal, purity). Rebuilt on every product/category save.
   searchText            String      @default("")
   isReturnable          Boolean     @default(true)
+  /// Shown on the product page (Legal Metrology rules for online sellers).
+  countryOfOrigin       String      @default("India")
   /// "Was" price of the variant shown as the "from" price (Phase 24), kept in sync like priceInPaise.
   /// Null = not on sale. The badge's % off is worked out on the server from these two numbers.
   compareAtPriceInPaise Int?
@@ -1347,4 +1357,23 @@ model AlertState {
   /// What the last check saw (shown in Admin → System).
   detail         String    @default("")
   checkedAt      DateTime  @default(now())
+}
+
+// ─────────────────────── Privacy (Phase 27) ───────────────────────
+
+/// Every consent given or withdrawn, never edited — proof of what a customer agreed to, and when.
+model ConsentEvent {
+  id        String   @id @default(cuid())
+  /// Null once the account is deleted (the event itself is kept as a record).
+  userId    String?
+  /// email_marketing | sms_updates | analytics
+  channel   String
+  granted   Boolean
+  /// register | account | cookie_banner | unsubscribe_link | account_deleted
+  source    String
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

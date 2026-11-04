@@ -11,6 +11,7 @@ import { sendEmail } from "@/services/email.service";
 import { lineName } from "@/lib/variants";
 import type { Prisma } from "@prisma/client";
 import { enqueue, kickJobs } from "@/services/jobs.service";
+import { openSnapshot } from "@/services/address.service";
 
 /**
  * The single place that tells customers about their order (email, and SMS when switched on).
@@ -198,10 +199,12 @@ export async function deliverOrderSms(orderId: string, event: OrderEvent) {
   if (!SMS_EVENTS.includes(event)) return;
   const order = await db.order.findUnique({
     where: { id: orderId },
-    select: { id: true, addressSnapshot: true },
+    select: { id: true, addressSnapshot: true, user: { select: { smsUpdatesConsent: true } } },
   });
-  const address = order?.addressSnapshot as { phone?: string } | null;
-  if (!order || !address?.phone) return;
+  // Phase 27: the customer can turn order-update SMS off (Account → Privacy).
+  if (!order || !order.user.smsUpdatesConsent) return;
+  const address = openSnapshot(order.addressSnapshot);
+  if (!address.phone) return;
   const orderNumber = `#${order.id.slice(-8).toUpperCase()}`;
   const res = await fetch("https://control.msg91.com/api/v5/flow", {
     method: "POST",

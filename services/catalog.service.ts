@@ -184,6 +184,7 @@ export const getProductBySlug = unstable_cache(
         grossWeightMg: true,
         gemstone: true,
         huid: true,
+        countryOfOrigin: true,
         isReturnable: true,
         category: { select: { name: true, slug: true } },
         options: {
@@ -230,6 +231,7 @@ export const getProductBySlug = unstable_cache(
       grossWeightMg: row.grossWeightMg,
       gemstone: row.gemstone,
       huid: row.huid,
+      countryOfOrigin: row.countryOfOrigin,
       isReturnable: row.isReturnable,
       category: row.category,
       options: row.options.filter((o) => o.values.length > 0),
@@ -248,6 +250,6 @@ export const getProductBySlug = unstable_cache(
       })),
     };
   },
-  ["catalog:product:v2"],
+  ["catalog:product:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );

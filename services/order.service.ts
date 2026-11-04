@@ -6,7 +6,12 @@ import { materialSummary } from "@/lib/jewellery";
 import { variantJewellery } from "@/lib/variants";
 import { logger } from "@/lib/logger";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
-import { addressSnapshot, getAddressForUser } from "@/services/address.service";
+import {
+  addressSnapshot,
+  getAddressForUser,
+  openSnapshot,
+  sealSnapshot,
+} from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { getBusiness } from "@/lib/business";
@@ -209,7 +214,7 @@ async function insertOrderTx(
       subtotalInPaise: subtotal,
       shippingInPaise: shippingFee,
       totalInPaise: total,
-      addressSnapshot: addressSnapshot(input.address),
+      addressSnapshot: sealSnapshot(addressSnapshot(input.address)),
       checkoutKey: input.checkoutKey,
       couponId: input.priced.couponId,
       couponCode: input.priced.couponCode,
@@ -581,7 +586,7 @@ export async function resumePayment(
   }
   const payment = order.payments[0];
   if (!payment) return { ok: false, error: "This order can't be paid. Please check out again." };
-  const contact = (order.addressSnapshot as { phone?: string } | null)?.phone ?? "";
+  const contact = openSnapshot(order.addressSnapshot).phone ?? "";
   return {
     ok: true,
     session: sessionFor(user, order.id, payment.providerOrderId, order.totalInPaise, contact),
@@ -873,7 +878,7 @@ export async function getOrderForUser(
     createdAt: order.createdAt,
     paidAt: order.paidAt,
     cancellationReason: order.cancellationReason,
-    address: order.addressSnapshot as OrderSummary["address"],
+    address: openSnapshot(order.addressSnapshot) as OrderSummary["address"],
     items: order.items.map((i) => ({
       name: i.productName,
       slug: i.productSlug,

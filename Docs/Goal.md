@@ -380,16 +380,17 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 27 — Privacy and legal compliance
 
-- [ ] "Download my data" and "Delete my account" (keeping tax records)
-- [ ] Separate consents for email, SMS and analytics, logged and respected
-- [ ] Auto-purge of old data on a schedule
-- [ ] Seller details, grievance officer, country of origin, total price with taxes, return policy on product pages
-- [ ] Phone numbers and addresses encrypted at the application level
-- [ ] Privacy policy and terms updated to match the system
+- [x] "Download my data" and "Delete my account" (keeping tax records)
+- [x] Separate consents for email, SMS and analytics, logged and respected
+- [x] Auto-purge of old data on a schedule
+- [x] Seller details, grievance officer, country of origin, total price with taxes, return policy on product pages
+- [x] Phone numbers and addresses encrypted at the application level
+- [x] Privacy policy and terms updated to match the system
 
 **Jewellery-specific:** show BIS hallmark / HUID details on product pages where applicable.
 
 **Done when:** data export and deletion work end to end, consent toggles change behaviour, and seller/grievance info is visible.
+**Status:** done — browser test: sign-up opt-in, SMS opt-out, data download and account deletion (old login refused); consent changes behaviour (reminders and SMS, DB tests); seller and grievance details on product pages.
 
 ### Phase 28 — Accessibility, Hindi, UX polish
 

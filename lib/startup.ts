@@ -18,6 +18,8 @@ export function integrationsSummary() {
     sentry: Boolean(env.SENTRY_DSN),
     cronJobs: Boolean(env.CRON_SECRET),
     chatAlerts: Boolean(env.ALERT_WEBHOOK_URL),
+    // Phase 27: phone numbers and addresses use their own key (else derived from AUTH_SECRET).
+    piiKey: Boolean(env.PII_ENCRYPTION_KEY),
   };
 }
 
@@ -38,6 +40,11 @@ export function logStartupSummary() {
     inventory: config.inventory,
   });
 
+  if (env.NODE_ENV === "production" && !env.PII_ENCRYPTION_KEY) {
+    logger.warn("app.pii_key_missing", {
+      hint: "Set PII_ENCRYPTION_KEY (customer addresses are encrypted with a key derived from AUTH_SECRET until then).",
+    });
+  }
   if (env.NODE_ENV === "production" && getBusiness().incomplete) {
     logger.warn("app.business_details_incomplete", {
       hint: "Fill in [business] and [grievance_officer] in config.ini before taking real orders.",

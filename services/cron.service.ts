@@ -5,6 +5,7 @@ import { recoIsDue } from "@/services/reco.service";
 import { db } from "@/lib/db";
 import { pruneMetrics } from "@/lib/metrics";
 import { evaluateAlerts } from "@/services/monitor.service";
+import { purgeIsDue, purgeOldData } from "@/services/privacy.service";
 
 /** AppSetting key holding the last cron tick (Admin → System, /api/health). */
 export const CRON_TICK_KEY = "cron.lastTickAt";
@@ -31,6 +32,9 @@ export async function cronTick(extra: { lowStock?: boolean } = {}) {
     return [];
   });
   await pruneMetrics(3);
+  // Privacy (Phase 27): delete data no longer needed, once a day.
+  if (await purgeIsDue())
+    await purgeOldData().catch((error) => logger.error("cron.purge_failed", { error }));
   await db.appSetting.upsert({
     where: { key: CRON_TICK_KEY },
     create: { key: CRON_TICK_KEY, value: new Date().toISOString() },
