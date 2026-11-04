@@ -8,6 +8,7 @@ import { getCategories, getFeaturedProducts } from "@/services/catalog.service";
 import { HomeSections } from "@/components/merch/home-sections";
 import { getLiveHomeSections } from "@/services/merch.service";
 import { checkPreviewToken } from "@/lib/preview";
+import { RecoRow } from "@/components/reco/reco-row";
 
 const TRUST = [
   {
@@ -193,6 +194,7 @@ async function DefaultHome() {
             </div>
           </section>
         )}
+        <RecoRow widget="trending" query="w=trending" />
       </div>
 
       {/* Why buy here */}

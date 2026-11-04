@@ -29,6 +29,15 @@ import {
   type CheckoutResult,
   type CodOrderResult,
 } from "@/services/order.service";
+import { cookies } from "next/headers";
+import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/reco";
+import { attributeOrder } from "@/services/reco.service";
+
+/** Phase 25: remember which recommendation led to each product in this order (stats only). */
+async function creditRecommendations(orderId: string, userId: string) {
+  const attribution = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value);
+  await attributeOrder(orderId, userId, attribution);
+}
 
 export interface AddressFormState {
   ok?: boolean;
@@ -67,7 +76,10 @@ export async function startCheckoutAction(input: {
   if (!limit.ok) return { ok: false, error: "Too many attempts. Please wait a few minutes." };
 
   const result = await startCheckout(user, parsed.data);
-  if (result.ok) await countFunnel("begin_checkout");
+  if (result.ok) {
+    await countFunnel("begin_checkout");
+    await creditRecommendations(result.session.orderId, user.id);
+  }
   return result;
 }
 
@@ -208,6 +220,7 @@ export async function placeCodOrderAction(input: {
   const result = await placeCodOrder(user, parsed.data);
   if (result.ok) {
     await countFunnel("begin_checkout");
+    await creditRecommendations(result.orderId, user.id);
     revalidatePath("/", "layout");
   }
   return result;

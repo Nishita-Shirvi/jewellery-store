@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4 in progress on branch `week4-launch`: Phase 24 done. Next: Phase 25 — Recommendations.
+**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4 in progress on branch `week4-launch`: Phases 24–25 done. Next: Phase 26 — Monitoring and alerts.
 
 ---
 
@@ -38,7 +38,7 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                 |
 | 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10              |
 | 24    | Merchandising and CMS           | ✅     | 2026-11-04 | 2026-11-04 | 33 unit + 14 DB checks (6 mutations caught), 3 E2E incl. real-time schedule go-live/expiry; full regression green |
-| 25    | Recommendations                 | ⬜     |            |            |                                                                                                                   |
+| 25    | Recommendations                 | ✅     | 2026-11-04 | 2026-11-04 | 8 unit + 12 DB checks (5 mutations caught), 2 E2E; page speed equal to pre-Week-4 build side by side              |
 | 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                   |
 | 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                                                             |
 | 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                      |
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 25 — Recommendations (2026-11-04)
+
+**Done so far:** Phases 1–24 (latest 3fe3a66, merchandising).
+**Not finished / carried over:** None.
+**Open blockers:** None for this phase (few real orders yet, so widgets fall back to sensible defaults).
+**Plan for this phase:** nightly idempotent job for bought-together and trending; similar, recently viewed, trending widgets; free-shipping upsell; click/add-to-cart/purchase tracking per widget; reads from cache.
+**Risks:** slower pages; a nightly job that doubles rows when run twice; stats writes contending under load; tracking cookies trusted blindly.
+**Git:** after 3fe3a66 on `week4-launch`.
 
 ### Before Phase 24 — Merchandising and CMS (2026-11-04)
 

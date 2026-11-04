@@ -8,6 +8,7 @@ import { formatINR } from "@/lib/format";
 import { getCartView } from "@/services/cart.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { amountToFreeShipping, shippingFeeFor } from "@/lib/shipping-fee";
+import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
 
 export const metadata: Metadata = { title: "Your cart", robots: { index: false } };
 
@@ -23,6 +24,7 @@ export default async function CartPage() {
   const rule = getShippingRule();
   const shipping = shippingFeeFor(cart.subtotalInPaise, rule);
   const toFree = amountToFreeShipping(cart.subtotalInPaise, rule);
+  const cartIds = [...new Set(cart.items.map((i) => i.productId))].sort().join(",");
 
   if (cart.items.length === 0) {
     return (
@@ -32,6 +34,10 @@ export default async function CartPage() {
         <Button asChild className="mt-6">
           <Link href="/products">Browse jewellery</Link>
         </Button>
+        <div className="text-left">
+          <RecentlyViewedRow />
+          <RecoRow widget="trending" query="w=trending" />
+        </div>
       </div>
     );
   }
@@ -125,6 +131,20 @@ export default async function CartPage() {
           )}
         </aside>
       </div>
+      {/* Recommendations (Phase 25): stream in after the cart itself. */}
+      {toFree > 0 && (
+        <RecoRow
+          widget="upsell"
+          query={`w=upsell&gap=${toFree}&ids=${cartIds}`}
+          title={`Add ${formatINR(toFree)} more for free shipping`}
+          subtitle="Any one of these gets your order delivered free."
+        />
+      )}
+      <RecoRow
+        widget="bought_together"
+        query={`w=cart&ids=${cartIds}`}
+        title="Customers also bought"
+      />
     </div>
   );
 }

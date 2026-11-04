@@ -19,6 +19,8 @@ import { formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
 import { getProductBySlug } from "@/services/catalog.service";
+import { ViewTracker } from "@/components/reco/view-tracker";
+import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
 
 type Params = Promise<{ slug: string }>;
 
@@ -240,12 +242,17 @@ export default async function ProductPage({
           ],
         }}
       />
+      {/* Recommendations (Phase 25): each streams in on its own, so the page never waits. */}
+      <ViewTracker slug={product.slug} />
+      <RecoRow widget="bought_together" query={`w=bought_together&id=${product.id}`} />
+      <RecoRow widget="similar" query={`w=similar&id=${product.id}`} />
       <ReviewSection
         product={product}
         viewerId={viewer?.id ?? null}
         sort={reviewSort}
         page={reviewPage}
       />
+      <RecentlyViewedRow excludeSlug={product.slug} />
     </div>
   );
 }

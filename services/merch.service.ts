@@ -3,6 +3,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { Prisma, type ContentStatus } from "@prisma/client";
 import { config } from "@/lib/config";
 import { db } from "@/lib/db";
+import { clearMemo, memo } from "@/lib/memo";
 import {
   hasAnyRule,
   isLive,
@@ -52,31 +53,34 @@ function live(
 
 // ───────────────────────── storefront reads ─────────────────────────
 
-const getPublished = unstable_cache(
-  async () => {
-    const [announcements, sections] = await Promise.all([
-      db.announcement.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
-        select: {
-          id: true,
-          message: true,
-          linkUrl: true,
-          linkLabel: true,
-          status: true,
-          startsAt: true,
-          endsAt: true,
-        },
-      }),
-      db.homeSection.findMany({
-        where: { status: "PUBLISHED" },
-        orderBy: [{ position: "asc" }, { createdAt: "asc" }],
-      }),
-    ]);
-    return { announcements, sections };
-  },
-  ["content:published:v1"],
-  { tags: [CONTENT_TAG], revalidate: CACHE_SECONDS },
+const getPublished = memo(
+  "content:getPublished",
+  unstable_cache(
+    async () => {
+      const [announcements, sections] = await Promise.all([
+        db.announcement.findMany({
+          where: { status: "PUBLISHED" },
+          orderBy: [{ priority: "desc" }, { updatedAt: "desc" }],
+          select: {
+            id: true,
+            message: true,
+            linkUrl: true,
+            linkLabel: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+          },
+        }),
+        db.homeSection.findMany({
+          where: { status: "PUBLISHED" },
+          orderBy: [{ position: "asc" }, { createdAt: "asc" }],
+        }),
+      ]);
+      return { announcements, sections };
+    },
+    ["content:published:v1"],
+    { tags: [CONTENT_TAG], revalidate: CACHE_SECONDS },
+  ),
 );
 
 export interface LiveAnnouncement {
@@ -335,6 +339,7 @@ export function festivalPresets(): { name: string; from: string; to: string }[] 
 
 function refresh() {
   revalidateTag(CONTENT_TAG);
+  clearMemo("content:");
 }
 
 export async function adminListContent() {

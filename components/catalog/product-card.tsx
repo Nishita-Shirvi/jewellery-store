@@ -7,13 +7,16 @@ import type { ProductCardData } from "@/types/catalog";
 export function ProductCard({
   product,
   priority,
+  trackAs,
 }: {
   product: ProductCardData;
   priority?: boolean;
+  /** Recommendation widget this card belongs to (Phase 25): its clicks are counted. */
+  trackAs?: string;
 }) {
   return (
     <Link
-      href={`/products/${product.slug}`}
+      href={`/products/${product.slug}${trackAs ? `?rw=${trackAs}` : ""}`}
       className="group focus-visible:ring-ring block rounded-md outline-none focus-visible:ring-2"
     >
       <div className="border-border bg-muted relative overflow-hidden rounded-md border">

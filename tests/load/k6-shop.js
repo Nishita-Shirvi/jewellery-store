@@ -42,9 +42,10 @@ function headersFor() {
 
 export function setup() {
   const res = http.get(`${BASE}/products`);
+  // Real catalogue only: pieces left by browser tests ("e2e-…") may be hidden at any moment.
   const slugs = [
     ...new Set((res.body.match(/\/products\/[a-z0-9-]+/g) || []).map((s) => s.slice(10))),
-  ];
+  ].filter((s) => !s.startsWith("e2e-"));
   if (slugs.length === 0)
     throw new Error("No products found on /products — seed the database first.");
   return { slugs: slugs.slice(0, 20) };

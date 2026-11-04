@@ -357,13 +357,14 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 25 — Recommendations
 
-- [ ] "Frequently bought together" from a nightly idempotent job
-- [ ] "Similar products", "Recently viewed", "Trending"
-- [ ] Cart upsell for free shipping
-- [ ] Click/conversion tracking per widget
-- [ ] Recommendations read from cache
+- [x] "Frequently bought together" from a nightly idempotent job
+- [x] "Similar products", "Recently viewed", "Trending"
+- [x] Cart upsell for free shipping
+- [x] Click/conversion tracking per widget
+- [x] Recommendations read from cache
 
 **Done when:** widgets show sensible items for the dummy data, the nightly job is idempotent, and pages don't get slower.
+**Status:** done — job idempotency and overlap tested on a real database; pages measured side by side with the pre-Week-4 build (equal within noise).
 
 ### Phase 26 — Monitoring and alerts
 

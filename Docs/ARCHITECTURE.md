@@ -68,13 +68,13 @@ PostgreSQL (prisma/schema.prisma)
 
 ## Background work (no queue — kept minimal on purpose)
 
-| Endpoint                         | Trigger                                             | Does                                                                        |
-| -------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------- |
-| `/api/cron/jobs`                 | GitHub `cron.yml` every 10 min (if enabled)         | Runs due background jobs + retries, releases expired holds, prunes old jobs |
-| `/api/cron/release-reservations` | Vercel cron daily; also run at every checkout start | Same as `/api/cron/jobs` (kept for existing schedules)                      |
-| `/api/cron/low-stock`            | Vercel cron daily 09:00 IST                         | Queues the low-stock email (once per day) and runs due jobs                 |
-| `/api/webhooks/razorpay`         | Razorpay                                            | `payment.captured/failed`, `refund.processed/failed`                        |
-| `/api/webhooks/courier-updates`  | Shiprocket                                          | Tracking updates → SHIPPED / DELIVERED                                      |
+| Endpoint                         | Trigger                                             | Does                                                                                                                       |
+| -------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `/api/cron/jobs`                 | GitHub `cron.yml` every 10 min (if enabled)         | Runs due background jobs + retries, releases expired holds, prunes old jobs; once a day queues the recommendations rebuild |
+| `/api/cron/release-reservations` | Vercel cron daily; also run at every checkout start | Same as `/api/cron/jobs` (kept for existing schedules)                                                                     |
+| `/api/cron/low-stock`            | Vercel cron daily 09:00 IST                         | Queues the low-stock email (once per day) and runs due jobs                                                                |
+| `/api/webhooks/razorpay`         | Razorpay                                            | `payment.captured/failed`, `refund.processed/failed`                                                                       |
+| `/api/webhooks/courier-updates`  | Shiprocket                                          | Tracking updates → SHIPPED / DELIVERED                                                                                     |
 
 Cron endpoints require `Authorization: Bearer <CRON_SECRET>`. Webhooks verify a signature/token before doing anything and are idempotent (safe to receive twice).
 

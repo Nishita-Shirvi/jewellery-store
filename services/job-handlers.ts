@@ -130,6 +130,12 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
     await runMarketingScan();
   },
 
+  // Phase 25: nightly "bought together" + trending rebuild (idempotent, locked).
+  "reco.compute": async () => {
+    const { computeRecommendations } = await import("@/services/reco.service");
+    await computeRecommendations();
+  },
+
   "reservations.release": async () => {
     const { releaseExpiredReservations } = await import("@/services/inventory.service");
     const result = await releaseExpiredReservations();

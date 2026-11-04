@@ -1,5 +1,18 @@
 # Changelog
 
+## Week 4 — Phase 25: Recommendations — 2026-11-04
+
+### Added
+
+- Product pages: **Often bought together**, **You may also like** and **Recently viewed**.
+- Cart: **Add ₹X more for free shipping** with pieces that close the gap, and **Customers also bought**. Empty cart and homepage: **Trending now**.
+- A nightly job rebuilds "bought together" and "trending" from orders (safe to run twice; a second run at the same time skips).
+- **Admin → Reports → Recommendations:** per row — shown, clicks, click rate, added to cart, bought, revenue.
+
+### Changed
+
+- Recommendation rows load after the page, as the shopper scrolls to them, so pages stay as fast as before.
+
 ## Week 4 — Phase 24: Merchandising and CMS — 2026-11-04
 
 ### Added

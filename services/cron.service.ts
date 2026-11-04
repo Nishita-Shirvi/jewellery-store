@@ -1,6 +1,7 @@
 import "server-only";
 import { logger } from "@/lib/logger";
 import { enqueue, pruneDoneJobs, runDueJobs } from "@/services/jobs.service";
+import { recoIsDue } from "@/services/reco.service";
 
 /**
  * One tick of the scheduler (Phase 19): queue the periodic work, then run whatever is due —
@@ -13,6 +14,9 @@ export async function cronTick(extra: { lowStock?: boolean } = {}) {
   if (extra.lowStock) await enqueue("alerts.low_stock", {}, { dedupeKey: "alerts:low-stock" });
   // Cart reminders, back-in-stock emails, referral rewards (Phase 20).
   await enqueue("marketing.scan", {}, { dedupeKey: "marketing:scan", maxAttempts: 3 });
+  // Recommendations (Phase 25): once a day — whichever tick first finds the last run > 20 h old.
+  if (await recoIsDue())
+    await enqueue("reco.compute", {}, { dedupeKey: "reco:compute", maxAttempts: 3 });
   const summary = await runDueJobs({ limit: 100, budgetMs: 45_000 });
   const pruned = await pruneDoneJobs(30);
   logger.info("cron.tick", { ...summary, pruned });

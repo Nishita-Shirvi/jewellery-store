@@ -36,6 +36,7 @@ export const JOB_TYPES = [
   "reservations.release",
   "email.marketing",
   "marketing.scan",
+  "reco.compute",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

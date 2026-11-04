@@ -179,10 +179,10 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Homepage builder with scheduled sections
 - [x] Announcement bar, sale badges, editable pages
 
-### 25. Recommendations
+### 25. Recommendations ✅
 
-- [ ] Frequently bought together, similar, recently viewed, trending
-- [ ] Free-shipping upsell in cart
+- [x] Frequently bought together, similar, recently viewed, trending
+- [x] Free-shipping upsell in cart
 
 ### 26. Monitoring & alerts
 

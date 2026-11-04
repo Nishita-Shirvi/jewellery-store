@@ -322,6 +322,9 @@ model Product {
   reviews       Review[]
   orderItems    OrderItem[]
   collections   CollectionProduct[]
+  boughtWith    ProductPair[]       @relation("pairProduct")
+  boughtWithOf  ProductPair[]       @relation("pairRelated")
+  trend         ProductTrend?
 
   @@index([categoryId])
   @@index([isActive, isFeatured])
@@ -470,6 +473,9 @@ model Address {
 model Order {
   id                 String           @id @default(cuid())
   userId             String
+  /// Phase 25: which recommendation widget led to each product, e.g. {"<productId>": "similar"}.
+  /// Copied from the shopper's cookie when the order is created; purchase stats read it.
+  recoAttribution    Json?
   status             OrderStatus      @default(PENDING)
   subtotalInPaise    Int
   shippingInPaise    Int              @default(0)
@@ -1273,4 +1279,46 @@ model ContentPage {
   publishedAt    DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+}
+
+// ─────────────────────── Recommendations (Phase 25) ───────────────────────
+
+/// "Frequently bought together": how many paid orders contained both products (last 365 days).
+/// Rebuilt as a whole by the nightly job, so running it twice gives the same rows.
+model ProductPair {
+  productId  String
+  relatedId  String
+  /// Orders containing both.
+  orders     Int
+  computedAt DateTime @default(now())
+
+  product Product @relation("pairProduct", fields: [productId], references: [id], onDelete: Cascade)
+  related Product @relation("pairRelated", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@id([productId, relatedId])
+  @@index([productId, orders])
+}
+
+/// "Trending": units sold in the last 14 days, recent days weighted more. Rebuilt nightly.
+model ProductTrend {
+  productId  String   @id
+  score      Int
+  computedAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([score])
+}
+
+/// Widget clicks / add-to-carts / purchases per day. Several "shard" rows per counter so busy
+/// pages never queue behind one row lock; reports add them up.
+model RecoStat {
+  day    DateTime @db.Date
+  widget String
+  /// impression | click | add_to_cart | purchase
+  event  String
+  shard  Int
+  count  Int      @default(0)
+
+  @@id([day, widget, event, shard])
 }
