@@ -173,10 +173,11 @@ export async function evaluateAlerts(keys: AlertKey[] = ALERT_KEYS, now = new Da
       logger.warn("monitor.check_failed", { key, error });
       continue;
     }
-    await db.alertState.upsert({
-      where: { key },
-      create: { key, detail: result.detail, checkedAt: now },
-      update: {},
+    // Make sure the row exists. An atomic "insert unless it's there" (ON CONFLICT DO NOTHING):
+    // Prisma's upsert reads then creates, so two checks at the same moment could both create.
+    await db.alertState.createMany({
+      data: [{ key, detail: result.detail, checkedAt: now }],
+      skipDuplicates: true,
     });
     let change: AlertChange | null = null;
     if (result.firing) {
