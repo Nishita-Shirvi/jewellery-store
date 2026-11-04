@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { requireUserPage } from "@/lib/auth-guards";
 import { getOrderForUser } from "@/services/order.service";
 import { TrackEvent } from "@/components/analytics/track-event";
+import { formatINR } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Order confirmed", robots: { index: false } };
 
@@ -26,6 +27,11 @@ export default async function OrderSuccessPage({ params }: { params: Promise<{ i
           <p className="text-muted-foreground mt-2">
             Order {order.displayNumber}. A confirmation email is on its way.
           </p>
+          {order.paymentMethod === "COD" && (
+            <p className="mt-2 font-medium" data-testid="cod-note">
+              Cash on delivery: please keep {formatINR(order.totalInPaise)} ready for the courier.
+            </p>
+          )}
         </>
       ) : (
         <>

@@ -39,6 +39,9 @@ export async function checkCoupon(
   subtotalInPaise: number,
 ): Promise<CouponResult & { couponId?: string; code?: string; description?: string }> {
   const coupon = await findCoupon(code);
+  // Personal coupons (cart-reminder and referral rewards) only work for their owner.
+  if (coupon?.assignedUserId && coupon.assignedUserId !== userId)
+    return { ok: false, error: "This coupon belongs to another account." };
   const result = evaluateCoupon(
     coupon,
     subtotalInPaise,

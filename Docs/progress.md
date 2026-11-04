@@ -2,8 +2,8 @@
 
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
-**Last updated:** 2026-10-25
-**Current phase:** Week 2 complete + production hardening pass (2026-10-25: missing Phase 14–16 migration added, `config.ini`, structured logger, docs + `Docs/learning/`). Next: deploy (waits on client accounts), then Week 3, Phase 17 — Product variants.
+**Last updated:** 2026-11-03
+**Current phase:** Week 3 built and tested on branch `week3-growth` (Phases 17–23). Release checklist: Docs/RELEASE_WEEK3.md. Deploy waits on client accounts (B-10). Next: Week 4 (Phase 24).
 
 ---
 
@@ -30,13 +30,13 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 14    | Reviews and ratings             | ✅     | 2026-10-11 | 2026-10-11 | 20/20 browser checks + DB concurrency test (found and fixed a stale-average race)                                |
 | 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                             |
 | 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
-| 17    | Product variants                | ⬜     |            |            |                                                                                                                  |
-| 18    | COD and payment options         | ⬜     |            |            | Needs MSG91 + DLT                                                                                                |
-| 19    | Background jobs                 | ⬜     |            |            |                                                                                                                  |
-| 20    | Abandoned cart and marketing    | ⬜     |            |            |                                                                                                                  |
-| 21    | Staff roles and permissions     | ⬜     |            |            |                                                                                                                  |
-| 22    | Customer support                | ⬜     |            |            |                                                                                                                  |
-| 23    | Security, PWA, release          | ⬜     |            |            |                                                                                                                  |
+| 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
+| 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
+| 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
+| 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
+| 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA             |
+| 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                |
+| 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10             |
 | 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
 | 25    | Recommendations                 | ⬜     |            |            |                                                                                                                  |
 | 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                  |
@@ -49,6 +49,69 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 23 — Security, PWA, release (2026-11-03)
+
+**Done so far:** Phases 1–22 (latest dd986e1, customer support).
+**Not finished / carried over:** None.
+**Open blockers:** B-10 (GitHub/Vercel) for the deploy; B-07 for reset emails to arrive.
+**Plan for this phase:** independent OWASP review and fixes; IDOR tests; CSP; lockout; password reset; session expiry; PWA with offline page; k6 at 200 users; coupon E2E; release checklist and changelog.
+**Risks:** CSP blocking Razorpay/GA; service worker caching private pages; lockout used to annoy customers.
+**Git:** after dd986e1 on `week3-growth`.
+
+### Before Phase 22 — Customer support (2026-11-04)
+
+**Done so far:** Phases 1–21 (latest 611e456, staff roles).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 / RESEND_API_KEY for ticket emails to arrive (tickets work without them; emails are logged). WhatsApp button needs a business number.
+**Plan for this phase:** FAQs (/help, searchable, admin-managed); tickets linked to orders with threads, statuses, internal notes, private attachments; support inbox with assignment, filters, saved replies, email alerts, 24 h highlighting; order shortcuts; WhatsApp behind config; support.manage / faqs.manage permissions.
+**Risks:** One customer reading another's ticket or photo (IDOR); internal notes leaking; uploaded files run as pages (SVG/HTML); public file URLs.
+**Git:** after 611e456 on `week3-growth`.
+
+### Before Phase 21 — Staff roles and permissions (2026-11-03)
+
+**Done so far:** Phases 1–20 (latest 99ef5f3).
+**Not finished / carried over:** None.
+**Open blockers:** None. Email for invitations works through Resend once B-07 / RESEND_API_KEY are done; until then the owner copies the invite link shown on the page.
+**Plan for this phase:** Role / Permission / RolePermission / UserRole (+ invites); requirePermission() in every admin action, page and admin API; owner invites, assigns roles, deactivates; TOTP two-step sign-in for all staff (with recovery codes, owner reset and a CLI reset); every protected action and every refusal in the activity log.
+**Risks:** Locking out existing admins (migration makes them OWNER); losing the last owner; a missed action or page; stale role in the session cookie; 2FA codes replayed; recovery codes shown once and lost.
+**Git:** after 99ef5f3 on `week3-growth`.
+
+### Before Phase 20 — Abandoned cart and marketing (2026-11-03)
+
+**Done so far:** Phases 1–19 (latest 598d865, background jobs).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 (domain + SPF/DKIM/DMARC) before marketing emails go to real customers — otherwise they land in spam. B-09/legal: privacy policy should mention newsletter, reminders and referrals (Phase 27).
+**Plan for this phase:** One subscriber/"do not email" list with double opt-in and signed unsubscribe links; cart reminders at 1 h / 24 h with optional personal coupon; back-in-stock alerts; referral links with a reward coupon after the friend's first delivered order; personal coupons; admin campaign stats. All emails through the Phase 19 job queue.
+**Risks:** Emailing people who unsubscribed; reminders sent twice or after a purchase; mail scanners "clicking" confirm/unsubscribe links; self-referrals; reward coupons used by others or issued twice.
+**Git:** after 598d865 on `week3-growth`.
+
+### Before Phase 19 — Background jobs (2026-11-03)
+
+**Done so far:** Phases 1–18 (variants 9f463ae, COD 88e3f39).
+**Not finished / carried over:** None.
+**Open blockers:** None for this phase. Decided with the client contact: no Inngest / Redis account — the queue lives in the existing Postgres (D-130).
+**Plan for this phase:** Job + WebhookEvent tables; enqueue in the same transaction as the change (outbox); run after the response (Next `after()`) and from the scheduler; retries with backoff, DEAD + admin retry; webhooks verify → save → queue → 200; emails/SMS, invoices, shipments, low-stock, reservation release as jobs; cache stays Next's data cache with tag invalidation.
+**Risks:** Two workers running one job; timezone bugs in raw SQL (seen in Phase 18); a slow/failing email blocking payment; duplicate webhooks; crashed workers leaving jobs stuck.
+**Git:** after 88e3f39 on `week3-growth`.
+
+### Before Phase 18 — COD and payment options (2026-11-03)
+
+**Done so far:** Phases 1–17 (variants committed as 9f463ae).
+**Not finished / carried over:** None from Phase 17.
+**Open blockers:** B-08 (MSG91 + DLT) for live SMS codes — built against a stand-in; COD stays hidden in production until the keys exist. B-05 (Shiprocket COD + remittance account). B-09 (CA: cash/PAN rules, COD fee tax).
+**Plan for this phase:** CONFIRMED status + paymentMethod COD; rules in config.ini [cod]; SMS one-time code; one-transaction order placement; Shiprocket COD shipments; RTO restock + refusal count; cash recorded after delivery; manual refunds for COD; invoices, emails, reports, admin pages.
+**Risks:** Codes reused/guessed; double clicks; stock or refusals counted twice from repeated webhooks; cash recorded twice; COD refunds accidentally sent to Razorpay; every place that assumed "PAID = ready to ship".
+**Git:** after 9f463ae on `week3-growth`.
+
+### Before Phase 17 — Product variants (2026-11-03)
+
+**Done so far:** Phases 1–16 + production hardening.
+**Not finished / carried over:** Frontend design (F) partly done; deploy waits on client accounts (B-01, B-04, B-05, B-10).
+**Open blockers:** B-03 (pricing model) — variants keep a fixed price per variant, so a later switch to rate-based pricing stays possible.
+**Plan for this phase:** ProductOption / ProductOptionValue / ProductVariant; migration gives every product one base variant (no data lost); cart, holds, orders, invoices, shipping, returns per variant; admin options + combinations + bulk edit; product page picker.
+**Risks:** Data loss in migration (verified on a snapshot, one transaction, forced-failure rollback tested); deadlocks between variant and product rows (fixed lock order, 30-buyer storm test); product summary drifting from variants (synced in the same transaction, asserted in tests); old guest-cart cookies (resolved to the base variant).
+**Git:** branch `week3-growth` from `main` @ e351c12. Baseline before starting: 165 unit, 25 DB, 3 E2E, build — all green.
 
 ### Production hardening pass (2026-10-25)
 

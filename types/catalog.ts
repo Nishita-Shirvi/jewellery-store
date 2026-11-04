@@ -58,6 +58,30 @@ export interface ProductListResult {
   pageCount: number;
 }
 
+/** One buyable version of a product (Phase 17). */
+export interface VariantView {
+  id: string;
+  sku: string;
+  /** "" for products without options. */
+  label: string;
+  priceInPaise: number;
+  /** Units customers can buy right now. */
+  available: number;
+  images: string[];
+  netWeightMg: number;
+  grossWeightMg: number | null;
+  /** e.g. "22K rose gold · 3.15 g" for this variant. */
+  materialSummary: string;
+  /** One value id per option. */
+  optionValueIds: string[];
+}
+
+export interface OptionView {
+  id: string;
+  name: string;
+  values: { id: string; value: string }[];
+}
+
 export interface ProductDetail extends ProductCardData {
   id: string;
   description: string;
@@ -72,4 +96,8 @@ export interface ProductDetail extends ProductCardData {
   huid: string | null;
   isReturnable: boolean;
   category: { name: string; slug: string };
+  /** Empty for products without options (they have a single base variant). */
+  options: OptionView[];
+  /** Active variants only, in display order. */
+  variants: VariantView[];
 }

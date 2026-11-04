@@ -4,9 +4,17 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { AdminInputError, ADMIN_PAGE_SIZE } from "@/services/admin/product-admin.service";
-import { releaseReservation } from "@/services/inventory.service";
+import { releaseReservation, restockLines } from "@/services/inventory.service";
 
-const STATUSES: OrderStatus[] = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
+const STATUSES: OrderStatus[] = [
+  "PENDING",
+  "CONFIRMED",
+  "PAID",
+  "SHIPPED",
+  "DELIVERED",
+  "CANCELLED",
+  "FAILED",
+];
 
 export async function listOrdersAdmin(query: { page: number; status?: string; q?: string }) {
   const status = STATUSES.find((s) => s === query.status);
@@ -62,8 +70,9 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
   const order = await db.order.findUnique({ where: { id }, select: { status: true } });
   if (!order) throw new AdminInputError("Order not found.");
 
-  // Cancelling a paid order = refund in full + restock (handled by the returns service).
-  if (next === "CANCELLED" && order.status === "PAID") {
+  // Cancelling a paid order = refund in full + restock; a COD order = restock, nothing to refund.
+  // Both handled by the returns service.
+  if (next === "CANCELLED" && (order.status === "PAID" || order.status === "CONFIRMED")) {
     const { cancelPaidOrder, ReturnError } = await import("@/services/return.service");
     try {
       await cancelPaidOrder({ orderId: id, by: "admin", actorId: adminId });
@@ -102,14 +111,9 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
     if (next === "CANCELLED" && order.status === "PAID") {
       const items = await tx.orderItem.findMany({
         where: { orderId: id },
-        select: { productId: true, quantity: true },
+        select: { productId: true, variantId: true, quantity: true },
       });
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
-      }
+      await restockLines(tx, items);
     }
   });
 

@@ -54,6 +54,49 @@ const configSchema = z.object({
   features: z.object({
     sms: bool.default(false),
   }),
+  cod: z.object({
+    enabled: bool.default(true),
+    // Kept low on purpose: jewellery COD carries high fraud / refusal (RTO) risk.
+    max_order_rupees: z.coerce.number().int().min(0).max(1_000_000).default(10_000),
+    fee_rupees: z.coerce.number().int().min(0).max(1_000).default(0),
+    // Comma-separated pincodes or prefixes ("500", "500001"). Empty = everywhere.
+    pincodes: z
+      .string()
+      .regex(/^[0-9, ]*$/, "digits and commas only, e.g. 500, 560001")
+      .default(""),
+    max_refusals: z.coerce.number().int().min(1).max(20).default(2),
+    // SMS one-time code before every COD order. Needs MSG91 (see INTEGRATIONS.md).
+    otp_required: bool.default(true),
+  }),
+  marketing: z.object({
+    abandoned_cart: bool.default(true),
+    abandoned_first_minutes: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 60)
+      .default(60),
+    abandoned_second_hours: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(14 * 24)
+      .default(24),
+    // Percent off in the second reminder, as a single-use coupon for that customer. 0 = none.
+    abandoned_coupon_percent: z.coerce.number().int().min(0).max(50).default(0),
+    // Coupon (₹) for the referrer after the friend's first delivered order. 0 = referrals off.
+    referral_reward_rupees: z.coerce.number().int().min(0).max(100_000).default(500),
+    referral_min_order_rupees: z.coerce.number().int().min(0).max(10_000_000).default(2000),
+  }),
+  support: z.object({
+    // Where new tickets and customer replies are emailed. Empty = [business] email.
+    notify_email: optionalEmail,
+    // WhatsApp business number with country code, e.g. 919876543210. Empty = no WhatsApp button.
+    whatsapp_number: z
+      .string()
+      .regex(/^[0-9+ ]*$/, "digits only, with country code, e.g. 919876543210")
+      .default(""),
+  }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),
   }),

@@ -10,6 +10,7 @@ Every integration is **optional locally**: without its keys the feature falls ba
 4. After paying you land on `/orders/<id>/success`; the order is PAID, stock goes down and the cart empties.
 5. **After deploying** (Razorpay can't reach `localhost`): Dashboard → Webhooks → URL `https://<your-domain>/api/webhooks/razorpay`, secret = the same `RAZORPAY_WEBHOOK_SECRET`, events `payment.captured`, `payment.failed`, `refund.processed`, `refund.failed`. Locally, the verified checkout callback marks orders as paid.
 6. Going live: replace the test keys with live keys (needs KYC) — `GO_LIVE_CHECKLIST.md`.
+7. **Payment methods (UPI, netbanking, EMI, wallets):** Razorpay shows whatever is switched on for your account — Dashboard → **Account & Settings → Payment methods**. No code change is needed; the method each customer used is saved and shown in Admin → Reports → "How customers paid". EMI on jewellery: check eligibility with Razorpay/your bank first.
 
 ## Resend (email)
 
@@ -38,6 +39,16 @@ Without Shiprocket keys, the pincode check stays silent and admins use "Mark as 
 3. Authorised redirect URI: `http://localhost:3000/api/auth/callback/google` (add your live domain's version later).
 4. Copy the client ID and secret into `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`, restart. The "Continue with Google" button appears automatically.
 
+## Cash on delivery (Phase 18)
+
+Settings live in `config.ini` → `[cod]` (on/off, maximum order value, fee, pincode list, refusal limit, SMS code on/off).
+
+1. **SMS codes (required for COD in production):** in MSG91 create a **DLT-approved** flow whose text contains an `otp` variable, e.g. "##otp## is your code to confirm your Jewellery Store cash-on-delivery order." Put its ID in `MSG91_OTP_TEMPLATE_ID` and the auth key in `MSG91_AUTH_KEY`. Without these, COD is hidden in production; in development the code is written to the server log (`otp.dev_code`).
+2. **Shiprocket:** enable COD on your Shiprocket account (Settings → COD) and set the remittance bank account. COD shipments are created with "COD" and the courier collects exactly the order total.
+3. **Each delivered COD order:** when Shiprocket's remittance reaches your bank, open **Admin → Cash on delivery**, tick the orders it covers and press **Record cash received**. Only then does the order count as revenue (and returns can be refunded).
+4. **Refunds for COD returns** are paid by you (bank transfer / UPI) — Razorpay can't refund cash. The order page shows a **Mark as refunded** button with a field for the bank/UPI reference.
+5. **Refused parcels (RTO)** are cancelled and restocked automatically from Shiprocket's tracking webhook, and counted against the customer; at `[cod] max_refusals` (default 2) they can only pay online.
+
 ## MSG91 (SMS, optional)
 
 Needs a DLT-approved template (India). Set `MSG91_AUTH_KEY`, `MSG91_ORDER_FLOW_ID` in `.env` **and** `[features] sms = true` in `config.ini`. Sent for confirmed / shipped / delivered.
@@ -54,5 +65,6 @@ Needs a DLT-approved template (India). Set `MSG91_AUTH_KEY`, `MSG91_ORDER_FLOW_I
 
 `CRON_SECRET` (any long random text) in Vercel. `vercel.json` runs:
 
-- `/api/cron/release-reservations` — daily on the free plan. For faster release of expired stock holds on the free plan, enable `.github/workflows/cron.yml` (repo variable `ENABLE_CRON=true`, secrets `SITE_URL`, `CRON_SECRET`) which calls it every 10 minutes. Holds are also released whenever any checkout starts.
+- **Background jobs (Phase 19).** Emails, SMS, invoices, Shiprocket shipments and webhook processing run as jobs stored in Postgres (no extra service). They normally run a moment after the request that created them; anything that failed is retried by the scheduler. **Enable `.github/workflows/cron.yml`** (repo variable `ENABLE_CRON=true`, secrets `SITE_URL`, `CRON_SECRET`): it calls `/api/cron/jobs` every 10 minutes — runs due jobs and retries, releases expired stock holds, prunes old finished jobs. Failed jobs: **Admin → Jobs** (retry button).
+- `/api/cron/release-reservations` — Vercel cron, daily on the free plan; now does the same as `/api/cron/jobs`. Holds are also released whenever any checkout starts.
 - `/api/cron/low-stock` — daily 09:00 IST email to admins (or `[alerts] admin_email`).

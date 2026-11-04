@@ -101,6 +101,16 @@ export interface CreateOrderInput {
   subTotalInPaise: number;
   shippingInPaise: number;
   weightGrams: number;
+  /** Cash on delivery: the courier collects sub_total + shipping + fee − discount at the door. */
+  cod?: { feeInPaise: number; discountInPaise: number };
+}
+
+/** What Shiprocket will ask the courier to collect for a COD order (its own formula). */
+export function codCollectAmount(input: CreateOrderInput): number {
+  if (!input.cod) return 0;
+  return (
+    input.subTotalInPaise + input.shippingInPaise + input.cod.feeInPaise - input.cod.discountInPaise
+  );
 }
 
 const rupees = (paise: number) => Number((paise / 100).toFixed(2));
@@ -137,9 +147,16 @@ export async function createShiprocketOrder(input: CreateOrderInput) {
           units: i.units,
           selling_price: rupees(i.sellingPriceInPaise),
         })),
-        payment_method: "Prepaid",
+        payment_method: input.cod ? "COD" : "Prepaid",
         shipping_charges: rupees(input.shippingInPaise),
         sub_total: rupees(input.subTotalInPaise),
+        // COD: Shiprocket collects sub_total + shipping + transaction charges − discount.
+        ...(input.cod
+          ? {
+              transaction_charges: rupees(input.cod.feeInPaise),
+              total_discount: rupees(input.cod.discountInPaise),
+            }
+          : {}),
         // Small jewellery box; Shiprocket's minimum chargeable weight is 0.5 kg.
         length: 15,
         breadth: 12,
@@ -188,12 +205,13 @@ export interface Serviceability {
 export async function checkServiceability(
   deliveryPincode: string,
   weightKg = 0.5,
+  cod = false,
 ): Promise<Serviceability> {
   const params = new URLSearchParams({
     pickup_postcode: env.SHIPROCKET_PICKUP_PINCODE ?? "",
     delivery_postcode: deliveryPincode,
     weight: String(weightKg),
-    cod: "0",
+    cod: cod ? "1" : "0",
   });
   const res = await call<{
     status: number;

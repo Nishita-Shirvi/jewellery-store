@@ -16,12 +16,18 @@ function refresh() {
 
 export async function addToCartAction(input: {
   productId: string;
+  variantId?: string;
   quantity: number;
 }): Promise<CartActionResult> {
   const parsed = addToCartSchema.safeParse(input);
   if (!parsed.success) return INVALID;
   const user = await getCurrentUser();
-  const result = await addItem(user?.id ?? null, parsed.data.productId, parsed.data.quantity);
+  const result = await addItem(
+    user?.id ?? null,
+    parsed.data.productId,
+    parsed.data.quantity,
+    parsed.data.variantId,
+  );
   if (result.ok) {
     refresh();
     await countFunnel("add_to_cart");
@@ -30,7 +36,7 @@ export async function addToCartAction(input: {
 }
 
 export async function updateQuantityAction(input: {
-  productId: string;
+  variantId: string;
   quantity: number;
 }): Promise<CartActionResult> {
   const parsed = updateQuantitySchema.safeParse(input);
@@ -38,18 +44,18 @@ export async function updateQuantityAction(input: {
   const user = await getCurrentUser();
   const result = await setItemQuantity(
     user?.id ?? null,
-    parsed.data.productId,
+    parsed.data.variantId,
     parsed.data.quantity,
   );
   refresh();
   return result;
 }
 
-export async function removeItemAction(input: { productId: string }): Promise<CartActionResult> {
+export async function removeItemAction(input: { variantId: string }): Promise<CartActionResult> {
   const parsed = removeItemSchema.safeParse(input);
   if (!parsed.success) return INVALID;
   const user = await getCurrentUser();
-  const result = await removeItem(user?.id ?? null, parsed.data.productId);
+  const result = await removeItem(user?.id ?? null, parsed.data.variantId);
   refresh();
   return result;
 }

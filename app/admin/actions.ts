@@ -5,7 +5,17 @@ import { audit, diff } from "@/services/audit.service";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { z } from "zod";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/lib/auth-guards";
+import { ForbiddenError, requirePermission } from "@/lib/auth-guards";
+import { ROLE_KEYS, type RoleKey } from "@/lib/permissions";
+import {
+  StaffError,
+  deactivateStaff,
+  inviteStaff,
+  reactivateStaff,
+  resetTwoFactor,
+  revokeInvite,
+  setStaffRoles,
+} from "@/services/staff.service";
 import { logger } from "@/lib/logger";
 import {
   categoryFormSchema,
@@ -28,17 +38,37 @@ import {
   updateProduct,
 } from "@/services/admin/product-admin.service";
 import { UploadError, uploadProductImage } from "@/services/upload.service";
-import { ShipmentError, createShipmentForOrder } from "@/services/shipment.service";
 import { ReturnError, approveReturn, rejectReturn } from "@/services/return.service";
-import { retryRefund } from "@/services/refund.service";
+import { markManualRefundPaid, retryRefund } from "@/services/refund.service";
+import { markCashReceived } from "@/services/cod.service";
+import {
+  SupportError,
+  assignTicket,
+  deleteCannedReply,
+  deleteFaq,
+  readAttachments,
+  saveCannedReply,
+  saveFaq,
+  setTicketStatus,
+  staffReply,
+} from "@/services/support.service";
+import { enqueueAndRunNow, retryDeadJob } from "@/services/jobs.service";
 import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
+import { MAX_OPTIONS, optionsInputSchema, parseValueList } from "@/lib/variants";
+import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
+import {
+  bulkUpdateVariants,
+  saveOptions,
+  type VariantRowInput,
+} from "@/services/admin/variant-admin.service";
 
 /**
- * Every admin action starts with requireAdmin(), which re-reads the role from the database.
- * A customer calling these directly gets a 403 error and nothing changes.
+ * Every admin action starts with requirePermission("…"): staff role, active status, two-step
+ * sign-in and the permission are re-checked on every call. Anyone else calling these directly
+ * gets a 403 (recorded in the activity log) and nothing changes.
  */
 
 export interface AdminFormState {
@@ -71,7 +101,7 @@ export async function saveProductAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = productFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -137,7 +167,7 @@ export async function saveProductAction(
 }
 
 export async function toggleProductActiveAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const isActive = formData.get("isActive") === "true";
@@ -154,14 +184,26 @@ export async function toggleProductActiveAction(formData: FormData): Promise<voi
 }
 
 export async function updateStockAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = stockUpdateSchema.safeParse({
     id: formData.get("id"),
     stock: formData.get("stock"),
   });
   if (!parsed.success) return;
   const beforeStock = (await getProductAdmin(parsed.data.id))?.stock;
-  await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  try {
+    await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  } catch (error) {
+    // Refused (piece has options, or stock below units held in checkouts): nothing changed.
+    if (error instanceof AdminInputError) {
+      logger.warn("admin.stock_update_refused", {
+        productId: parsed.data.id,
+        reason: error.message,
+      });
+      redirect(`/admin/products?stockError=${encodeURIComponent(error.message)}`);
+    }
+    throw error;
+  }
   await audit(admin, {
     action: "product.stock",
     entityType: "product",
@@ -176,11 +218,18 @@ export async function updateStockAction(formData: FormData): Promise<void> {
 export async function uploadImageAction(
   formData: FormData,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const file = formData.get("file");
   if (!(file instanceof File)) return { ok: false, error: "Choose an image file." };
   try {
-    return { ok: true, url: await uploadProductImage(file) };
+    const url = await uploadProductImage(file);
+    await audit(admin, {
+      action: "product.image_upload",
+      entityType: "product",
+      entityId: "upload",
+      summary: `Uploaded a product photo (${file.name.slice(0, 80)})`,
+    });
+    return { ok: true, url };
   } catch (error) {
     return { ok: false, error: error instanceof UploadError ? error.message : "Upload failed." };
   }
@@ -192,7 +241,7 @@ export async function saveCategoryAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = categoryFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -227,7 +276,7 @@ export async function saveCategoryAction(
 }
 
 export async function deleteCategoryAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   try {
@@ -250,12 +299,15 @@ export async function deleteCategoryAction(formData: FormData): Promise<void> {
 // ── Orders ───────────────────────────────────────────────
 
 export async function updateOrderStatusAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = orderStatusUpdateSchema.safeParse({
     id: formData.get("id"),
     status: formData.get("status"),
   });
   if (!parsed.success) return;
+  // Cancelling a paid order refunds it: that needs the refunds permission too.
+  if (parsed.data.status === "CANCELLED" && !admin.permissions.includes("refunds.manage"))
+    throw new ForbiddenError();
   try {
     await updateOrderStatus(parsed.data.id, parsed.data.status, admin.id);
     await audit(admin, {
@@ -278,25 +330,35 @@ export async function updateOrderStatusAction(formData: FormData): Promise<void>
 // ── Shipping ─────────────────────────────────────────────
 
 export async function createShipmentAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
-  try {
-    await createShipmentForOrder(parsed.data.id, admin.id);
-    await audit(admin, {
-      action: "shipment.create",
-      entityType: "order",
-      entityId: parsed.data.id,
-      summary: "Shipment created with Shiprocket",
-    });
-  } catch (error) {
-    if (error instanceof ShipmentError) {
-      redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(error.message)}`);
-    }
-    throw error;
-  }
-  revalidatePath(`/admin/orders/${parsed.data.id}`);
-  redirect(`/admin/orders/${parsed.data.id}?shipped=1`);
+  const orderId = parsed.data.id;
+  // Runs as a background job (retried automatically if Shiprocket fails), but right away so
+  // the admin sees the result. A double click can't create two parcels.
+  const { outcome, error } = await enqueueAndRunNow(
+    "shipment.create",
+    { orderId, adminId: admin.id },
+    `shipment:${orderId}`,
+  );
+  await audit(admin, {
+    action: "shipment.create",
+    entityType: "order",
+    entityId: orderId,
+    summary:
+      outcome === "done"
+        ? "Shipment created with Shiprocket"
+        : `Shipment not created yet (${outcome})`,
+  });
+  revalidatePath(`/admin/orders/${orderId}`);
+  if (outcome === "done") redirect(`/admin/orders/${orderId}?shipped=1`);
+  const message =
+    outcome === "busy"
+      ? "The shipment is already being created. Refresh in a moment."
+      : outcome === "retry"
+        ? `${error ?? "Shiprocket failed"} — it will be retried automatically (Admin → Jobs).`
+        : (error ?? "The shipment couldn't be created.");
+  redirect(`/admin/orders/${orderId}?error=${encodeURIComponent(message.slice(0, 300))}`);
 }
 
 // ── Returns and refunds ──────────────────────────────────
@@ -318,13 +380,19 @@ const returnDecisionSchema = z.object({
 });
 
 export async function approveReturnAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = returnDecisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   try {
     await approveReturn(parsed.data.returnId, admin.id, {
       restock: formData.get("restock") === "on",
       note: parsed.data.note,
+    });
+    await audit(admin, {
+      action: "return.approve",
+      entityType: "return",
+      entityId: parsed.data.returnId,
+      summary: `Return approved${formData.get("restock") === "on" ? " (restocked)" : ""}`,
     });
   } catch (error) {
     if (error instanceof ReturnError)
@@ -336,7 +404,7 @@ export async function approveReturnAction(formData: FormData): Promise<void> {
 }
 
 export async function rejectReturnAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = returnDecisionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   if (!parsed.data.note)
@@ -361,7 +429,7 @@ export async function rejectReturnAction(formData: FormData): Promise<void> {
 }
 
 export async function retryRefundAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("refunds.manage");
   const parsed = z
     .object({
       refundId: z.string().regex(/^[a-z0-9]{1,40}$/i),
@@ -382,7 +450,7 @@ export async function retryRefundAction(formData: FormData): Promise<void> {
 // ── Invoices ─────────────────────────────────────────────
 
 export async function generateInvoiceAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("orders.update");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   const invoice = await createInvoiceForOrder(parsed.data.id);
@@ -406,7 +474,7 @@ export async function saveCouponAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.manage");
   const parsed = couponFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success)
     return {
@@ -434,7 +502,7 @@ export async function saveCouponAction(
 }
 
 export async function toggleCouponAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("coupons.manage");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
   if (!parsed.success) return;
   await setCouponActive(parsed.data.id, formData.get("isActive") === "true", admin.id);
@@ -450,7 +518,7 @@ export async function toggleCouponAction(formData: FormData): Promise<void> {
 // ── Reviews ──────────────────────────────────────────────
 
 export async function moderateReviewAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("reviews.moderate");
   const parsed = z
     .object({
       id: z.string().regex(/^[a-z0-9]{1,40}$/i),
@@ -466,8 +534,494 @@ export async function moderateReviewAction(formData: FormData): Promise<void> {
       admin.id,
       parsed.data.note || undefined,
     );
+    await audit(admin, {
+      action: parsed.data.decision === "APPROVED" ? "review.approve" : "review.reject",
+      entityType: "review",
+      entityId: parsed.data.id,
+      summary: `Review ${parsed.data.decision === "APPROVED" ? "approved" : "rejected"}`,
+    });
   } catch (error) {
     if (!(error instanceof ReviewError)) throw error;
   }
   revalidatePath("/admin/reviews");
+}
+
+// ── Product variants (Phase 17) ──────────────────────────
+
+function readOptions(formData: FormData) {
+  const options: { name: string; values: string[] }[] = [];
+  for (let i = 0; i < MAX_OPTIONS; i++) {
+    const name = String(formData.get(`option${i}Name`) ?? "").trim();
+    const values = parseValueList(String(formData.get(`option${i}Values`) ?? ""));
+    if (name || values.length) options.push({ name, values });
+  }
+  return options;
+}
+
+export async function saveVariantOptionsAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requirePermission("products.edit");
+  const id = idSchema.safeParse({ id: formData.get("productId") });
+  if (!id.success) return { error: "Invalid product." };
+  const parsed = optionsInputSchema.safeParse(readOptions(formData));
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the options.",
+      values: typedValues(formData),
+    };
+  try {
+    const result = await saveOptions(id.data.id, parsed.data, admin.id);
+    await audit(admin, {
+      action: "product.variants_options",
+      entityType: "product",
+      entityId: id.data.id,
+      summary: `Options saved: ${parsed.data.map((o) => `${o.name} (${o.values.length})`).join(", ") || "none"}; ${result.created} variant(s) created, ${result.deactivated} switched off`,
+    });
+    revalidatePath(`/admin/products/${id.data.id}/variants`);
+    revalidatePath("/admin/products");
+    return {
+      ok: true,
+      message: `Saved. ${result.combinations} combination(s); ${result.created} new, ${result.deactivated} switched off.`,
+    };
+  } catch (error) {
+    return { ...fail(error), values: typedValues(formData) };
+  }
+}
+
+export async function saveVariantsAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requirePermission("products.edit");
+  const id = idSchema.safeParse({ id: formData.get("productId") });
+  if (!id.success) return { error: "Invalid product." };
+  const allPrice = String(formData.get("setAllPrice") ?? "").trim();
+  const allStock = String(formData.get("setAllStock") ?? "").trim();
+
+  const rows: VariantRowInput[] = [];
+  for (const raw of formData.getAll("variantId")) {
+    const vid = idSchema.safeParse({ id: raw });
+    if (!vid.success) return { error: "Invalid variant." };
+    const v = vid.data.id;
+    const price = parseRupeesToPaise(allPrice || String(formData.get(`price_${v}`) ?? ""));
+    const stockText = allStock || String(formData.get(`stock_${v}`) ?? "");
+    const stock = /^\d{1,6}$/.test(stockText) ? Number(stockText) : null;
+    const net = parseGramsToMg(String(formData.get(`net_${v}`) ?? ""));
+    const grossText = String(formData.get(`gross_${v}`) ?? "").trim();
+    const gross = grossText ? parseGramsToMg(grossText) : null;
+    const sku = String(formData.get(`sku_${v}`) ?? "");
+    if (price === null || price <= 0)
+      return { error: `${sku || v}: enter a price in rupees`, values: typedValues(formData) };
+    if (stock === null || stock > 100000)
+      return { error: `${sku || v}: stock must be a whole number`, values: typedValues(formData) };
+    if (!net)
+      return { error: `${sku || v}: enter the net weight in grams`, values: typedValues(formData) };
+    if (grossText && !gross)
+      return { error: `${sku || v}: gross weight must be in grams`, values: typedValues(formData) };
+    rows.push({
+      id: v,
+      sku,
+      priceInPaise: price,
+      stock,
+      netWeightMg: net,
+      grossWeightMg: gross,
+      isActive: formData.get(`active_${v}`) === "on",
+    });
+  }
+  try {
+    const changes = await bulkUpdateVariants(id.data.id, rows, admin.id);
+    if (Object.keys(changes).length)
+      await audit(admin, {
+        action: "product.variants_update",
+        entityType: "product",
+        entityId: id.data.id,
+        summary: `Variants updated (${Object.keys(changes).length} change(s))`,
+        changes,
+      });
+    revalidatePath(`/admin/products/${id.data.id}/variants`);
+    revalidatePath("/admin/products");
+    return { ok: true, message: "Variants saved." };
+  } catch (error) {
+    return { ...fail(error), values: typedValues(formData) };
+  }
+}
+
+// ── Cash on delivery (Phase 18) ──────────────────────────
+
+const idList = z
+  .array(z.string().regex(/^[a-z0-9]{1,40}$/i))
+  .min(1)
+  .max(200);
+
+/** Records cash received (remitted by the courier) for one or more delivered COD orders. */
+export async function markCashReceivedAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("cod.manage");
+  const ids = idList.safeParse(formData.getAll("orderId"));
+  const reference = String(formData.get("reference") ?? "")
+    .trim()
+    .slice(0, 120);
+  const back = String(formData.get("back") ?? "") === "order" ? "order" : "cod";
+  if (!ids.success) redirect("/admin/cod?error=Choose%20at%20least%20one%20order");
+  const result = await markCashReceived(ids.data, admin.id, reference || undefined);
+  for (const orderId of ids.data)
+    await audit(admin, {
+      action: "order.cod_cash_received",
+      entityType: "order",
+      entityId: orderId,
+      summary: `Cash on delivery recorded as received${reference ? ` (ref ${reference})` : ""}`,
+    });
+  revalidatePath("/admin/cod");
+  revalidatePath("/admin/reports");
+  if (back === "order") revalidatePath(`/admin/orders/${ids.data[0]}`);
+  else redirect(`/admin/cod?recorded=${result.recorded}`);
+}
+
+/** A COD refund the store paid back by bank transfer / UPI. */
+export async function markRefundPaidAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("refunds.manage");
+  const parsed = z
+    .object({
+      refundId: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      orderId: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      reference: z.string().trim().min(3, { message: "Enter the bank / UPI reference" }).max(120),
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const orderId = String(formData.get("orderId") ?? "").replace(/[^a-z0-9]/gi, "");
+    redirect(
+      `/admin/orders/${orderId}?error=${encodeURIComponent("Enter the bank / UPI reference of the refund.")}`,
+    );
+  }
+  const outcome = await markManualRefundPaid(parsed.data.refundId, admin.id, parsed.data.reference);
+  await audit(admin, {
+    action: "refund.manual_paid",
+    entityType: "refund",
+    entityId: parsed.data.refundId,
+    summary: `COD refund marked as paid (ref ${parsed.data.reference}): ${outcome}`,
+  });
+  revalidatePath(`/admin/orders/${parsed.data.orderId}`);
+}
+
+// ── Background jobs (Phase 19) ───────────────────────────
+
+/** Puts a failed (DEAD) job back in the queue and runs the queue. */
+export async function retryJobAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("jobs.manage");
+  const ids = idList.safeParse(formData.getAll("jobId"));
+  if (!ids.success) redirect("/admin/jobs");
+  let retried = 0;
+  for (const jobId of ids.data) if (await retryDeadJob(jobId)) retried++;
+  await audit(admin, {
+    action: "jobs.retry",
+    entityType: "job",
+    entityId: ids.data.length === 1 ? ids.data[0]! : "many",
+    summary: `Retried ${retried} failed job(s)`,
+  });
+  const { runDueJobs } = await import("@/services/jobs.service");
+  await runDueJobs({ limit: 20, budgetMs: 15_000 });
+  revalidatePath("/admin/jobs");
+  redirect(`/admin/jobs?retried=${retried}`);
+}
+
+// ── Staff (Phase 21) ─────────────────────────────────────
+
+const roleKeySchema = z.enum(ROLE_KEYS as [RoleKey, ...RoleKey[]]);
+const staffTarget = z.object({ userId: z.string().regex(/^[a-z0-9]{1,40}$/i) });
+
+function staffFail(error: unknown): never {
+  if (error instanceof StaffError)
+    redirect(`/admin/staff?error=${encodeURIComponent(error.message.slice(0, 200))}`);
+  throw error;
+}
+
+export async function inviteStaffAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requirePermission("staff.manage");
+  const parsed = z
+    .object({ email: z.email({ message: "Enter a valid email" }).max(254), role: roleKeySchema })
+    .safeParse({ email: String(formData.get("email") ?? "").trim(), role: formData.get("role") });
+  if (!parsed.success)
+    return {
+      error: parsed.error.issues[0]?.message ?? "Check the form.",
+      values: typedValues(formData),
+    };
+  try {
+    const { inviteId, link } = await inviteStaff(parsed.data.email, parsed.data.role, admin.id);
+    await audit(admin, {
+      action: "staff.invite",
+      entityType: "staff",
+      entityId: inviteId,
+      summary: `Invited ${parsed.data.email} as ${parsed.data.role}`,
+    });
+    revalidatePath("/admin/staff");
+    return {
+      ok: true,
+      message: `Invitation emailed. You can also send this link yourself (valid 7 days): ${link}`,
+    };
+  } catch (error) {
+    if (error instanceof StaffError) return { error: error.message, values: typedValues(formData) };
+    throw error;
+  }
+}
+
+export async function setStaffRolesAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  const roles = z.array(roleKeySchema).max(5).safeParse(formData.getAll("roles"));
+  if (!target.success || !roles.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await setStaffRoles(target.data.userId, roles.data, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.roles",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: `Roles set to ${roles.data.join(", ") || "none"}`,
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function deactivateStaffAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await deactivateStaff(target.data.userId, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.deactivate",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Staff member deactivated",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function reactivateStaffAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  try {
+    await reactivateStaff(target.data.userId, admin.id);
+  } catch (error) {
+    staffFail(error);
+  }
+  await audit(admin, {
+    action: "staff.reactivate",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Staff member reactivated",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function resetStaffTwoFactorAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const target = staffTarget.safeParse({ userId: formData.get("userId") });
+  if (!target.success) redirect("/admin/staff?error=Invalid%20request");
+  await resetTwoFactor(target.data.userId);
+  await audit(admin, {
+    action: "staff.2fa_reset",
+    entityType: "staff",
+    entityId: target.data.userId,
+    summary: "Two-step sign-in reset (they set it up again at their next admin visit)",
+  });
+  revalidatePath("/admin/staff");
+}
+
+export async function revokeInviteAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("staff.manage");
+  const id = idSchema.safeParse({ id: formData.get("inviteId") });
+  if (!id.success) redirect("/admin/staff?error=Invalid%20request");
+  await revokeInvite(id.data.id);
+  await audit(admin, {
+    action: "staff.invite_revoke",
+    entityType: "staff",
+    entityId: id.data.id,
+    summary: "Invitation cancelled",
+  });
+  revalidatePath("/admin/staff");
+}
+
+// ── Customer support (Phase 22) ──────────────────────────
+
+const ticketIdSchema = z.string().regex(/^[a-z0-9]{1,40}$/i);
+
+function supportBack(ticketId: string, error?: string): never {
+  redirect(
+    `/admin/support/${ticketId}${error ? `?error=${encodeURIComponent(error.slice(0, 200))}` : ""}`,
+  );
+}
+
+export async function staffReplyTicketAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  if (!ticketId.success) redirect("/admin/support");
+  const internal = formData.get("internal") === "on";
+  const resolve = formData.get("resolve") === "on" && !internal;
+  try {
+    const files = formData.getAll("files").filter((f): f is File => f instanceof File);
+    await staffReply(admin.id, ticketId.data, {
+      body: String(formData.get("body") ?? ""),
+      internal,
+      resolve,
+      files: await readAttachments(files),
+    });
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: internal ? "support.note" : resolve ? "support.reply_resolve" : "support.reply",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: internal
+      ? "Internal note added"
+      : resolve
+        ? "Replied and resolved"
+        : "Replied to the customer",
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+export async function assignTicketAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  if (!ticketId.success) redirect("/admin/support");
+  const raw = String(formData.get("assigneeId") ?? "");
+  const assignee =
+    raw === "me" ? admin.id : raw ? (ticketIdSchema.safeParse(raw).data ?? "invalid") : null;
+  try {
+    await assignTicket(ticketId.data, assignee);
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: "support.assign",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: assignee
+      ? `Assigned to ${assignee === admin.id ? "themselves" : assignee}`
+      : "Unassigned",
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+export async function setTicketStatusAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("support.manage");
+  const ticketId = ticketIdSchema.safeParse(formData.get("ticketId"));
+  const status = z.enum(["OPEN", "ANSWERED", "RESOLVED"]).safeParse(formData.get("ticketStatus"));
+  if (!ticketId.success || !status.success) redirect("/admin/support");
+  try {
+    await setTicketStatus(ticketId.data, status.data);
+  } catch (error) {
+    if (error instanceof SupportError) supportBack(ticketId.data, error.message);
+    throw error;
+  }
+  await audit(admin, {
+    action: "support.status",
+    entityType: "ticket",
+    entityId: ticketId.data,
+    summary: `Ticket status → ${status.data}`,
+  });
+  revalidatePath(`/admin/support/${ticketId.data}`);
+  supportBack(ticketId.data);
+}
+
+const faqSchema = z.object({
+  id: z
+    .string()
+    .regex(/^[a-z0-9]{1,40}$/i)
+    .optional(),
+  question: z.string().trim().min(5, { message: "Write the question" }).max(200),
+  answer: z.string().trim().min(5, { message: "Write the answer" }).max(4000),
+  category: z.string().trim().min(2).max(40).default("General"),
+  position: z.coerce.number().int().min(0).max(999).default(0),
+  isPublished: z.preprocess((v) => v === "on" || v === "true", z.boolean()),
+});
+
+export async function saveFaqAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const raw = Object.fromEntries(formData);
+  const parsed = faqSchema.safeParse({ ...raw, id: raw.faqId || undefined });
+  if (!parsed.success)
+    redirect(
+      `/admin/faqs?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Check the form")}`,
+    );
+  const saved = await saveFaq(parsed.data);
+  await audit(admin, {
+    action: parsed.data.id ? "faq.update" : "faq.create",
+    entityType: "faq",
+    entityId: saved.id,
+    summary: `FAQ saved: ${parsed.data.question.slice(0, 80)}`,
+  });
+  revalidatePath("/admin/faqs");
+  revalidatePath("/help");
+}
+
+export async function deleteFaqAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const id = ticketIdSchema.safeParse(formData.get("faqId"));
+  if (!id.success) return;
+  await deleteFaq(id.data);
+  await audit(admin, {
+    action: "faq.delete",
+    entityType: "faq",
+    entityId: id.data,
+    summary: "FAQ deleted",
+  });
+  revalidatePath("/admin/faqs");
+  revalidatePath("/help");
+}
+
+export async function saveCannedReplyAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const parsed = z
+    .object({
+      id: z
+        .string()
+        .regex(/^[a-z0-9]{1,40}$/i)
+        .optional(),
+      title: z.string().trim().min(2).max(80),
+      body: z.string().trim().min(5).max(4000),
+    })
+    .safeParse({
+      id: formData.get("cannedId") || undefined,
+      title: formData.get("title"),
+      body: formData.get("cannedBody"),
+    });
+  if (!parsed.success) redirect("/admin/faqs?error=Check%20the%20canned%20reply");
+  const saved = await saveCannedReply(parsed.data);
+  await audit(admin, {
+    action: "canned.save",
+    entityType: "faq",
+    entityId: saved.id,
+    summary: `Canned reply saved: ${parsed.data.title}`,
+  });
+  revalidatePath("/admin/faqs");
+}
+
+export async function deleteCannedReplyAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("faqs.manage");
+  const id = ticketIdSchema.safeParse(formData.get("cannedId"));
+  if (!id.success) return;
+  await deleteCannedReply(id.data);
+  await audit(admin, {
+    action: "canned.delete",
+    entityType: "faq",
+    entityId: id.data,
+    summary: "Canned reply deleted",
+  });
+  revalidatePath("/admin/faqs");
 }

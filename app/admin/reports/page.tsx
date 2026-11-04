@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatINR } from "@/lib/format";
 import { istDay, istMidnight } from "@/lib/report/dates";
-import { lowStockProducts, salesReport } from "@/services/report.service";
+import { lowStockProducts, salesReport, PAYMENT_METHOD_LABEL } from "@/services/report.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,7 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ days?: string }>;
 }) {
+  await requirePermissionPage("reports.view", "/admin/reports");
   const daysParam = Number((await searchParams).days);
   const days = [7, 30, 90].includes(daysParam) ? daysParam : 30;
   const [report, lowStock] = await Promise.all([salesReport(days), lowStockProducts()]);
@@ -138,6 +140,37 @@ export default async function ReportsPage({
           </p>
         </section>
       </div>
+
+      <section aria-labelledby="methods-h">
+        <h2 id="methods-h" className="text-xl">
+          How customers paid
+        </h2>
+        <table className="mt-3 w-full text-sm">
+          <thead className="text-muted-foreground text-left text-xs">
+            <tr>
+              <th className="py-1">Method</th>
+              <th>Orders</th>
+              <th className="text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-border divide-y">
+            {report.paymentMethods.map((m) => (
+              <tr key={m.method} data-testid={`method-${m.method}`}>
+                <td className="py-1.5">{PAYMENT_METHOD_LABEL[m.method] ?? m.method}</td>
+                <td>{m.orders}</td>
+                <td className="text-right">{formatINR(m.amountInPaise)}</td>
+              </tr>
+            ))}
+            {report.paymentMethods.length === 0 && (
+              <tr>
+                <td colSpan={3} className="text-muted-foreground py-3">
+                  No sales in this period.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
 
       <section aria-labelledby="top-h">
         <h2 id="top-h" className="text-xl">

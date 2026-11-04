@@ -1,4 +1,5 @@
 import "server-only";
+import { isOwnUpload } from "@/services/upload.service";
 import { revalidateTag } from "next/cache";
 import type { Prisma, ReturnReason } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -13,18 +14,18 @@ import {
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { sendOrderUpdateEmail } from "@/services/email.service";
 import { createRefundRecord, issueRefund } from "@/services/refund.service";
+import { restockLines } from "@/services/inventory.service";
+import { lineName } from "@/lib/variants";
 
 export class ReturnError extends Error {}
 
 type Tx = Prisma.TransactionClient;
 
-async function restockItems(tx: Tx, items: { productId: string; quantity: number }[]) {
-  for (const item of items) {
-    await tx.product.update({
-      where: { id: item.productId },
-      data: { stock: { increment: item.quantity } },
-    });
-  }
+async function restockItems(
+  tx: Tx,
+  items: { productId: string; variantId: string; quantity: number }[],
+) {
+  await restockLines(tx, items); // per variant, product summary re-synced in the same transaction
 }
 
 // ───────────────────────── Cancellations ─────────────────────────
@@ -35,7 +36,7 @@ export async function canCustomerCancel(orderId: string): Promise<boolean> {
     where: { id: orderId },
     select: { status: true, shipment: { select: { awb: true } } },
   });
-  return order?.status === "PAID" && !order.shipment?.awb;
+  return (order?.status === "PAID" || order?.status === "CONFIRMED") && !order.shipment?.awb;
 }
 
 /**
@@ -51,11 +52,12 @@ export async function cancelPaidOrder(input: {
   const order = await db.order.findFirst({
     where: { id: input.orderId, ...(input.userId ? { userId: input.userId } : {}) },
     include: {
-      items: { select: { id: true, productId: true, quantity: true } },
+      items: { select: { id: true, productId: true, variantId: true, quantity: true } },
       shipment: { select: { awb: true } },
     },
   });
   if (!order) throw new ReturnError("Order not found.");
+  if (order.status === "CONFIRMED") return cancelCodOrder(order, input);
   if (order.status !== "PAID")
     throw new ReturnError("Only paid orders that haven't shipped can be cancelled.");
   if (input.by === "customer" && order.shipment?.awb) {
@@ -98,6 +100,45 @@ export async function cancelPaidOrder(input: {
   });
   await issueRefund(refundId);
   await sendOrderUpdateEmail(order.id, "cancelled", { amountInPaise: order.totalInPaise });
+}
+
+/**
+ * Cancels a cash-on-delivery order before it ships: stock goes back, nothing to refund.
+ * CONFIRMED → CANCELLED is conditional, so two clicks can't restock twice.
+ */
+async function cancelCodOrder(
+  order: {
+    id: string;
+    items: { id: string; productId: string; variantId: string; quantity: number }[];
+    shipment: { awb: string | null } | null;
+  },
+  input: { by: "customer" | "admin"; actorId: string },
+) {
+  if (input.by === "customer" && order.shipment?.awb)
+    throw new ReturnError(
+      "Your order is already packed for the courier. Please contact us to cancel.",
+    );
+  await db.$transaction(async (tx) => {
+    const switched = await tx.order.updateMany({
+      where: { id: order.id, status: "CONFIRMED" },
+      data: {
+        status: "CANCELLED",
+        cancellationReason:
+          input.by === "customer" ? "Cancelled by the customer" : "Cancelled by the store",
+      },
+    });
+    if (switched.count === 0)
+      throw new ReturnError("This order changed in the meantime. Please refresh.");
+    await restockItems(tx, order.items);
+    for (const item of order.items)
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: { returnedQuantity: item.quantity },
+      });
+  });
+  revalidateTag(CATALOG_TAG);
+  logger.info("order.cod_cancelled", { orderId: order.id, by: input.by, actorId: input.actorId });
+  await sendOrderUpdateEmail(order.id, "cancelled");
 }
 
 /** Paid, but the piece sold out first: refund in full automatically (called from the payment flow). */
@@ -162,7 +203,7 @@ export async function getReturnOptions(userId: string, orderId: string) {
     eligibility: ctx.eligibility,
     items: ctx.order.items.map((i) => ({
       orderItemId: i.id,
-      name: i.productName,
+      name: lineName(i.productName, i.variantLabel),
       priceInPaise: i.priceInPaise,
       returnable: i.product.isReturnable,
       remaining: i.quantity - i.returnedQuantity,
@@ -180,6 +221,8 @@ export async function requestReturn(
   if (!ctx.eligibility.ok) throw new ReturnError(ctx.eligibility.reason);
   const problem = validateReturnSelection(ctx.lines, input.items);
   if (problem) throw new ReturnError(problem);
+  if (input.photoUrl && !isOwnUpload(input.photoUrl, "jewellery-store/returns"))
+    throw new ReturnError("Please upload the photo with the form.");
 
   const created = await db.$transaction(async (tx) => {
     const switched = await tx.order.updateMany({
@@ -220,6 +263,10 @@ export async function approveReturn(
   if (!request) throw new ReturnError("Return not found.");
   if (request.status !== "REQUESTED")
     throw new ReturnError("This return has already been decided.");
+  if (request.order.paymentMethod === "COD" && !request.order.paidAt)
+    throw new ReturnError(
+      "This is a cash-on-delivery order and its cash hasn't been recorded yet. Record it on the COD page first, then approve the return.",
+    );
 
   const lines: ReturnableLine[] = request.order.items.map((i) => ({
     orderItemId: i.id,
@@ -268,7 +315,11 @@ export async function approveReturn(
     if (options.restock)
       await restockItems(
         tx,
-        request.items.map((i) => ({ productId: i.orderItem.productId, quantity: i.quantity })),
+        request.items.map((i) => ({
+          productId: i.orderItem.productId,
+          variantId: i.orderItem.variantId,
+          quantity: i.quantity,
+        })),
       );
     return createRefundRecord(tx, {
       orderId: request.orderId,
@@ -315,7 +366,9 @@ export async function getReturnsAndRefunds(orderId: string) {
     db.returnRequest.findMany({
       where: { orderId },
       orderBy: { createdAt: "desc" },
-      include: { items: { include: { orderItem: { select: { productName: true } } } } },
+      include: {
+        items: { include: { orderItem: { select: { productName: true, variantLabel: true } } } },
+      },
     }),
     db.refund.findMany({ where: { orderId }, orderBy: { createdAt: "desc" } }),
   ]);

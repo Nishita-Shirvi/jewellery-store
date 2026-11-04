@@ -52,13 +52,25 @@ export async function createRefundRecord(
  * Sends a PENDING/FAILED refund to Razorpay. Safe to call again: it first looks for a refund
  * Razorpay already made with our reference (in case the earlier response was lost).
  */
+export const COD_REFUND_NOTE =
+  "Cash on delivery: pay the customer back by bank transfer or UPI, then press “Mark as refunded”.";
+
 export async function issueRefund(
   refundId: string,
-): Promise<"sent" | "processed" | "failed" | "skipped"> {
+): Promise<"sent" | "processed" | "failed" | "skipped" | "manual"> {
   const refund = await db.refund.findUnique({
     where: { id: refundId },
-    include: { payment: { select: { providerPaymentId: true } } },
+    include: { payment: { select: { providerPaymentId: true, provider: true } } },
   });
+  // Razorpay can't refund cash: COD refunds stay PENDING until an admin pays and marks them.
+  if (refund?.payment.provider === "COD") {
+    if (refund.status !== "PROCESSED")
+      await db.refund.update({
+        where: { id: refund.id },
+        data: { status: "PENDING", failureReason: COD_REFUND_NOTE },
+      });
+    return "manual";
+  }
   if (
     !refund ||
     refund.status === "PROCESSED" ||
@@ -205,6 +217,25 @@ export async function markRefundFailed(input: {
       reason: input.reason,
     });
   return res.count > 0 ? ("failed" as const) : ("ignored" as const);
+}
+
+/**
+ * A cash-on-delivery refund the store paid by bank transfer / UPI. Only for COD payments
+ * (Razorpay refunds are confirmed by Razorpay itself). Idempotent, like markRefundProcessed.
+ */
+export async function markManualRefundPaid(refundId: string, adminId: string, reference: string) {
+  const refund = await db.refund.findUnique({
+    where: { id: refundId },
+    include: { payment: { select: { provider: true } } },
+  });
+  if (!refund) return "unknown" as const;
+  if (refund.payment.provider !== "COD") return "not_cod" as const;
+  logger.info("refund.manual_paid", { refundId, adminId });
+  return markRefundProcessed({
+    razorpayRefundId: `manual_${refund.id}`,
+    refundRef: refund.id,
+    raw: { manual: true, adminId, reference: reference.slice(0, 120) },
+  });
 }
 
 export async function retryRefund(refundId: string, adminId: string) {

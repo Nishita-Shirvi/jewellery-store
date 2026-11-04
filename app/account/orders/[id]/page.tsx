@@ -21,6 +21,7 @@ import {
 } from "@/services/return.service";
 import { cancelOrderAction } from "../actions";
 import { hasInvoice } from "@/services/invoice.service";
+import { lineName } from "@/lib/variants";
 
 export const metadata: Metadata = { title: "Order details", robots: { index: false } };
 
@@ -54,7 +55,10 @@ export default async function AccountOrderPage({
     getReturnOptions(user.id, order.id),
   ]);
   const invoiceReady = await hasInvoice(order.id);
-  const reached = STEPS.findIndex((s) => s.status === order.status);
+  // A COD order is "confirmed" at the first step just like a paid one.
+  const reached = STEPS.findIndex(
+    (s) => s.status === (order.status === "CONFIRMED" ? "PAID" : order.status),
+  );
 
   return (
     <section className="space-y-8">
@@ -65,14 +69,22 @@ export default async function AccountOrderPage({
         <h1 className="text-2xl font-semibold tracking-tight">Order {order.displayNumber}</h1>
         <StatusBadge status={order.status} />
       </div>
-      <p className="text-muted-foreground text-sm">Placed {dateFmt.format(order.createdAt)}</p>
+      <p className="text-muted-foreground text-sm">
+        Placed {dateFmt.format(order.createdAt)}
+        {order.paymentMethod === "COD" &&
+          (order.paidAt
+            ? " · Cash on delivery, paid"
+            : order.status === "CANCELLED"
+              ? " · Cash on delivery"
+              : ` · Cash on delivery: pay ${formatINR(order.totalInPaise)} to the courier`)}
+      </p>
 
       {order.status === "REFUND_PENDING" ||
       order.status === "REFUNDED" ||
       order.status === "RETURN_REQUESTED" ? null : order.status === "CANCELLED" ? (
         <p className="border-border bg-muted rounded-md border p-4 text-sm">
           This order was cancelled.
-          {order.cancellationReason?.includes("refund")
+          {order.paymentMethod === "ONLINE" && order.cancellationReason?.includes("refund")
             ? " Your payment will be refunded to the original payment method."
             : ""}
         </p>
@@ -118,8 +130,14 @@ export default async function AccountOrderPage({
         </p>
       )}
 
-      {(cancellable || returnOptions?.eligibility.ok || invoiceReady) && (
+      {/* Order shortcuts: track, invoice, cancel, return, get help. */}
+      {
         <div className="flex flex-wrap gap-2">
+          {shipment?.awb && (
+            <Button asChild variant="outline" size="sm">
+              <a href="#tracking-heading">Track parcel</a>
+            </Button>
+          )}
           {invoiceReady && (
             <Button asChild variant="outline" size="sm">
               <a href={`/api/invoices/${order.id}`}>Download invoice</a>
@@ -141,8 +159,11 @@ export default async function AccountOrderPage({
               <Link href={`/account/orders/${order.id}/return`}>Return items</Link>
             </Button>
           )}
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/account/support/new?orderId=${order.id}&category=ORDER`}>Get help</Link>
+          </Button>
         </div>
-      )}
+      }
 
       {(returns.length > 0 || refunds.length > 0) && (
         <section aria-labelledby="returns-heading" className="space-y-3">
@@ -161,7 +182,12 @@ export default async function AccountOrderPage({
                 · {RETURN_REASON_LABEL[r.reason]}
               </p>
               <p className="text-muted-foreground text-xs">
-                {r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}
+                {r.items
+                  .map(
+                    (i) =>
+                      `${lineName(i.orderItem.productName, i.orderItem.variantLabel)} × ${i.quantity}`,
+                  )
+                  .join(", ")}
               </p>
               {r.status === "REJECTED" && r.adminNote && (
                 <p className="mt-1 text-xs">Reason: {r.adminNote}</p>
@@ -195,10 +221,10 @@ export default async function AccountOrderPage({
 
       <ul className="divide-border border-border divide-y rounded-md border text-sm">
         {order.items.map((item) => (
-          <li key={item.slug} className="flex justify-between gap-4 p-4">
+          <li key={`${item.slug}:${item.sku}`} className="flex justify-between gap-4 p-4">
             <span>
               <Link href={`/products/${item.slug}`} className="hover:underline">
-                {item.name}
+                {lineName(item.name, item.variantLabel)}
               </Link>{" "}
               × {item.quantity}
               {(order.status === "DELIVERED" || order.status === "RETURN_REQUESTED") && (

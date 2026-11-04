@@ -28,6 +28,8 @@ export interface ProductFormValues {
   images: string[];
   isActive: boolean;
   isFeatured: boolean;
+  /** Phase 17: price/stock are then set per variant and are read-only here. */
+  hasOptions?: boolean;
   isReturnable: boolean;
 }
 
@@ -160,6 +162,8 @@ export function ProductForm({
           min={0}
           defaultValue={values.stock}
           errors={e.stock}
+          readOnly={values.hasOptions}
+          hint={values.hasOptions ? "Total of all variants — edit on the Variants page" : undefined}
         />
       </section>
 
@@ -170,6 +174,8 @@ export function ProductForm({
           inputMode="decimal"
           defaultValue={values.price}
           errors={e.price}
+          readOnly={values.hasOptions}
+          hint={values.hasOptions ? "Lowest variant price — edit on the Variants page" : undefined}
         />
         <FormField
           label="Making charge (₹, optional)"

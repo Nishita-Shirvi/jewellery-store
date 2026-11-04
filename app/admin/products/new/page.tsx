@@ -2,8 +2,10 @@ import { ProductForm } from "@/components/admin/product-form";
 import { listCategoryOptions } from "@/services/admin/category-admin.service";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { isUploadConfigured } from "@/services/upload.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export default async function NewProductPage() {
+  await requirePermissionPage("products.edit", "/admin/products/new");
   const [categories, placeholderImages] = await Promise.all([
     listCategoryOptions(),
     listPlaceholderImages(),

@@ -12,6 +12,7 @@ import {
 import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
 import type { AddressSnapshot } from "@/services/address.service";
+import { lineName } from "@/lib/variants";
 
 export interface InvoiceLine {
   name: string;
@@ -51,6 +52,8 @@ export interface InvoiceSnapshot {
   };
   amountInWords: string;
   coupon?: { code: string; discountInPaise: number };
+  /** "Prepaid (online)" or "Cash on delivery". Missing on invoices made before Phase 18. */
+  paymentMode?: string;
 }
 
 /**
@@ -66,7 +69,11 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     where: { id: orderId },
     include: { items: true, user: { select: { email: true } } },
   });
-  if (!order || !order.paidAt) return null;
+  if (!order) return null;
+  // Prepaid: invoiced when paid. Cash on delivery: invoiced when the order is confirmed (the goods
+  // are supplied then; the cash comes later).
+  const invoiceDate = order.paidAt ?? (order.paymentMethod === "COD" ? order.createdAt : null);
+  if (!invoiceDate) return null;
 
   const seller = getBusiness();
   const address = order.addressSnapshot as AddressSnapshot;
@@ -84,7 +91,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
           }
         : taxForLine(item.lineTotalInPaise - item.discountInPaise, item.gstRateBps, intra);
     return {
-      name: item.productName,
+      name: lineName(item.productName, item.variantLabel),
       hsn: item.hsnCode,
       quantity: item.quantity,
       unitPriceInPaise: item.priceInPaise,
@@ -106,6 +113,19 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
       totalInPaise: order.shippingInPaise,
     });
   }
+  if (order.codFeeInPaise > 0) {
+    // Taxed like shipping (part of the same supply) — confirm with your CA.
+    const rate = Math.max(...order.items.map((i) => i.gstRateBps));
+    lines.push({
+      name: "Cash on delivery charges",
+      hsn: "996812",
+      quantity: 1,
+      unitPriceInPaise: order.codFeeInPaise,
+      rateBps: rate,
+      ...taxForLine(order.codFeeInPaise, rate, intra),
+      totalInPaise: order.codFeeInPaise,
+    });
+  }
 
   const sum = (k: keyof InvoiceLine) => lines.reduce((s, l) => s + (l[k] as number), 0);
   const totals = {
@@ -124,7 +144,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     return null;
   }
 
-  const fy = financialYear(order.paidAt);
+  const fy = financialYear(invoiceDate);
   try {
     return await db.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ lastNumber: number }[]>`
@@ -135,7 +155,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
       const number = formatInvoiceNumber(config.invoice.prefix, fy, lastNumber);
       const snapshot: InvoiceSnapshot = {
         number,
-        date: order.paidAt!.toISOString(),
+        date: invoiceDate.toISOString(),
         orderNumber: `#${order.id.slice(-8).toUpperCase()}`,
         seller: {
           name: seller.legalName,
@@ -164,6 +184,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
         lines,
         totals,
         amountInWords: amountInWords(totals.totalInPaise),
+        paymentMode: order.paymentMethod === "COD" ? "Cash on delivery" : "Prepaid (online)",
         ...(order.couponCode && order.discountInPaise > 0
           ? { coupon: { code: order.couponCode, discountInPaise: order.discountInPaise } }
           : {}),

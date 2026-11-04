@@ -28,7 +28,18 @@ export async function salesReport(days = 30) {
   const [orders, refunds, items, funnel] = await Promise.all([
     db.order.findMany({
       where: { paidAt: { gte: since }, status: { in: PAID_STATUSES } },
-      select: { paidAt: true, totalInPaise: true, discountInPaise: true, shippingInPaise: true },
+      select: {
+        paidAt: true,
+        totalInPaise: true,
+        discountInPaise: true,
+        shippingInPaise: true,
+        paymentMethod: true,
+        payments: {
+          where: { status: { in: ["CAPTURED", "REFUNDED"] } },
+          select: { method: true },
+          take: 1,
+        },
+      },
     }),
     db.refund.findMany({
       where: { status: "PROCESSED", processedAt: { gte: since } },
@@ -81,8 +92,19 @@ export async function salesReport(days = 30) {
   const grossInPaise = orders.reduce((s, o) => s + o.totalInPaise, 0);
   const refundedInPaise = refunds.reduce((s, r) => s + r.amountInPaise, 0);
 
+  // How customers paid: Razorpay's method (upi, card, netbanking, emi, wallet) or cash on delivery.
+  const methods = new Map<string, { method: string; orders: number; amountInPaise: number }>();
+  for (const o of orders) {
+    const method = paymentMethodKey(o.paymentMethod, o.payments[0]?.method ?? null);
+    const row = methods.get(method) ?? { method, orders: 0, amountInPaise: 0 };
+    row.orders += 1;
+    row.amountInPaise += o.totalInPaise;
+    methods.set(method, row);
+  }
+
   return {
     days,
+    paymentMethods: [...methods.values()].sort((a, b) => b.amountInPaise - a.amountInPaise),
     totals: {
       orders: orders.length,
       grossInPaise,
@@ -101,6 +123,23 @@ export async function salesReport(days = 30) {
     })),
     funnel: funnelTotals,
   };
+}
+
+export const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  cod: "Cash on delivery",
+  upi: "UPI",
+  card: "Card",
+  netbanking: "Netbanking",
+  emi: "EMI",
+  wallet: "Wallet",
+  paylater: "Pay later",
+  other: "Other / unknown",
+};
+
+export function paymentMethodKey(paymentMethod: "ONLINE" | "COD", method: string | null): string {
+  if (paymentMethod === "COD") return "cod";
+  const m = (method ?? "").toLowerCase();
+  return m in PAYMENT_METHOD_LABEL && m !== "cod" ? m : "other";
 }
 
 export const LOW_STOCK_ALERT_THRESHOLD = config.inventory.low_stock_threshold;
@@ -124,7 +163,7 @@ export async function ordersForExport(from: Date, to: Date) {
     take: 20_000,
     include: {
       user: { select: { email: true } },
-      items: { select: { productName: true, quantity: true } },
+      items: { select: { productName: true, variantLabel: true, quantity: true } },
       invoice: { select: { number: true } },
     },
   });

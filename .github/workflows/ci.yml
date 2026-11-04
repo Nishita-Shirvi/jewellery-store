@@ -40,6 +40,10 @@ jobs:
       RAZORPAY_WEBHOOK_SECRET: ci_razorpay_webhook_secret
       RAZORPAY_API_BASE: http://localhost:4010
       CRON_SECRET: ci-cron-secret-0123456789
+      # Cash on delivery one-time codes go to the local stand-in (tests/e2e/mock-services.mjs).
+      MSG91_AUTH_KEY: ci-msg91-auth-key
+      MSG91_OTP_TEMPLATE_ID: ci-otp-template
+      MSG91_API_BASE: http://localhost:4010
 
     steps:
       - uses: actions/checkout@v4

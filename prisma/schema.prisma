@@ -23,6 +23,8 @@ enum Role {
 
 enum OrderStatus {
   PENDING
+  /// Cash on delivery (Phase 18): order accepted, stock taken, money collected at the door.
+  CONFIRMED
   PAID
   SHIPPED
   DELIVERED
@@ -67,6 +69,14 @@ enum RefundStatus {
 
 enum PaymentProvider {
   RAZORPAY
+  /// Cash collected by the courier and remitted to the store (recorded by an admin).
+  COD
+}
+
+/// How the customer chose to pay.
+enum PaymentMethod {
+  ONLINE
+  COD
 }
 
 enum PaymentStatus {
@@ -124,16 +134,35 @@ enum Purity {
 // ─────────────────────── Users and Auth.js ───────────────────────
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
+  id                 String    @id @default(cuid())
+  name               String?
+  email              String    @unique
+  emailVerified      DateTime?
+  image              String?
   /// bcrypt hash. Null for users who only sign in with Google.
-  passwordHash  String?
-  role          Role      @default(CUSTOMER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  passwordHash       String?
+  role               Role      @default(CUSTOMER)
+  /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
+  /// [cod] max_refusals in config.ini.
+  codRefusals        Int       @default(0)
+  /// Personal referral code (Phase 20), created the first time the customer opens it.
+  referralCode       String?   @unique
+  /// Staff (Phase 21): set when the owner deactivates this person (role goes back to CUSTOMER).
+  staffDeactivatedAt DateTime?
+  /// Authenticator-app secret, encrypted (lib/secret-box.ts). Null = two-step sign-in not set up.
+  totpSecret         String?
+  totpEnabledAt      DateTime?
+  /// Last accepted 30-second step: a code can't be used twice.
+  totpLastStep       Int?
+  /// SHA-256 hashes of unused one-time recovery codes.
+  recoveryCodes      String[]  @default([])
+  /// Account lockout (Phase 23): wrong passwords in a row, and when the lock ends.
+  failedLogins       Int       @default(0)
+  lockedUntil        DateTime?
+  /// Sessions started before this are signed out (password changed / reset).
+  passwordChangedAt  DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   accounts          Account[]
   wishlist          WishlistItem[]
@@ -143,8 +172,35 @@ model User {
   cart              Cart?
   addresses         Address[]
   orders            Order[]
+  otpChallenges     OtpChallenge[]
+  referralsMade     Referral[]           @relation("ReferralReferrer")
+  referredBy        Referral?            @relation("ReferralReferred")
+  cartReminders     CartReminder[]
+  staffRoles        UserRole[]
+  passwordResets    PasswordResetToken[]
+  supportTickets    SupportTicket[]      @relation("TicketCustomer")
+  assignedTickets   SupportTicket[]      @relation("TicketAssignee")
 
   @@index([role])
+}
+
+/// One-time code sent by SMS (e.g. to confirm a cash-on-delivery order). Only a hash is stored.
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  userId     String
+  /// 10-digit Indian mobile number the code was sent to.
+  phone      String
+  /// e.g. "cod"
+  purpose    String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 /// Auth.js adapter model (OAuth accounts such as Google).
@@ -214,6 +270,9 @@ model Product {
   name          String
   slug          String   @unique
   description   String
+  /// Summary of the variants (Phase 17), kept in sync in the same transaction as every variant change:
+  /// lowest active variant price ("from" price), and total stock / held stock of active variants.
+  /// Listings, filters, sorting and reports read these; checkout always uses the variant rows.
   priceInPaise  Int
   stock         Int      @default(0)
   /// Units held by unpaid orders (15-minute holds). Available = stock - reservedStock.
@@ -250,7 +309,9 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category      Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  variants      ProductVariant[]
+  options       ProductOption[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   reviews       Review[]
@@ -262,6 +323,84 @@ model Product {
   @@index([isActive, priceInPaise])
   @@index([isActive, ratingAvgX100])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+// ─────────────────────── Product variants (Phase 17) ───────────────────────
+
+/// e.g. "Ring size" or "Metal colour" on one product.
+model ProductOption {
+  id        String @id @default(cuid())
+  productId String
+  name      String
+  position  Int    @default(0)
+
+  product Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductOptionValue[]
+
+  @@unique([productId, name])
+}
+
+/// e.g. "12" for Ring size, "Rose" for Metal colour.
+model ProductOptionValue {
+  id       String @id @default(cuid())
+  optionId String
+  value    String
+  position Int    @default(0)
+
+  option   ProductOption        @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variants VariantOptionValue[]
+
+  @@unique([optionId, value])
+}
+
+/// One buyable version of a product (size × colour …). Every product has at least one.
+/// Products without options have a single "base" variant whose optionKey is "".
+model ProductVariant {
+  id            String       @id @default(cuid())
+  productId     String
+  /// Stock-keeping unit: upper-case letters, digits and dashes, unique across the store.
+  sku           String       @unique
+  /// Sorted option value ids joined with "." ("" for the base variant). Unique per product,
+  /// so the same combination can never exist twice.
+  optionKey     String       @default("")
+  /// Shown to customers, e.g. "Ring size 12 / Rose". Empty for the base variant.
+  label         String       @default("")
+  priceInPaise  Int
+  stock         Int          @default(0)
+  /// Units held by unpaid orders. Available = stock - reservedStock.
+  reservedStock Int          @default(0)
+  /// Variant photos; empty = use the product's photos.
+  images        String[]
+  isActive      Boolean      @default(true)
+  position      Int          @default(0)
+  /// Weight differs per size, so it lives on the variant (milligrams).
+  netWeightMg   Int
+  grossWeightMg Int?
+  /// Overrides the product's colour / purity when the option changes them (null = same as product).
+  metalColour   MetalColour?
+  purity        Purity?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  product      Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionValues VariantOptionValue[]
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  stockAlerts  StockAlert[]
+
+  @@unique([productId, optionKey])
+  @@index([productId, isActive])
+}
+
+model VariantOptionValue {
+  variantId     String
+  optionValueId String
+
+  variant     ProductVariant     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  optionValue ProductOptionValue @relation(fields: [optionValueId], references: [id], onDelete: Cascade)
+
+  @@id([variantId, optionValueId])
+  @@index([optionValueId])
 }
 
 // ───────────────────────────── Cart ──────────────────────────────
@@ -280,15 +419,18 @@ model CartItem {
   id        String   @id @default(cuid())
   cartId    String
   productId String
+  variantId String
   quantity  Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
-  @@unique([cartId, productId])
+  @@unique([cartId, variantId])
   @@index([productId])
+  @@index([variantId])
 }
 
 // ─────────────────────────── Addresses ───────────────────────────
@@ -342,6 +484,11 @@ model Order {
   couponCode         String?
   /// Coupon discount on the items (never on shipping), in paise.
   discountInPaise    Int              @default(0)
+  paymentMethod      PaymentMethod    @default(ONLINE)
+  /// Cash-on-delivery handling fee ([cod] fee_rupees), included in totalInPaise.
+  codFeeInPaise      Int              @default(0)
+  /// When a COD parcel came back to the store (refused / undeliverable).
+  rtoAt              DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
@@ -354,17 +501,24 @@ model Order {
   coupon           Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
   couponRedemption CouponRedemption?
   refunds          Refund[]
+  supportTickets   SupportTicket[]
 
   @@index([userId, createdAt])
   @@index([status])
   @@index([reservationState, reservedUntil])
   @@index([createdAt])
+  @@index([paymentMethod, status])
 }
 
 model OrderItem {
   id                  String @id @default(cuid())
   orderId             String
   productId           String
+  /// The exact variant bought (orders from before Phase 17 point at the product's base variant).
+  variantId           String
+  /// SKU and variant label at purchase time ("" label = product without options).
+  sku                 String @default("")
+  variantLabel        String @default("")
   /// Snapshots taken at purchase time so the order never changes when the product does.
   productName         String
   productSlug         String
@@ -385,12 +539,14 @@ model OrderItem {
   /// This line's share of the order's coupon discount (GST is worked out on the price after discount).
   discountInPaise     Int    @default(0)
 
-  order       Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Restrict)
   returnItems ReturnItem[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([variantId])
 }
 
 model Payment {
@@ -435,6 +591,10 @@ model Coupon {
   perUserLimit       Int?       @default(1)
   /// Paid orders that used this coupon (updated inside the payment transaction).
   usedCount          Int        @default(0)
+  /// Only this customer may use it (personal reward / reminder coupons, Phase 20).
+  assignedUserId     String?
+  /// e.g. "abandoned_cart", "referral" — for campaign stats. Null = made by an admin.
+  campaign           String?
   isActive           Boolean    @default(true)
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
@@ -656,6 +816,325 @@ model FunnelDaily {
   count Int    @default(0)
 
   @@id([day, event])
+}
+
+// ───────────────────── Marketing (Phase 20) ──────────────────────
+
+enum SubscriberStatus {
+  PENDING // signed up, confirmation email sent (double opt-in)
+  SUBSCRIBED // clicked the confirmation link
+  UNSUBSCRIBED // asked to stop — also blocks cart reminders and any other marketing email
+}
+
+/// One row per email address: newsletter consent and the marketing "do not email" list.
+model Subscriber {
+  id             String           @id @default(cuid())
+  /// Lower case.
+  email          String           @unique
+  status         SubscriberStatus @default(PENDING)
+  /// Hash of the confirmation token (the token itself is only in the email).
+  confirmHash    String?
+  /// When and how consent was given, and the wording shown (proof of consent).
+  consentAt      DateTime?
+  consentSource  String?
+  consentText    String?
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+}
+
+/// One reminder email about a cart left behind. `cartVersion` is the time of the last cart change,
+/// so a cart that changes again gets a fresh pair of reminders, and each step is sent once.
+model CartReminder {
+  id          String    @id @default(cuid())
+  userId      String
+  cartVersion DateTime
+  /// 1 = after an hour, 2 = after a day
+  step        Int
+  couponCode  String?
+  sentAt      DateTime  @default(now())
+  /// The customer ordered within 7 days of this reminder.
+  recoveredAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, cartVersion, step])
+  @@index([sentAt])
+}
+
+/// "Email me when this is back in stock" for one variant.
+model StockAlert {
+  id         String    @id @default(cuid())
+  /// Lower case.
+  email      String
+  userId     String?
+  productId  String
+  variantId  String
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([email, variantId])
+  @@index([notifiedAt, variantId])
+}
+
+enum ReferralStatus {
+  PENDING // friend signed up, no delivered order yet
+  REWARDED // friend's first order was delivered; referrer got a coupon
+  VOID // looked like a self-referral
+}
+
+model Referral {
+  id             String         @id @default(cuid())
+  referrerId     String
+  /// A customer can only ever be referred once.
+  referredUserId String         @unique
+  status         ReferralStatus @default(PENDING)
+  rewardCode     String?
+  voidReason     String?
+  createdAt      DateTime       @default(now())
+  decidedAt      DateTime?
+
+  referrer User @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred User @relation("ReferralReferred", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([status])
+}
+
+// ───────────────────── Staff roles (Phase 21) ──────────────────────
+
+/// e.g. "orders.view". Seeded from lib/permissions.ts.
+model Permission {
+  key         String           @id
+  description String
+  roles       RolePermission[]
+}
+
+/// OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT (seeded from lib/permissions.ts).
+model StaffRole {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String
+  description String
+  createdAt   DateTime         @default(now())
+  permissions RolePermission[]
+  users       UserRole[]
+  invites     StaffInvite[]
+}
+
+model RolePermission {
+  roleId        String
+  permissionKey String
+
+  role       StaffRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [key], onDelete: Cascade)
+
+  @@id([roleId, permissionKey])
+}
+
+model UserRole {
+  userId       String
+  roleId       String
+  assignedAt   DateTime @default(now())
+  assignedById String?
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role StaffRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+/// Owner invites someone by email; they sign in with that email and accept.
+model StaffInvite {
+  id             String    @id @default(cuid())
+  /// Lower case.
+  email          String
+  roleId         String
+  /// SHA-256 of the token in the emailed link.
+  tokenHash      String    @unique
+  invitedById    String
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  acceptedUserId String?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  role StaffRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+}
+
+// ───────────────────── Customer support (Phase 22) ─────────────────
+
+/// Help-centre question and answer, shown at /help when published.
+model Faq {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  /// e.g. "Orders", "Returns", "Jewellery care"
+  category    String   @default("General")
+  position    Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isPublished, category, position])
+}
+
+enum TicketStatus {
+  OPEN // waiting for the store
+  ANSWERED // the store replied; waiting for the customer
+  RESOLVED // done (the customer can reopen by replying)
+}
+
+enum TicketCategory {
+  ORDER
+  DELIVERY
+  RETURN
+  PAYMENT
+  PRODUCT
+  OTHER
+}
+
+model SupportTicket {
+  id                    String         @id @default(cuid())
+  userId                String
+  orderId               String?
+  subject               String
+  category              TicketCategory @default(OTHER)
+  status                TicketStatus   @default(OPEN)
+  assignedToId          String?
+  /// Used for "waiting more than 24 h" and sorting.
+  lastCustomerMessageAt DateTime       @default(now())
+  lastStaffReplyAt      DateTime?
+  resolvedAt            DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  user        User               @relation("TicketCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  assignedTo  User?              @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  order       Order?             @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+
+  @@index([userId, updatedAt])
+  @@index([status, lastCustomerMessageAt])
+  @@index([assignedToId, status])
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorId  String?
+  fromStaff Boolean  @default(false)
+  /// Staff-only note: never shown to the customer.
+  internal  Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket      SupportTicket      @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+}
+
+/// Customer photos / documents. Stored privately in the database (never on a public URL) and
+/// served only to the ticket's customer or support staff.
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  messageId   String
+  filename    String
+  /// Detected from the file's bytes, not the browser's claim.
+  contentType String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  ticket  SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+}
+
+/// Saved answers support staff can insert into a reply.
+model CannedReply {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// "Forgot password" link (Phase 23): one use, 30 minutes, only a hash stored.
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ───────────────────── Background jobs (Phase 19) ──────────────────
+
+enum JobStatus {
+  PENDING // waiting for runAt
+  RUNNING // claimed by a worker (lockedAt)
+  DONE
+  DEAD // failed maxAttempts times — shown in Admin → Jobs with a retry button
+}
+
+/// Work done outside the customer's request (emails, invoices, shipments, webhook processing…).
+/// Stored in Postgres: no extra service. Claimed with FOR UPDATE SKIP LOCKED, so two workers
+/// never run the same job.
+model Job {
+  id          String    @id @default(cuid())
+  /// e.g. "email.order", "invoice.create", "webhook.razorpay"
+  type        String
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(6)
+  runAt       DateTime  @default(now())
+  lockedAt    DateTime?
+  lastError   String?
+  /// While the job is PENDING/RUNNING no second job with the same key can be queued.
+  /// Cleared when the job finishes, so the same work can be queued again later.
+  dedupeKey   String?   @unique
+  finishedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status, runAt])
+  @@index([type, status])
+}
+
+/// Every verified webhook delivery, saved before any processing. The unique key makes a
+/// repeated delivery (providers retry) a no-op.
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  /// "razorpay" | "shiprocket"
+  provider    String
+  /// Provider's event id, or a hash of the body when the provider sends none.
+  eventId     String
+  eventType   String
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+
+  @@unique([provider, eventId])
+  @@index([receivedAt])
 }
 
 // ──────────────────────────── Settings ───────────────────────────

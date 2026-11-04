@@ -124,50 +124,50 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 
 ## Week 3 — Growth and scale ⬜
 
-### 17. Product variants
+### 17. Product variants ✅
 
-- [ ] Options, variants, per-variant SKU / price / stock
-- [ ] Migrate existing products to default variants
-- [ ] Cart, orders, invoices per variant; admin bulk edit
+- [x] Options, variants, per-variant SKU / price / stock
+- [x] Migrate existing products to default variants
+- [x] Cart, orders, invoices per variant; admin bulk edit
 
-### 18. Cash on delivery & payment options
+### 18. Cash on delivery & payment options ✅
 
-- [ ] COD orders with rules (max value, pincodes, fee, blocklist)
-- [ ] OTP before COD order (needs MSG91)
-- [ ] COD remittance, RTO restock
-- [ ] UPI, netbanking, EMI
+- [x] COD orders with rules (max value, pincodes, fee, blocklist)
+- [x] OTP before COD order (needs MSG91 for live SMS)
+- [x] COD remittance, RTO restock
+- [x] UPI, netbanking, EMI (dashboard switch; reported per method)
 
-### 19. Background jobs
+### 19. Background jobs ✅
 
-- [ ] Job queue (Inngest / BullMQ) with retries
-- [ ] Webhooks queued; dead-letter view with retry
-- [ ] Redis caching
+- [x] Job queue with retries (in Postgres — no Inngest / Redis)
+- [x] Webhooks queued; dead-letter view with retry
+- [x] Caching (Next.js data cache, cleared on admin edits — no Redis)
 
-### 20. Abandoned cart & marketing
+### 20. Abandoned cart & marketing ✅
 
-- [ ] Abandoned cart emails (1h / 24h)
-- [ ] Newsletter with double opt-in
-- [ ] Back-in-stock alerts
-- [ ] Referral codes, campaign stats
+- [x] Abandoned cart emails (1h / 24h)
+- [x] Newsletter with double opt-in
+- [x] Back-in-stock alerts
+- [x] Referral codes, campaign stats
 
-### 21. Staff roles & permissions
+### 21. Staff roles & permissions ✅
 
-- [ ] Roles (Owner, Manager, Catalog Editor, Order Manager, Support)
-- [ ] Permission checks on every admin action
-- [ ] Staff invites + 2FA
+- [x] Roles (Owner, Manager, Catalog Editor, Order Manager, Support)
+- [x] Permission checks on every admin action
+- [x] Staff invites + 2FA
 
-### 22. Customer support
+### 22. Customer support ✅
 
-- [ ] Help centre FAQs
-- [ ] Support tickets with attachments + admin inbox
-- [ ] Optional WhatsApp / live chat
+- [x] Help centre FAQs
+- [x] Support tickets with attachments + admin inbox
+- [x] Optional WhatsApp / live chat (WhatsApp button)
 
-### 23. Security, PWA, release
+### 23. Security, PWA, release ✅ (deploy waits on B-10)
 
-- [ ] OWASP review, IDOR tests
-- [ ] CSP, account lockout, password reset
-- [ ] Installable PWA
-- [ ] k6 load test (200 users)
+- [x] OWASP review, IDOR tests
+- [x] CSP, account lockout, password reset
+- [x] Installable PWA
+- [x] k6 load test (200 users)
 
 ---
 

@@ -9,7 +9,16 @@ import { MAX_QTY_PER_ITEM } from "@/lib/validation/cart";
 import { track } from "@/components/analytics/analytics";
 
 /** Quantity selector + Add to Cart. The server re-checks price and stock every time. */
-export function AddToCart({ productId, stock }: { productId: string; stock: number }) {
+export function AddToCart({
+  productId,
+  variantId,
+  stock,
+}: {
+  productId: string;
+  /** The chosen size/colour; omitted only for products with a single variant. */
+  variantId?: string;
+  stock: number;
+}) {
   const max = Math.max(0, Math.min(stock, MAX_QTY_PER_ITEM));
   const [quantity, setQuantity] = useState(1);
   const [pending, startTransition] = useTransition();
@@ -26,7 +35,7 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
   function add() {
     setResult(null);
     startTransition(async () => {
-      const res = await addToCartAction({ productId, quantity });
+      const res = await addToCartAction({ productId, variantId, quantity });
       setResult(
         res.ok
           ? { ok: true, text: res.message ?? "Added to cart." }

@@ -44,3 +44,14 @@ export const registerSchema = z
 
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
+
+/** New password on the reset page: same rules as registration. */
+export const resetSchema = z
+  .object({
+    password: passwordSchema,
+    confirmPassword: z.string({ message: "Confirm your password" }),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });

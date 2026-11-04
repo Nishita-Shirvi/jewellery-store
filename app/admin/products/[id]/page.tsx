@@ -7,6 +7,7 @@ import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { isUploadConfigured } from "@/services/upload.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export default async function EditProductPage({
   params,
@@ -15,6 +16,7 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requirePermissionPage("products.edit", "/admin/products");
   const { id } = await params;
   const { created } = await searchParams;
   const [product, categories, placeholderImages] = await Promise.all([
@@ -28,15 +30,23 @@ export default async function EditProductPage({
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Edit: {product.name}</h1>
-        {product.isActive && (
+        <div className="flex gap-4 text-sm">
           <Link
-            href={`/products/${product.slug}`}
-            className="text-sm underline underline-offset-4"
-            target="_blank"
+            href={`/admin/products/${product.id}/variants`}
+            className="underline underline-offset-4"
           >
-            View in store
+            {product.hasOptions ? "Variants (sizes, colours…)" : "Add sizes / colours"}
           </Link>
-        )}
+          {product.isActive && (
+            <Link
+              href={`/products/${product.slug}`}
+              className="underline underline-offset-4"
+              target="_blank"
+            >
+              View in store
+            </Link>
+          )}
+        </div>
       </div>
       {created && (
         <p
@@ -75,6 +85,7 @@ export default async function EditProductPage({
             isActive: product.isActive,
             isFeatured: product.isFeatured,
             isReturnable: product.isReturnable,
+            hasOptions: product.hasOptions,
           }}
         />
       </div>

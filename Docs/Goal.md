@@ -263,10 +263,10 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 17 — Product variants
 
-- [ ] ProductOption, ProductOptionValue, ProductVariant (unique SKU, price, stock, images, active)
-- [ ] Every existing product converted to one default variant with no data lost
-- [ ] Cart, reservations, orders, invoices, coupons and shipping work per variant
-- [ ] Admin: generate combinations, bulk edit price/stock, SKU validation
+- [x] ProductOption, ProductOptionValue, ProductVariant (unique SKU, price, stock, images, active)
+- [x] Every existing product converted to one default variant with no data lost
+- [x] Cart, reservations, orders, invoices, coupons and shipping work per variant
+- [x] Admin: generate combinations, bulk edit price/stock, SKU validation
 
 **Jewellery-specific:** typical options are ring size (Indian sizes), metal colour (yellow/white/rose), purity (22K/18K/14K), chain length and bangle size. Weight differs per variant, so weight moves to the variant.
 
@@ -274,12 +274,12 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 18 — Cash on delivery and payment options
 
-- [ ] COD orders go to CONFIRMED with paymentMethod COD; Shiprocket COD shipment
-- [ ] COD rules: max order value, pincode allowlist, optional fee, block users with 2+ refused deliveries
-- [ ] OTP by SMS before placing a COD order
-- [ ] COD marked paid after delivery + cash remittance; RTO restocks and flags the user
-- [ ] UPI, netbanking and EMI enabled in Razorpay
-- [ ] Invoices, reports and state machine updated for COD
+- [x] COD orders go to CONFIRMED with paymentMethod COD; Shiprocket COD shipment
+- [x] COD rules: max order value, pincode allowlist, optional fee, block users with 2+ refused deliveries
+- [x] OTP by SMS before placing a COD order (live SMS needs MSG91 + DLT — B-08)
+- [x] COD marked paid after delivery + cash remittance; RTO restocks and flags the user
+- [x] UPI, netbanking and EMI enabled in Razorpay (switched on in the Razorpay dashboard by the client; method recorded and reported)
+- [x] Invoices, reports and state machine updated for COD
 
 **Jewellery-specific:** keep the COD limit low by default (high value means high fraud and RTO risk). Check cash and PAN rules for high-value purchases with a CA (see `note.md`).
 
@@ -287,55 +287,56 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 19 — Background jobs
 
-- [ ] Inngest (or BullMQ + Upstash Redis) set up
-- [ ] Emails/SMS, invoices, shipment creation, webhook processing, low-stock alerts and reservation expiry run as jobs with retries
-- [ ] Webhooks only verify, save to WebhookEvent (unique eventId), return 200, and queue the work
-- [ ] Admin dead-letter view with a retry button
-- [ ] Redis caching for hot reads, cleared on admin edits
+- [x] Job queue set up — in Postgres instead of Inngest/Redis (no extra service; see note.md D-130)
+- [x] Emails/SMS, invoices, shipment creation, webhook processing, low-stock alerts and reservation expiry run as jobs with retries
+- [x] Webhooks only verify, save to WebhookEvent (unique eventId), return 200, and queue the work
+- [x] Admin dead-letter view with a retry button (Admin → Jobs)
+- [x] Caching for hot reads, cleared on admin edits — Next.js data cache with tag invalidation instead of Redis (D-131)
 
 **Done when:** checkout speed doesn't depend on email/PDF/Shiprocket, a forced failure retries then shows in the dead-letter view, and the cache clears on product edit.
 
 ### Phase 20 — Abandoned cart and marketing
 
-- [ ] Abandoned cart emails at 1h and 24h (optional single-use coupon); stop on purchase or unsubscribe
-- [ ] Newsletter with double opt-in, unsubscribe link, consent stored with timestamp
-- [ ] Back-in-stock "Notify me" emails
-- [ ] Referral codes with reward after the referred user's first delivered order; no self-referral
-- [ ] Campaign stats in admin
+- [x] Abandoned cart emails at 1h and 24h (optional single-use coupon); stop on purchase or unsubscribe
+- [x] Newsletter with double opt-in, unsubscribe link, consent stored with timestamp
+- [x] Back-in-stock "Notify me" emails
+- [x] Referral codes with reward after the referred user's first delivered order; no self-referral
+- [x] Campaign stats in admin
 
 **Done when:** the abandoned-cart sequence works with short test timers, unsubscribe is honoured, and back-in-stock emails fire on restock.
 
 ### Phase 21 — Staff roles and permissions
 
-- [ ] Role, Permission, RolePermission, UserRole models; seeded roles OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT
-- [ ] `requirePermission()` used in every admin action and API
-- [ ] Owner invites, assigns roles to and deactivates staff
-- [ ] 2FA (TOTP) required for staff
-- [ ] Every protected action written to the audit log
+- [x] Role, Permission, RolePermission, UserRole models; seeded roles OWNER, MANAGER, CATALOG_EDITOR, ORDER_MANAGER, SUPPORT (role model is `StaffRole`)
+- [x] `requirePermission()` used in every admin action and API (and every admin page)
+- [x] Owner invites, assigns roles to and deactivates staff
+- [x] 2FA (TOTP) required for staff
+- [x] Every protected action written to the audit log (and every refused attempt)
 
 **Done when:** a SUPPORT user can view orders but gets a 403 on refunds and product edits even via direct API calls, and staff 2FA is enforced.
 
 ### Phase 22 — Customer support
 
-- [ ] Help centre FAQs managed from admin, searchable
-- [ ] Support tickets linked to orders, with attachments, threads and statuses
-- [ ] Support inbox with assignment, filters, canned replies, email notifications
-- [ ] Order shortcuts: Track, Cancel, Return, Get help
-- [ ] Optional WhatsApp/live chat behind a feature flag
-- [ ] Tickets older than 24h without reply highlighted
+- [x] Help centre FAQs managed from admin, searchable
+- [x] Support tickets linked to orders, with attachments, threads and statuses
+- [x] Support inbox with assignment, filters, canned replies, email notifications
+- [x] Order shortcuts: Track, Cancel, Return, Get help
+- [x] Optional WhatsApp/live chat behind a feature flag (WhatsApp button via `[support] whatsapp_number`; no live chat widget)
+- [x] Tickets older than 24h without reply highlighted
 
 **Done when:** a customer can raise and follow a ticket end to end, support can reply and resolve it, and attachments are stored safely.
 
 ### Phase 23 — Security, PWA, release
 
-- [ ] OWASP Top 10 review, including IDOR tests for orders, addresses and tickets
-- [ ] CSP, secure cookies, session expiry, account lockout, password reset with expiring tokens
-- [ ] Installable PWA with offline fallback page
-- [ ] k6 load test at 200 concurrent users; bottlenecks fixed
-- [ ] E2E tests for variants, COD, coupons, support
-- [ ] Week 3 release checklist and changelog
+- [x] OWASP Top 10 review, including IDOR tests for orders, addresses and tickets (Docs/SECURITY_REVIEW.md)
+- [x] CSP, secure cookies, session expiry, account lockout, password reset with expiring tokens
+- [x] Installable PWA with offline fallback page
+- [x] k6 load test at 200 concurrent users; bottlenecks fixed (none found: 0% errors, p95 under 700 ms locally)
+- [x] E2E tests for variants, COD, coupons, support
+- [x] Week 3 release checklist and changelog (Docs/RELEASE_WEEK3.md, CHANGELOG.md)
 
 **Done when:** no high/critical security findings remain, k6 targets pass, CI is green, and the release is deployed.
+**Status:** all done except **deployed**, which waits on the client's GitHub/Vercel accounts (B-10).
 
 ---
 
