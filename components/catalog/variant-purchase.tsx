@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { NotifyMe } from "@/components/marketing/marketing-forms";
-import { formatINR } from "@/lib/format";
 import { stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
 import type { OptionView, VariantView } from "@/types/catalog";
+import { Price } from "@/components/catalog/price";
 
 const toneClass = { ok: "text-emerald-700", low: "text-amber-700", out: "text-red-700" } as const;
 
@@ -90,9 +90,19 @@ export function VariantPurchase({
       ))}
 
       <div>
-        <p className="text-2xl font-semibold" data-testid="variant-price">
-          {selected ? formatINR(selected.priceInPaise) : "—"}
-        </p>
+        {selected ? (
+          <Price
+            size="lg"
+            testId="variant-price"
+            priceInPaise={selected.priceInPaise}
+            compareAtPriceInPaise={selected.compareAtPriceInPaise}
+            percentOff={selected.percentOff}
+          />
+        ) : (
+          <p className="text-2xl font-semibold" data-testid="variant-price">
+            —
+          </p>
+        )}
         <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
         {selected && (
           <p className="text-muted-foreground mt-1 text-xs" data-testid="variant-details">

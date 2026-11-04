@@ -1,3 +1,4 @@
+import { Price } from "@/components/catalog/price";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,7 +15,7 @@ import { TrackEvent } from "@/components/analytics/track-event";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isWishlisted } from "@/services/wishlist.service";
 import { ProductImage } from "@/components/catalog/product-image";
-import { formatINR, formatWeight } from "@/lib/format";
+import { formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
 import { getProductBySlug } from "@/services/catalog.service";
@@ -149,7 +150,14 @@ export default async function ProductPage({
             </div>
           ) : (
             <>
-              <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
+              <div className="mt-5">
+                <Price
+                  size="lg"
+                  priceInPaise={product.priceInPaise}
+                  compareAtPriceInPaise={product.compareAtPriceInPaise}
+                  percentOff={product.percentOff}
+                />
+              </div>
               <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
               <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 

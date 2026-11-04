@@ -54,6 +54,7 @@ export default async function ProductVariantsPage({ params }: { params: Promise<
             sku: v.sku,
             label: v.label,
             price: paiseToRupeesInput(v.priceInPaise),
+            compareAt: v.compareAtPriceInPaise ? paiseToRupeesInput(v.compareAtPriceInPaise) : "",
             stock: v.stock,
             reserved: v.reservedStock,
             net: mgToGramsInput(v.netWeightMg),

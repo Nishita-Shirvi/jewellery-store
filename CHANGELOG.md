@@ -1,5 +1,22 @@
 # Changelog
 
+## Week 4 — Phase 24: Merchandising and CMS — 2026-11-04
+
+### Added
+
+- **Admin → Content:** announcement bar, homepage sections, collections and pages — all with Draft/Published and optional live-from/until dates. Scheduled items go live and disappear on time by themselves.
+- **Collections** at `/collections/<address>`: hand-picked products or rules (tags, category, metal, price, on sale, new). One click adds the occasion collections Bridal, Daily Wear, Festive and Gifts (as drafts).
+- **Homepage builder:** big image with heading, clickable banners, product rows from a collection, text — with separate phone images. The current homepage stays until a section is published.
+- **Sale prices:** a "Was price" per size on the variants page; the shop shows it crossed out with a "% off" badge.
+- **Editable pages** (About us, Jewellery care…) at `/pages/<address>`, with simple formatting, a private draft and a Publish button.
+- **Preview links** for drafts and scheduled items (48 hours); festival quick dates from `config.ini` `[festivals]`.
+- **Product tags** on the product form, used by rule-based collections.
+
+### Changed
+
+- The variants grid's "On sale" column is now called "Available" (it always meant "can be bought"), next to the new "Was price" column.
+- Catalog editors can also manage content (new permission `content.manage`).
+
 ## Week 3 release summary (Phases 17–23)
 
 Sizes and variants, cash on delivery, background jobs, cart reminders and newsletter, staff roles with two-step sign-in, customer support, and a security pass. Release steps: `Docs/RELEASE_WEEK3.md`. Not yet deployed (waits on client accounts, B-10).

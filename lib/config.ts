@@ -20,6 +20,14 @@ const CONFIG_FILE = "config.ini";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 const optionalEmail = z.email().optional();
+/** "2026-11-06..2026-11-06" (inclusive) or empty. */
+const festivalRange = z
+  .string()
+  .regex(
+    /^(\d{4}-\d{2}-\d{2}\s*\.\.\s*\d{4}-\d{2}-\d{2})?$/,
+    "use YYYY-MM-DD..YYYY-MM-DD, e.g. 2026-11-06..2026-11-08",
+  )
+  .default("");
 
 const configSchema = z.object({
   business: z.object({
@@ -96,6 +104,15 @@ const configSchema = z.object({
       .string()
       .regex(/^[0-9+ ]*$/, "digits only, with country code, e.g. 919876543210")
       .default(""),
+  }),
+  festivals: z.object({
+    // Date ranges "YYYY-MM-DD..YYYY-MM-DD" (India time, both days included). Shown as
+    // one-click date pickers when scheduling banners and collections. Empty = not shown.
+    // Festival dates follow the lunar calendar: update them every year.
+    akshaya_tritiya: festivalRange,
+    dhanteras: festivalRange,
+    diwali: festivalRange,
+    wedding_season: festivalRange,
   }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),

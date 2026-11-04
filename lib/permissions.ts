@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   "jobs.manage": "See and retry failed background jobs",
   "support.manage": "Read and answer customer support tickets",
   "faqs.manage": "Edit help-centre FAQs and canned replies",
+  "content.manage": "Homepage, announcement bar, collections and editable pages",
   "audit.view": "Read the activity log",
   "staff.manage": "Invite staff, change roles, deactivate staff, reset two-step sign-in",
 } as const;
@@ -37,8 +38,8 @@ export const ROLES = {
   },
   CATALOG_EDITOR: {
     name: "Catalog editor",
-    description: "Products, photos, stock and reviews",
-    permissions: ["products.view", "products.edit", "reviews.moderate"],
+    description: "Products, photos, stock, reviews, collections and homepage",
+    permissions: ["products.view", "products.edit", "reviews.moderate", "content.manage"],
   },
   ORDER_MANAGER: {
     name: "Order manager",
@@ -81,6 +82,7 @@ export const PAGE_PERMISSIONS: { href: string; label: string; permission: Permis
   { href: "/admin/cod", label: "Cash on delivery", permission: "cod.manage" },
   { href: "/admin/products", label: "Products", permission: "products.view" },
   { href: "/admin/categories", label: "Categories", permission: "products.view" },
+  { href: "/admin/content", label: "Content", permission: "content.manage" },
   { href: "/admin/coupons", label: "Coupons", permission: "coupons.manage" },
   { href: "/admin/reviews", label: "Reviews", permission: "reviews.moderate" },
   { href: "/admin/marketing", label: "Marketing", permission: "reports.view" },

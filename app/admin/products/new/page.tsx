@@ -32,6 +32,7 @@ export default async function NewProductPage() {
             netWeight: "",
             grossWeight: "",
             gemstone: "",
+            tags: "",
             huid: "",
             hsnCode: "7113",
             gstRate: "3",

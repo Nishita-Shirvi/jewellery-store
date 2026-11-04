@@ -344,15 +344,16 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 24 — Merchandising and CMS
 
-- [ ] Manual and rule-based collections with SEO pages
-- [ ] Homepage builder with scheduled sections and mobile/desktop images
-- [ ] Announcement bar and sale badges (compare-at price, % off on the server)
-- [ ] Editable static pages with markdown and preview
-- [ ] Draft/publish with preview links and cache refresh
+- [x] Manual and rule-based collections with SEO pages
+- [x] Homepage builder with scheduled sections and mobile/desktop images
+- [x] Announcement bar and sale badges (compare-at price, % off on the server)
+- [x] Editable static pages with markdown and preview
+- [x] Draft/publish with preview links and cache refresh
 
 **Jewellery-specific:** ready-made collections for occasions (Bridal, Daily Wear, Festive, Gifts) and festival scheduling (Akshaya Tritiya, Dhanteras, Diwali, wedding season).
 
 **Done when:** the owner schedules a sale banner and collection for a future date without a deploy, and it goes live and expires automatically.
+**Status:** done — proven by a browser test that schedules both through the admin screens and watches them go live and expire (tests/e2e/content.spec.ts).
 
 ### Phase 25 — Recommendations
 

@@ -83,6 +83,8 @@ export interface VariantRow {
   sku: string;
   label: string;
   price: string;
+  /** "Was" price for a sale badge; empty = not on sale. */
+  compareAt: string;
   stock: number;
   reserved: number;
   net: string;
@@ -91,7 +93,7 @@ export interface VariantRow {
   orders: number;
 }
 
-/** Bulk edit grid: SKU, price, stock, weights and on/off for every variant. */
+/** Bulk edit grid: SKU, price, "was" price, stock, weights and on/off for every variant. */
 export function VariantsGrid({ productId, rows }: { productId: string; rows: VariantRow[] }) {
   const [state, action, pending] = useActionState<AdminFormState, FormData>(saveVariantsAction, {});
   const v = (key: string, fallback: string) => state.values?.[key] ?? fallback;
@@ -117,10 +119,16 @@ export function VariantsGrid({ productId, rows }: { productId: string; rows: Var
               <th className="p-2">Variant</th>
               <th className="p-2">SKU</th>
               <th className="p-2">Price (₹)</th>
+              <th
+                className="p-2"
+                title="Shown crossed out with a % off badge. Leave empty when not on sale."
+              >
+                Was price (₹)
+              </th>
               <th className="p-2">Stock</th>
               <th className="p-2">Net g</th>
               <th className="p-2">Gross g</th>
-              <th className="p-2">On sale</th>
+              <th className="p-2">Available</th>
             </tr>
           </thead>
           <tbody className="divide-border divide-y">
@@ -155,6 +163,16 @@ export function VariantsGrid({ productId, rows }: { productId: string; rows: Var
                 </td>
                 <td className="p-2">
                   <Input
+                    name={`compare_${r.id}`}
+                    aria-label={`Was price for ${r.label || "base"}`}
+                    inputMode="decimal"
+                    placeholder="—"
+                    defaultValue={v(`compare_${r.id}`, r.compareAt)}
+                    className="h-8 w-28"
+                  />
+                </td>
+                <td className="p-2">
+                  <Input
                     name={`stock_${r.id}`}
                     aria-label={`Stock for ${r.label || "base"}`}
                     inputMode="numeric"
@@ -184,7 +202,7 @@ export function VariantsGrid({ productId, rows }: { productId: string; rows: Var
                   <input
                     type="checkbox"
                     name={`active_${r.id}`}
-                    aria-label={`On sale: ${r.label || "base"}`}
+                    aria-label={`Available: ${r.label || "base"}`}
                     defaultChecked={r.isActive}
                   />
                 </td>

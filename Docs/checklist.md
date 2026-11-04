@@ -173,11 +173,11 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 
 ## Week 4 — Launch readiness ⬜
 
-### 24. Merchandising & CMS
+### 24. Merchandising & CMS ✅
 
-- [ ] Collections (manual + rule-based)
-- [ ] Homepage builder with scheduled sections
-- [ ] Announcement bar, sale badges, editable pages
+- [x] Collections (manual + rule-based)
+- [x] Homepage builder with scheduled sections
+- [x] Announcement bar, sale badges, editable pages
 
 ### 25. Recommendations
 

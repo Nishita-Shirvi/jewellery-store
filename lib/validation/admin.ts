@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
 import { parseRatePercent } from "@/lib/gst";
+import { parseTags } from "@/lib/merch";
 
 const id = z
   .string()
@@ -98,6 +99,12 @@ export const productFormSchema = z
       .max(200)
       .optional()
       .transform((v) => v || null),
+    /** "Bridal, daily wear" → ["bridal", "daily-wear"]: used by rule-based collections (Phase 24). */
+    tags: z
+      .string()
+      .max(600)
+      .optional()
+      .transform((v) => parseTags(v ?? "")),
     huid: z
       .string()
       .trim()
