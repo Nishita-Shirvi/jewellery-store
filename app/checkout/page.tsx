@@ -10,6 +10,8 @@ import { getCartView } from "@/services/cart.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { shippingFeeFor } from "@/lib/shipping-fee";
 import { config } from "@/lib/config";
+import { otpAvailable } from "@/services/otp.service";
+import { whatsappLink } from "@/lib/support";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
@@ -37,7 +39,12 @@ export default async function CheckoutPage() {
           subtotalInPaise={cart.subtotalInPaise}
           shippingInPaise={shipping}
           storeName={publicEnv.NEXT_PUBLIC_SITE_NAME}
-          codEnabled={config.cod.enabled}
+          // Cash on delivery needs its SMS code service in production (Phase 18).
+          codEnabled={config.cod.enabled && otpAvailable()}
+          contactHref={
+            whatsappLink(config.support.whatsapp_number, "Hello, I'd like to place an order.") ??
+            "/contact"
+          }
           paymentsEnabled={isRazorpayConfigured}
         />
 

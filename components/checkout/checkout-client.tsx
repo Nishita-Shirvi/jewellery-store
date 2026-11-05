@@ -23,6 +23,7 @@ export function CheckoutClient({
   storeName,
   paymentsEnabled,
   codEnabled = false,
+  contactHref = "/contact",
 }: {
   addresses: AddressOption[];
   subtotalInPaise: number;
@@ -31,6 +32,8 @@ export function CheckoutClient({
   paymentsEnabled: boolean;
   /** Cash on delivery switched on in config.ini (each order is still checked on the server). */
   codEnabled?: boolean;
+  /** Where to send people when no payment method is connected yet (WhatsApp link or /contact). */
+  contactHref?: string;
 }) {
   const [coupon, setCoupon] = useState<{ code: string; discountInPaise: number } | null>(null);
   const total = subtotalInPaise - (coupon?.discountInPaise ?? 0) + shippingInPaise;
@@ -38,7 +41,11 @@ export function CheckoutClient({
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(addresses[0]?.id ?? null);
   const [adding, setAdding] = useState(addresses.length === 0);
-  const [method, setMethod] = useState<"online" | "cod">("online");
+  // Only offer what's actually connected; start on the one that is.
+  const [method, setMethod] = useState<"online" | "cod">(
+    paymentsEnabled || !codEnabled ? "online" : "cod",
+  );
+  const noPayment = !paymentsEnabled && !codEnabled;
 
   return (
     <div className="space-y-8">
@@ -112,7 +119,7 @@ export function CheckoutClient({
         <h2 id="payment-heading" className="text-lg font-medium">
           Payment
         </h2>
-        {codEnabled && (
+        {codEnabled && paymentsEnabled && (
           <fieldset className="mt-3 flex flex-wrap gap-3">
             <legend className="sr-only">How would you like to pay?</legend>
             {(
@@ -137,11 +144,13 @@ export function CheckoutClient({
             ))}
           </fieldset>
         )}
-        <p className="text-muted-foreground mt-2 text-sm">
-          {method === "cod"
-            ? "Pay the courier when your order arrives. We'll confirm your mobile number by SMS."
-            : "UPI, cards, netbanking, EMI and wallets via Razorpay."}
-        </p>
+        {!noPayment && (
+          <p className="text-muted-foreground mt-2 text-sm">
+            {method === "cod"
+              ? "Pay the courier when your order arrives. We'll confirm your mobile number by SMS."
+              : "UPI, cards, netbanking, EMI and wallets via Razorpay."}
+          </p>
+        )}
         <div className="mt-4 max-w-sm">
           {method === "cod" ? (
             <CodPanel addressId={selected} couponCode={coupon?.code} />
@@ -154,9 +163,19 @@ export function CheckoutClient({
               disabled={!selected}
             />
           ) : (
-            <p className="border-border rounded-md border border-dashed p-3 text-sm">
-              Online payments aren&apos;t set up yet. Add the Razorpay keys to <code>.env</code>.
-            </p>
+            <div
+              className="border-border rounded-md border border-dashed p-4 text-sm"
+              data-testid="payments-pending"
+            >
+              <p className="font-medium">Online checkout is opening soon.</p>
+              <p className="text-muted-foreground mt-1">
+                We&apos;re finishing the payment setup. To order now, message us and we&apos;ll
+                confirm your order and the payment details personally.
+              </p>
+              <a href={contactHref} className="mt-3 inline-block underline underline-offset-4">
+                Contact us to order
+              </a>
+            </div>
           )}
           {!selected && paymentsEnabled && (
             <p className="text-muted-foreground mt-2 text-xs">

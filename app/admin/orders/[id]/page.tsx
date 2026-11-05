@@ -17,6 +17,8 @@ import {
   updateOrderStatusAction,
   markCashReceivedAction,
   markRefundPaidAction,
+  addManualShipmentUpdateAction,
+  saveManualTrackingAction,
 } from "../../actions";
 import { RefundList } from "@/components/returns/refund-list";
 import { Input } from "@/components/ui/input";
@@ -49,11 +51,17 @@ export default async function AdminOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; shipped?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    shipped?: string;
+    shipError?: string;
+    tracking?: string;
+  }>;
 }) {
   await requirePermissionPage("orders.view", "/admin/orders");
   const { id } = await params;
-  const { error, shipped } = await searchParams;
+  const sp = await searchParams;
+  const { error, shipped } = sp;
   const [order, shipment, { returns, refunds }] = await Promise.all([
     getOrderAdmin(id),
     getShipmentForOrder(id),
@@ -319,8 +327,8 @@ export default async function AdminOrderPage({
         </div>
         {!isShiprocketConfigured && READY_TO_SHIP_STATUSES.includes(order.status) && (
           <p className="text-muted-foreground mt-2 text-xs">
-            Shiprocket isn&apos;t set up — add the SHIPROCKET_* keys, or ship manually and use “Mark
-            as shipped”.
+            No courier service is connected yet — ship the parcel yourself and add its tracking
+            details below; customers see each update on their order page.
           </p>
         )}
         {shipment ? (
@@ -374,6 +382,80 @@ export default async function AdminOrderPage({
           <p className="text-muted-foreground mt-2 text-sm">No shipment yet.</p>
         )}
       </section>
+
+      {(!isShiprocketConfigured || shipment?.provider === "MANUAL") &&
+        ["PAID", "CONFIRMED", "SHIPPED"].includes(order.status) && (
+          <section
+            aria-labelledby="manual-ship-heading"
+            className="border-border space-y-4 rounded-md border p-5"
+          >
+            <h2 id="manual-ship-heading" className="font-medium">
+              Manual delivery tracking
+            </h2>
+            {sp.shipError && (
+              <p role="alert" className="text-sm text-red-700">
+                {sp.shipError}
+              </p>
+            )}
+            <form
+              action={saveManualTrackingAction}
+              className="grid gap-3 sm:grid-cols-4"
+              aria-label="Tracking details"
+            >
+              <input type="hidden" name="id" value={order.id} />
+              <Input
+                name="courier"
+                aria-label="Courier"
+                placeholder="Courier (e.g. Blue Dart)"
+                defaultValue={shipment?.courier ?? ""}
+                required
+              />
+              <Input
+                name="awb"
+                aria-label="Tracking number"
+                placeholder="Tracking number"
+                defaultValue={shipment?.awb ?? ""}
+              />
+              <Input
+                name="trackingUrl"
+                aria-label="Tracking link"
+                placeholder="https://… (optional)"
+                defaultValue={shipment?.trackingUrl ?? ""}
+              />
+              <Button type="submit" size="sm">
+                {shipment ? "Save tracking" : "Save & mark shipped"}
+              </Button>
+            </form>
+            {shipment?.provider === "MANUAL" && shipment.status !== "DELIVERED" && (
+              <form
+                action={addManualShipmentUpdateAction}
+                className="grid gap-3 sm:grid-cols-4"
+                aria-label="Delivery update"
+              >
+                <input type="hidden" name="id" value={order.id} />
+                <select
+                  name="shipStatus"
+                  aria-label="Update"
+                  className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+                >
+                  <option value="PICKED_UP">Picked up by the courier</option>
+                  <option value="IN_TRANSIT">In transit</option>
+                  <option value="OUT_FOR_DELIVERY">Out for delivery</option>
+                  <option value="DELIVERED">Delivered</option>
+                </select>
+                <Input name="location" aria-label="Location" placeholder="City (optional)" />
+                <Input
+                  name="note"
+                  aria-label="Note"
+                  placeholder="Note for the customer (optional)"
+                />
+                <Button type="submit" size="sm" variant="outline">
+                  Post update
+                </Button>
+              </form>
+            )}
+          </section>
+        )}
 
       <div className="grid gap-8 md:grid-cols-2">
         <section>

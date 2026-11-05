@@ -132,6 +132,12 @@ vi.mock("@/services/merch.service", () => ({
   unpublishPage: spy("unpublishPage"),
   deletePage: spy("deletePage"),
 }));
+vi.mock("@/services/manual-shipping.service", () => ({
+  MANUAL_UPDATE_STATUSES: ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"],
+  MANUAL_UPDATE_LABEL: { IN_TRANSIT: "In transit" },
+  saveManualTracking: spy("saveManualTracking"),
+  addManualUpdate: spy("addManualUpdate"),
+}));
 vi.mock("@/services/monitor.service", () => ({
   evaluateAlerts: vi.fn(async () => {
     touched.push("evaluateAlerts");
@@ -187,6 +193,9 @@ function validForm() {
     ticketStatus: "RESOLVED",
     assigneeId: "",
     faqId: "abc123",
+    courier: "Blue Dart",
+    awb: "BD123456789",
+    shipStatus: "IN_TRANSIT",
     // Content (Phase 24)
     collectionId: "abc123",
     sectionId: "abc123",
@@ -270,6 +279,8 @@ const NEEDS: Record<string, Permission> = {
   unpublishPageAction: "content.manage",
   deletePageAction: "content.manage",
   runAlertChecksAction: "system.view",
+  saveManualTrackingAction: "orders.update",
+  addManualShipmentUpdateAction: "orders.update",
   saveFaqAction: "faqs.manage",
   deleteFaqAction: "faqs.manage",
   saveCannedReplyAction: "faqs.manage",

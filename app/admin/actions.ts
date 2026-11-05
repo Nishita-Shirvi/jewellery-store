@@ -87,6 +87,12 @@ import {
   saveOptions,
   type VariantRowInput,
 } from "@/services/admin/variant-admin.service";
+import {
+  MANUAL_UPDATE_LABEL,
+  MANUAL_UPDATE_STATUSES,
+  addManualUpdate,
+  saveManualTracking,
+} from "@/services/manual-shipping.service";
 
 /**
  * Every admin action starts with requirePermission("…"): staff role, active status, two-step
@@ -1337,4 +1343,94 @@ export async function runAlertChecksAction(): Promise<void> {
     summary: `Alert checks run (${changes.length} change(s))`,
   });
   revalidatePath("/admin/system");
+}
+
+// ───────────────────────── Manual delivery tracking (no courier API connected) ─────────────────
+
+const manualTrackingSchema = z.object({
+  id: z.string().regex(/^[a-z0-9]{1,40}$/i),
+  courier: z.string().trim().min(2, { message: "Enter the courier's name" }).max(60),
+  awb: z
+    .string()
+    .trim()
+    .max(60)
+    .optional()
+    .transform((v) => v || null),
+  trackingUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .optional()
+    .transform((v) => v || null)
+    .refine((v) => v === null || /^https:\/\/[^\s"'<>]+$/.test(v), {
+      message: "The tracking link must start with https://",
+    }),
+});
+
+export async function saveManualTrackingAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("orders.update");
+  const parsed = manualTrackingSchema.safeParse(Object.fromEntries(formData));
+  const back = (id: string, q: string): never => redirect(`/admin/orders/${id}?${q}`);
+  if (!parsed.success) {
+    const id = String(formData.get("id") ?? "");
+    if (!/^[a-z0-9]{1,40}$/i.test(id)) return;
+    return back(
+      id,
+      `shipError=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Check the form")}`,
+    );
+  }
+  const { id, ...input } = parsed.data;
+  try {
+    await saveManualTracking(id, input, admin.id);
+  } catch (error) {
+    if (error instanceof AdminInputError)
+      back(id, `shipError=${encodeURIComponent(error.message)}`);
+    throw error;
+  }
+  await audit(admin, {
+    action: "shipment.manual_tracking",
+    entityType: "order",
+    entityId: id,
+    summary: `Tracking added by hand: ${input.courier}${input.awb ? ` ${input.awb}` : ""}`,
+  });
+  revalidatePath(`/admin/orders/${id}`);
+  back(id, "tracking=1");
+}
+
+export async function addManualShipmentUpdateAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("orders.update");
+  const parsed = z
+    .object({
+      id: z.string().regex(/^[a-z0-9]{1,40}$/i),
+      shipStatus: z.enum(MANUAL_UPDATE_STATUSES),
+      note: z
+        .string()
+        .trim()
+        .max(120)
+        .optional()
+        .transform((v) => v || null),
+      location: z
+        .string()
+        .trim()
+        .max(80)
+        .optional()
+        .transform((v) => v || null),
+    })
+    .safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const { id, shipStatus, note, location } = parsed.data;
+  try {
+    await addManualUpdate(id, { status: shipStatus, note, location }, admin.id);
+  } catch (error) {
+    if (error instanceof AdminInputError)
+      redirect(`/admin/orders/${id}?shipError=${encodeURIComponent(error.message)}`);
+    throw error;
+  }
+  await audit(admin, {
+    action: "shipment.manual_update",
+    entityType: "order",
+    entityId: id,
+    summary: `Delivery update: ${MANUAL_UPDATE_LABEL[shipStatus]}${note ? ` — ${note}` : ""}`,
+  });
+  revalidatePath(`/admin/orders/${id}`);
 }
