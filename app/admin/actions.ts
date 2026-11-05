@@ -57,6 +57,21 @@ import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
+import { importProductsCsv, type ImportReport } from "@/services/product-csv.service";
+import {
+  getReconRun,
+  parseRemittanceCsv,
+  parseSettlementCsv,
+  reconcileRemittance,
+  reconcileSettlement,
+} from "@/services/recon.service";
+import {
+  createApiKey,
+  createWebhookEndpoint,
+  deleteWebhookEndpoint,
+  revokeApiKey,
+  setWebhookActive,
+} from "@/services/integrations.service";
 import { evaluateAlerts } from "@/services/monitor.service";
 import {
   announcementFormSchema,
@@ -1433,4 +1448,200 @@ export async function addManualShipmentUpdateAction(formData: FormData): Promise
     summary: `Delivery update: ${MANUAL_UPDATE_LABEL[shipStatus]}${note ? ` — ${note}` : ""}`,
   });
   revalidatePath(`/admin/orders/${id}`);
+}
+
+// ───────────────────────── Accounting & integrations (Phase 29) ─────────────────────────
+
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+
+async function readUpload(formData: FormData): Promise<{ name: string; text: string } | string> {
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return "Choose a CSV file.";
+  if (file.size > MAX_UPLOAD_BYTES) return "The file is larger than 2 MB — split it.";
+  return { name: file.name.slice(0, 100), text: await file.text() };
+}
+
+export interface ImportFormState {
+  error?: string;
+  report?: ImportReport;
+}
+
+/** Bulk product import: "Check file" (dry run) or "Import" (saves only if every row is valid). */
+export async function importProductsAction(
+  _prev: ImportFormState,
+  formData: FormData,
+): Promise<ImportFormState> {
+  const admin = await requirePermission("accounting.manage");
+  const upload = await readUpload(formData);
+  if (typeof upload === "string") return { error: upload };
+  const dryRun = formData.get("mode") !== "apply";
+  try {
+    const report = await importProductsCsv(upload.text, { dryRun, adminId: admin.id });
+    if (report.applied) {
+      await audit(admin, {
+        action: "product.csv_import",
+        entityType: "product",
+        entityId: "csv",
+        summary: `CSV import ${upload.name}: ${report.created} created, ${report.updated} updated`,
+      });
+      revalidatePath("/admin/products");
+    }
+    return { report };
+  } catch (error) {
+    if (error instanceof AdminInputError) return { error: error.message };
+    throw error;
+  }
+}
+
+/** Upload a Razorpay settlement report or a courier COD remittance sheet to reconcile. */
+export async function reconcileUploadAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("accounting.manage");
+  const upload = await readUpload(formData);
+  const back = (q: string): never => redirect(`/admin/accounting?${q}#reconcile`);
+  if (typeof upload === "string") return back(`reconError=${encodeURIComponent(upload)}`);
+  const kind = formData.get("reconKind");
+  let runId: string;
+  try {
+    const run =
+      kind === "cod_remittance"
+        ? await reconcileRemittance(
+            parseRemittanceCsv(upload.text),
+            `upload: ${upload.name}`,
+            admin.id,
+          )
+        : await reconcileSettlement(
+            parseSettlementCsv(upload.text),
+            `upload: ${upload.name}`,
+            admin.id,
+          );
+    runId = run.id;
+  } catch (error) {
+    if (error instanceof AdminInputError)
+      return back(`reconError=${encodeURIComponent(error.message)}`);
+    throw error;
+  }
+  await audit(admin, {
+    action: "recon.run",
+    entityType: "order",
+    entityId: runId,
+    summary: `Reconciliation (${String(kind)}) from ${upload.name}`,
+  });
+  revalidatePath("/admin/accounting");
+  back(`run=${runId}`);
+}
+
+/** Records the cash for every "matches — ready to record" line of a COD remittance run. */
+export async function recordRemittanceAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("cod.manage");
+  const runId = z
+    .string()
+    .regex(/^[a-z0-9]{1,40}$/i)
+    .safeParse(formData.get("runId"));
+  if (!runId.success) return;
+  const run = await getReconRun(runId.data);
+  if (!run || run.kind !== "cod_remittance") return;
+  const ids = (run.issues as { kind: string; orderId?: string }[])
+    .filter((i) => i.kind === "ready_to_record" && i.orderId)
+    .map((i) => i.orderId!);
+  const { recorded } = await markCashReceived(
+    ids,
+    admin.id,
+    `remittance ${run.source}`.slice(0, 80),
+  );
+  await audit(admin, {
+    action: "cod.remittance_recorded",
+    entityType: "order",
+    entityId: run.id,
+    summary: `COD cash recorded from remittance: ${recorded} order(s)`,
+  });
+  revalidatePath("/admin/accounting");
+  redirect(`/admin/accounting?run=${run.id}&recorded=${recorded}#reconcile`);
+}
+
+export interface SecretFormState {
+  error?: string;
+  /** Shown once, right after creation. */
+  secret?: string;
+  label?: string;
+}
+
+export async function createApiKeyAction(
+  _prev: SecretFormState,
+  formData: FormData,
+): Promise<SecretFormState> {
+  const admin = await requirePermission("integrations.manage");
+  const name = String(formData.get("keyName") ?? "").trim();
+  if (name.length < 2 || name.length > 80) return { error: "Give the key a name (what uses it)." };
+  const key = await createApiKey(name, admin.id);
+  await audit(admin, {
+    action: "integrations.api_key_created",
+    entityType: "staff",
+    entityId: key.id,
+    summary: `API key created: ${name} (${key.prefix}…)`,
+  });
+  revalidatePath("/admin/integrations");
+  return { secret: key.key, label: `API key "${name}"` };
+}
+
+export async function revokeApiKeyAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("integrations.manage");
+  const id = z
+    .string()
+    .regex(/^[a-z0-9]{1,40}$/i)
+    .safeParse(formData.get("keyId"));
+  if (!id.success) return;
+  await revokeApiKey(id.data);
+  await audit(admin, {
+    action: "integrations.api_key_revoked",
+    entityType: "staff",
+    entityId: id.data,
+    summary: "API key revoked",
+  });
+  revalidatePath("/admin/integrations");
+}
+
+export async function createWebhookAction(
+  _prev: SecretFormState,
+  formData: FormData,
+): Promise<SecretFormState> {
+  const admin = await requirePermission("integrations.manage");
+  try {
+    const endpoint = await createWebhookEndpoint(
+      String(formData.get("webhookUrl") ?? ""),
+      formData.getAll("webhookEvents").map(String),
+    );
+    await audit(admin, {
+      action: "integrations.webhook_created",
+      entityType: "staff",
+      entityId: endpoint.id,
+      summary: `Webhook added: ${endpoint.url}`,
+    });
+    revalidatePath("/admin/integrations");
+    return { secret: endpoint.secret, label: `Signing secret for ${endpoint.url}` };
+  } catch (error) {
+    if (error instanceof AdminInputError) return { error: error.message };
+    throw error;
+  }
+}
+
+export async function setWebhookActiveAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("integrations.manage");
+  const id = z
+    .string()
+    .regex(/^[a-z0-9]{1,40}$/i)
+    .safeParse(formData.get("webhookId"));
+  if (!id.success) return;
+  const active = formData.get("webhookActive") === "true";
+  if (formData.get("remove") === "true") await deleteWebhookEndpoint(id.data);
+  else await setWebhookActive(id.data, active);
+  await audit(admin, {
+    action: "integrations.webhook_changed",
+    entityType: "staff",
+    entityId: id.data,
+    summary:
+      formData.get("remove") === "true"
+        ? "Webhook removed"
+        : `Webhook ${active ? "resumed" : "paused"}`,
+  });
+  revalidatePath("/admin/integrations");
 }

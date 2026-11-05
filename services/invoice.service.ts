@@ -13,6 +13,7 @@ import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
 import { lineName } from "@/lib/variants";
 import { openSnapshot } from "@/services/address.service";
+import { decryptPii, encryptPii } from "@/lib/pii";
 
 export interface InvoiceLine {
   name: string;
@@ -195,7 +196,8 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
           number,
           financialYear: fy,
           sequence: lastNumber,
-          snapshot: snapshot as unknown as Prisma.InputJsonValue,
+          // Buyer's name, phone, email and address encrypted at rest (Phase 27/29).
+          snapshot: sealInvoiceBuyer(snapshot) as unknown as Prisma.InputJsonValue,
         },
       });
       logger.info("invoice.created", { orderId, number });
@@ -211,6 +213,38 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
 }
 
 /** The invoice if the user owns the order (or is an admin). */
+/** Stored copy: the buyer's personal details encrypted (tax amounts stay readable for reports). */
+export function sealInvoiceBuyer(snapshot: InvoiceSnapshot): InvoiceSnapshot {
+  const b = snapshot.buyer;
+  return {
+    ...snapshot,
+    buyer: {
+      ...b,
+      name: encryptPii(b.name),
+      phone: encryptPii(b.phone),
+      email: encryptPii(b.email),
+      address: encryptPii(b.address),
+    },
+  };
+}
+
+/** Reads a stored invoice (encrypted buyer, or plain text from before encryption). */
+export function openInvoice(value: unknown): InvoiceSnapshot {
+  const snapshot = value as InvoiceSnapshot;
+  const b = snapshot?.buyer;
+  if (!b) return snapshot;
+  return {
+    ...snapshot,
+    buyer: {
+      ...b,
+      name: decryptPii(b.name),
+      phone: decryptPii(b.phone),
+      email: decryptPii(b.email),
+      address: decryptPii(b.address),
+    },
+  };
+}
+
 export async function getInvoiceForViewer(
   orderId: string,
   viewer: { id: string; isAdmin: boolean },
@@ -221,7 +255,7 @@ export async function getInvoiceForViewer(
   });
   if (!invoice) return null;
   if (!viewer.isAdmin && invoice.order.userId !== viewer.id) return null;
-  return { number: invoice.number, snapshot: invoice.snapshot as unknown as InvoiceSnapshot };
+  return { number: invoice.number, snapshot: openInvoice(invoice.snapshot) };
 }
 
 export async function hasInvoice(orderId: string) {

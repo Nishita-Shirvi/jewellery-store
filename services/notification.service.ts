@@ -12,6 +12,7 @@ import { lineName } from "@/lib/variants";
 import type { Prisma } from "@prisma/client";
 import { enqueue, kickJobs } from "@/services/jobs.service";
 import { openSnapshot } from "@/services/address.service";
+import { emitWebhook, type WebhookEvent } from "@/services/integrations.service";
 
 /**
  * The single place that tells customers about their order (email, and SMS when switched on).
@@ -34,6 +35,13 @@ export type OrderEvent =
 /** Events that happen at most once per order: a second queued copy is dropped while one is pending. */
 const ONCE_PER_ORDER: OrderEvent[] = ["confirmed", "shipped", "delivered", "cancelled"];
 const SMS_EVENTS: OrderEvent[] = ["confirmed", "shipped", "delivered"];
+const WEBHOOK_FOR: Partial<Record<OrderEvent, WebhookEvent>> = {
+  confirmed: "order.confirmed",
+  shipped: "order.shipped",
+  delivered: "order.delivered",
+  cancelled: "order.cancelled",
+  refund_processed: "order.refunded",
+};
 
 export async function notifyOrder(
   orderId: string,
@@ -50,6 +58,14 @@ export async function notifyOrder(
     );
     if (config.features.sms && SMS_EVENTS.includes(event))
       await enqueue("sms.order", { orderId, event }, { tx, dedupeKey: `sms:${event}:${orderId}` });
+    // Phase 29: outgoing webhooks for the owner's other systems (none set up = nothing queued).
+    const hook = WEBHOOK_FOR[event];
+    if (hook)
+      await emitWebhook(
+        hook,
+        { orderId, orderNumber: `#${orderId.slice(-8).toUpperCase()}`, ...extra },
+        tx,
+      );
   } catch (error) {
     // Inside a transaction the caller must see the failure; outside, never break the caller.
     if (tx) throw error;

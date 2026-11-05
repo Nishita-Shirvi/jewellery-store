@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { pruneMetrics } from "@/lib/metrics";
 import { evaluateAlerts } from "@/services/monitor.service";
 import { purgeIsDue, purgeOldData } from "@/services/privacy.service";
+import { razorpayReconIsDue } from "@/services/recon.service";
 
 /** AppSetting key holding the last cron tick (Admin → System, /api/health). */
 export const CRON_TICK_KEY = "cron.lastTickAt";
@@ -32,6 +33,9 @@ export async function cronTick(extra: { lowStock?: boolean } = {}) {
     return [];
   });
   await pruneMetrics(3);
+  // Phase 29: yesterday's Razorpay settlement check (only once Razorpay keys are set).
+  if (await razorpayReconIsDue())
+    await enqueue("recon.razorpay", {}, { dedupeKey: "recon:razorpay", maxAttempts: 3 });
   // Privacy (Phase 27): delete data no longer needed, once a day.
   if (await purgeIsDue())
     await purgeOldData().catch((error) => logger.error("cron.purge_failed", { error }));

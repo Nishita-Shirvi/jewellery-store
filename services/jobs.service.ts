@@ -39,6 +39,8 @@ export const JOB_TYPES = [
   "marketing.scan",
   "reco.compute",
   "alerts.notify",
+  "webhook.outgoing",
+  "recon.razorpay",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 

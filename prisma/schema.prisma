@@ -1377,3 +1377,49 @@ model ConsentEvent {
 
   @@index([userId, createdAt])
 }
+
+// ─────────────────────── Accounting and integrations (Phase 29) ───────────────────────
+
+/// One reconciliation run: a Razorpay settlement report or a courier COD remittance file
+/// (uploaded, or fetched daily from Razorpay when its keys are set) checked against our records.
+model ReconRun {
+  id          String   @id @default(cuid())
+  /// razorpay_settlement | cod_remittance
+  kind        String
+  /// "upload: settlements-oct.csv" or "razorpay api 2026-11-04"
+  source      String
+  /// Counts: matched, mismatched, unknown, missing.
+  summary     Json
+  /// The rows with a problem (and a sample of matches), for the admin page and CSV download.
+  issues      Json
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([kind, createdAt])
+}
+
+/// Read-only API keys for the public Products API. Only a hash is stored; the key is shown once.
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String
+  /// First characters, to recognise the key in lists ("sk_live_ab12…").
+  prefix      String
+  keyHash     String    @unique
+  createdById String?
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+/// Outgoing webhooks: we POST signed events (order.paid, order.shipped …) to these URLs.
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  url       String
+  /// Signing secret, encrypted (lib/pii). Receivers verify X-Store-Signature with it.
+  secret    String
+  /// Events to send; empty = all.
+  events    String[] @default([])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -85,15 +85,20 @@ test("payment outage: failures at checkout raise the alert within 5 minutes", as
   await page.getByRole("button", { name: "Save address" }).click();
   await expect(page.getByRole("radio", { name: /Outage Tester/ })).toBeChecked();
 
-  // Five attempts to pay while the gateway is "down" (each visit is a new checkout).
+  // Attempts to pay while the gateway is "down" (each visit is a new checkout). At least five;
+  // more if other tests' successful payments in the last 15 minutes keep the failure rate
+  // under the alert threshold (the alert is a rate, not a count).
   const firstFailure = Date.now();
-  for (let i = 0; i < 5; i++) {
+  const firing = async () =>
+    (await db.alertState.findUnique({ where: { key: "payments" } }))?.firing === true;
+  for (let i = 0; i < 20; i++) {
     if (i > 0) {
       await page.reload();
       await page.waitForLoadState("networkidle");
     }
     await page.getByRole("button", { name: "Pay ₹13,131" }).click();
     await expect(page.getByText("We couldn't reach the payment provider")).toBeVisible();
+    if (i >= 4 && (await firing())) break;
   }
 
   // The alert is firing — checked as the failures happened, not at the next cron run.
@@ -118,7 +123,7 @@ test("payment outage: failures at checkout raise the alert within 5 minutes", as
   await staffLogin(owner, await createStaff(db, ["OWNER"]), "/admin/system");
   const row = owner.getByTestId("alert-payments");
   await expect(row).toContainText("Firing since");
-  await expect(row).toContainText("5 gateway error(s)");
+  await expect(row).toContainText(/\d+ gateway error\(s\)/);
   await expect(owner.getByTestId("health-db")).toContainText("OK");
   await ctx.close();
 });

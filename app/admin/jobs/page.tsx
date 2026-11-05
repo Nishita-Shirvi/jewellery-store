@@ -24,6 +24,8 @@ const TYPE_LABEL: Record<string, string> = {
   "marketing.scan": "Cart reminders / back-in-stock / referrals",
   "reco.compute": "Recommendations (nightly)",
   "alerts.notify": "Alert email / chat message",
+  "webhook.outgoing": "Webhook to another system",
+  "recon.razorpay": "Razorpay settlement check (daily)",
 };
 
 /** What the job was about, for people (order number when there is one). */

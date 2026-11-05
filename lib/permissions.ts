@@ -19,6 +19,8 @@ export const PERMISSIONS = {
   "faqs.manage": "Edit help-centre FAQs and canned replies",
   "content.manage": "Homepage, announcement bar, collections and editable pages",
   "system.view": "System health: uptime, background jobs, alerts and errors",
+  "accounting.manage": "Reconciliation, GST reports, bulk product import/export",
+  "integrations.manage": "API keys and outgoing webhooks",
   "audit.view": "Read the activity log",
   "staff.manage": "Invite staff, change roles, deactivate staff, reset two-step sign-in",
 } as const;
@@ -89,6 +91,8 @@ export const PAGE_PERMISSIONS: { href: string; label: string; permission: Permis
   { href: "/admin/marketing", label: "Marketing", permission: "reports.view" },
   { href: "/admin/jobs", label: "Jobs", permission: "jobs.manage" },
   { href: "/admin/system", label: "System", permission: "system.view" },
+  { href: "/admin/accounting", label: "Accounting", permission: "accounting.manage" },
+  { href: "/admin/integrations", label: "Integrations", permission: "integrations.manage" },
   { href: "/admin/audit", label: "Activity log", permission: "audit.view" },
   { href: "/admin/staff", label: "Staff", permission: "staff.manage" },
 ];

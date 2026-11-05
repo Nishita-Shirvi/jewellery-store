@@ -132,6 +132,37 @@ vi.mock("@/services/merch.service", () => ({
   unpublishPage: spy("unpublishPage"),
   deletePage: spy("deletePage"),
 }));
+vi.mock("@/services/product-csv.service", () => ({
+  importProductsCsv: vi.fn(async () => {
+    touched.push("importProductsCsv");
+    return { rows: [], created: 1, updated: 0, errors: 0, applied: true };
+  }),
+}));
+vi.mock("@/services/recon.service", () => ({
+  parseSettlementCsv: vi.fn(() => []),
+  parseRemittanceCsv: vi.fn(() => []),
+  reconcileSettlement: spy("reconcileSettlement"),
+  reconcileRemittance: spy("reconcileRemittance"),
+  getReconRun: vi.fn(async () => ({
+    id: "abc123",
+    kind: "cod_remittance",
+    source: "upload: x.csv",
+    issues: [{ kind: "ready_to_record", orderId: "abc123" }],
+  })),
+}));
+vi.mock("@/services/integrations.service", () => ({
+  createApiKey: vi.fn(async () => {
+    touched.push("createApiKey");
+    return { id: "k1", name: "Feed", prefix: "sk_live_abcd", key: "sk_live_secret" };
+  }),
+  revokeApiKey: spy("revokeApiKey"),
+  createWebhookEndpoint: vi.fn(async () => {
+    touched.push("createWebhookEndpoint");
+    return { id: "w1", url: "https://hooks.example.com/x", secret: "whsec_x" };
+  }),
+  setWebhookActive: spy("setWebhookActive"),
+  deleteWebhookEndpoint: spy("deleteWebhookEndpoint"),
+}));
 vi.mock("@/services/manual-shipping.service", () => ({
   MANUAL_UPDATE_STATUSES: ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"],
   MANUAL_UPDATE_LABEL: { IN_TRANSIT: "In transit" },
@@ -194,6 +225,13 @@ function validForm() {
     assigneeId: "",
     faqId: "abc123",
     courier: "Blue Dart",
+    runId: "abc123",
+    reconKind: "cod_remittance",
+    keyName: "Marketplace feed",
+    keyId: "abc123",
+    webhookUrl: "https://hooks.example.com/orders",
+    webhookId: "abc123",
+    webhookActive: "true",
     awb: "BD123456789",
     shipStatus: "IN_TRANSIT",
     // Content (Phase 24)
@@ -280,6 +318,13 @@ const NEEDS: Record<string, Permission> = {
   deletePageAction: "content.manage",
   runAlertChecksAction: "system.view",
   saveManualTrackingAction: "orders.update",
+  importProductsAction: "accounting.manage",
+  reconcileUploadAction: "accounting.manage",
+  recordRemittanceAction: "cod.manage",
+  createApiKeyAction: "integrations.manage",
+  revokeApiKeyAction: "integrations.manage",
+  createWebhookAction: "integrations.manage",
+  setWebhookActiveAction: "integrations.manage",
   addManualShipmentUpdateAction: "orders.update",
   saveFaqAction: "faqs.manage",
   deleteFaqAction: "faqs.manage",

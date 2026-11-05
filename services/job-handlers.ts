@@ -107,6 +107,28 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
     await deliverAlert(p as Parameters<typeof deliverAlert>[0]);
   },
 
+  // Phase 29: signed order events to the owner's other systems (retried with backoff).
+  "webhook.outgoing": async (payload) => {
+    const p = parse(
+      z.object({
+        endpointId: id,
+        id: z.string().max(40),
+        event: z.string().max(40),
+        createdAt: z.string().max(40),
+        data: z.record(z.string(), z.unknown()),
+      }),
+      payload,
+    );
+    const { deliverWebhook } = await import("@/services/integrations.service");
+    await deliverWebhook(p);
+  },
+
+  // Phase 29: daily Razorpay settlement check (only when Razorpay keys are set).
+  "recon.razorpay": async () => {
+    const { dailyRazorpayRecon } = await import("@/services/recon.service");
+    await dailyRazorpayRecon();
+  },
+
   "alerts.low_stock": async () => {
     const { sendLowStockAlert } = await import("@/services/alert.service");
     await sendLowStockAlert();
