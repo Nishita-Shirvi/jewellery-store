@@ -133,7 +133,7 @@ export default async function AccountOrderPage({
       {/* Order shortcuts: track, invoice, cancel, return, get help. */}
       {
         <div className="flex flex-wrap gap-2">
-          {shipment?.awb && (
+          {(shipment?.awb || (shipment?.events.length ?? 0) > 0) && (
             <Button asChild variant="outline" size="sm">
               <a href="#tracking-heading">Track parcel</a>
             </Button>
@@ -198,11 +198,30 @@ export default async function AccountOrderPage({
         </section>
       )}
 
-      {shipment?.awb && (
+      {/* No courier details yet (e.g. no courier service connected): say so, never leave a gap. */}
+      {!shipment && ["PAID", "CONFIRMED", "SHIPPED"].includes(order.status) && (
+        <section
+          aria-labelledby="tracking-heading"
+          className="border-border bg-muted/40 rounded-md border p-4 text-sm"
+          data-testid="delivery-waiting"
+        >
+          <h2 id="tracking-heading" className="font-medium">
+            Delivery
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            {order.status === "SHIPPED"
+              ? "Your order is on its way. The store will add the courier and tracking details here."
+              : "We're preparing your order. Waiting for a delivery update from the store — you'll see it here and get an email when it ships."}
+          </p>
+        </section>
+      )}
+
+      {shipment && (shipment.awb || shipment.events.length > 0) && (
         <section aria-labelledby="tracking-heading" className="space-y-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 id="tracking-heading" className="font-medium">
-              Tracking · {shipment.courier} · {shipment.awb}
+              Tracking{shipment.courier ? ` · ${shipment.courier}` : ""}
+              {shipment.awb ? ` · ${shipment.awb}` : ""}
             </h2>
             {shipment.trackingUrl && (
               <a

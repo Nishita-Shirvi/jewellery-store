@@ -91,11 +91,48 @@ async function otpPhones() {
   return changed;
 }
 
+/** Invoices keep the buyer's name, phone, email and address (Phase 29: encrypted too). */
+async function invoiceBuyers() {
+  let changed = 0;
+  for (let cursor: string | undefined; ;) {
+    const rows = await db.invoice.findMany({
+      take: BATCH,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+      select: { id: true, snapshot: true },
+    });
+    if (rows.length === 0) break;
+    for (const r of rows) {
+      const snap = r.snapshot as { buyer?: Record<string, string> } & Record<string, unknown>;
+      const buyer = snap.buyer ?? {};
+      const next = { ...buyer };
+      let touched = false;
+      for (const f of ["name", "phone", "email", "address"]) {
+        const v = buyer[f];
+        if (typeof v === "string" && needsReencrypt(v)) {
+          next[f] = encryptPii(decryptPii(v));
+          touched = true;
+        }
+      }
+      if (!touched) continue;
+      changed++;
+      if (!dry)
+        await db.invoice.update({
+          where: { id: r.id },
+          data: { snapshot: { ...snap, buyer: next } as Prisma.InputJsonValue },
+        });
+    }
+    cursor = rows.at(-1)!.id;
+  }
+  return changed;
+}
+
 async function main() {
   const result = {
     addresses: await addresses(),
     orderAddresses: await orderSnapshots(),
     codePhones: await otpPhones(),
+    invoiceBuyers: await invoiceBuyers(),
   };
   console.log(`${dry ? "Would encrypt" : "Encrypted"}:`, result);
 }

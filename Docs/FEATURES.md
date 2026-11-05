@@ -67,6 +67,17 @@ Google login setup: `INTEGRATIONS.md`.
 - **Orders:** filter by status or search by order number/email; open an order to create a shipment, mark it shipped → delivered, or cancel (stock is put back and a full refund is sent automatically).
 - **Categories:** add, rename, reorder, hide; delete only when empty.
 
+## Accounting and integrations (Phase 29)
+
+- Admin → **Accounting** (permission `accounting.manage`):
+  - **GST reports** for any month: sales register, B2CS summary by place of supply and rate (GSTR-1 table 7), HSN summary (table 12), refunds / credit notes (tax split in proportion). Built from the invoices, with a check that the totals match. Have a CA check the first filing.
+  - **Reconciliation:** upload Razorpay's settlement report or a courier's COD remittance sheet. Every line is matched to an order; differences are listed (amount differs, unknown payment, not settled, cash overdue…). COD lines that match can be recorded as received in one click. With Razorpay keys set, yesterday's settlement is also checked every day.
+  - **Products CSV:** export all products, edit in a spreadsheet, import. Same rules as the product form; "Check file" first; nothing is saved unless every row is valid (up to 2,000 rows).
+- Admin → **Integrations** (permission `integrations.manage`):
+  - **Products API** (read-only): `GET /api/v1/products` and `/api/v1/products/<slug>` with `Authorization: Bearer sk_live_…`; 120 requests a minute per key; only visible products, no costs or customer data. Keys are shown once and stored hashed; revoke any time.
+  - **Webhooks:** POST a JSON event to your https address when an order is confirmed, shipped, delivered, cancelled or refunded, signed with `X-Store-Signature: t=…,v1=HMAC-SHA256(secret, "t.body")`. Private / local addresses are refused. Failed deliveries retry (Admin → Jobs).
+- Buyer name, phone, email and address on invoices are now encrypted like saved addresses (`npm run pii:encrypt` also converts old invoices).
+
 ## Reports, activity log and analytics
 
 - Admin → **Reports**: orders, gross/net sales, refunds, average order, revenue by day and week, top products, shopping funnel, low stock, **Download CSV**.

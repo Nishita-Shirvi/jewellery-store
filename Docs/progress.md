@@ -2,8 +2,8 @@
 
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
-**Last updated:** 2026-11-03
-**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4: Phases 24–26 in PR #12 (`week4-launch`); Phase 27 on `week4-part2`. Next: Phase 28 — Accessibility, Hindi, UX polish.
+**Last updated:** 2026-11-05
+**Current phase:** Phases 24–27 merged (PRs #12, #13). Working without outside services (manual delivery tracking, payment fallback, error pages) and Phase 29 on `week4-phase29`. Next: Phase 30, then Phase 28.
 
 ---
 
@@ -42,13 +42,22 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 | 26    | Monitoring and alerts           | ✅     | 2026-11-04 | 2026-11-04 | 10 unit + 13 DB checks, 1 E2E (outage alerted in 8 ms); every alert has a runbook entry                           |
 | 27    | Privacy and compliance          | ✅     | 2026-11-04 | 2026-11-04 | 7 unit + 9 DB checks (6 mutations caught), 2 E2E; legal text still to be checked by a lawyer/CA (B-09)            |
 | 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                      |
-| 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                   |
+| 29    | Accounting and integrations     | ✅     | 2026-11-05 | 2026-11-05 | 11 unit + 7 DB checks (15 mutations caught, 500-row import), 2 E2E; Zoho/Tally live sync in BACKLOG               |
 | 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                                                                   |
 | F     | Final frontend design           | 🟨     | 2026-10-11 |            | Design system + header, footer, home, product card/page done; next: listing, cart, checkout, account, auth pages  |
 
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 29 — Accounting and integrations (2026-11-05)
+
+**Done so far:** Phases 1–27 merged to main (9e0c156); manual delivery tracking, payment fallback and error pages (e472277).
+**Not finished / carried over:** BL-1…BL-3 (non-breaking), BL-4/BL-5 need Vineet.
+**Open blockers:** None for this phase. Razorpay keys only add the automatic daily settlement check; Zoho/Tally accounts would allow a live sync (BACKLOG).
+**Plan for this phase:** GST reports (sales register, B2CS, HSN, credit notes) that match the invoices; Razorpay settlement and COD remittance reconciliation from uploaded files; bulk product CSV import/export; read-only Products API with keys; signed outgoing webhooks; invoice buyer details encrypted.
+**Risks:** tax totals that don't match invoices; an import that half-applies; API leaking hidden products or costs; webhooks used to reach internal addresses.
+**Git:** branch `week4-phase29` from e472277.
 
 ### Before Phase 27 — Privacy and compliance (2026-11-04)
 

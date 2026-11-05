@@ -39,3 +39,49 @@ export const INDIAN_STATES = [
 ] as const;
 
 export type IndianState = (typeof INDIAN_STATES)[number];
+
+/** GST state codes (first two digits of a GSTIN; GSTR-1 "place of supply" is "36-Telangana"). */
+export const GST_STATE_CODES: Record<IndianState, string> = {
+  "Andaman and Nicobar Islands": "35",
+  "Andhra Pradesh": "37",
+  "Arunachal Pradesh": "12",
+  Assam: "18",
+  Bihar: "10",
+  Chandigarh: "04",
+  Chhattisgarh: "22",
+  "Dadra and Nagar Haveli and Daman and Diu": "26",
+  Delhi: "07",
+  Goa: "30",
+  Gujarat: "24",
+  Haryana: "06",
+  "Himachal Pradesh": "02",
+  "Jammu and Kashmir": "01",
+  Jharkhand: "20",
+  Karnataka: "29",
+  Kerala: "32",
+  Ladakh: "38",
+  Lakshadweep: "31",
+  "Madhya Pradesh": "23",
+  Maharashtra: "27",
+  Manipur: "14",
+  Meghalaya: "17",
+  Mizoram: "15",
+  Nagaland: "13",
+  Odisha: "21",
+  Puducherry: "34",
+  Punjab: "03",
+  Rajasthan: "08",
+  Sikkim: "11",
+  "Tamil Nadu": "33",
+  Telangana: "36",
+  Tripura: "16",
+  "Uttar Pradesh": "09",
+  Uttarakhand: "05",
+  "West Bengal": "19",
+};
+
+/** "Telangana" → "36-Telangana" (GSTR-1 place of supply); unknown names are returned as they are. */
+export function placeOfSupply(state: string): string {
+  const code = GST_STATE_CODES[state as IndianState];
+  return code ? `${code}-${state}` : state;
+}
