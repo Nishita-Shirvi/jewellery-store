@@ -37,6 +37,10 @@ export interface ProductCardData {
   slug: string;
   image: string;
   priceInPaise: number;
+  /** "Was" price shown crossed out (Phase 24); null = not on sale. */
+  compareAtPriceInPaise: number | null;
+  /** Whole % off, worked out on the server; null = no badge. */
+  percentOff: number | null;
   /** e.g. "22K yellow gold · 4.1 g" */
   materialSummary: string;
   inStock: boolean;
@@ -65,6 +69,8 @@ export interface VariantView {
   /** "" for products without options. */
   label: string;
   priceInPaise: number;
+  compareAtPriceInPaise: number | null;
+  percentOff: number | null;
   /** Units customers can buy right now. */
   available: number;
   images: string[];
@@ -94,6 +100,7 @@ export interface ProductDetail extends ProductCardData {
   grossWeightMg: number | null;
   gemstone: string | null;
   huid: string | null;
+  countryOfOrigin: string;
   isReturnable: boolean;
   category: { name: string; slug: string };
   /** Empty for products without options (they have a single base variant). */

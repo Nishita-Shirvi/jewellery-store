@@ -15,6 +15,8 @@ import {
 } from "@/lib/marketing";
 import { normaliseMobile } from "@/lib/cod";
 import { enqueue, kickJobs } from "@/services/jobs.service";
+import { openSnapshot } from "@/services/address.service";
+import { decryptPii } from "@/lib/pii";
 
 /**
  * Marketing (Phase 20): newsletter with double opt-in, one "do not email" list, cart reminders,
@@ -57,6 +59,15 @@ export async function unsubscribe(email: string, source = "link"): Promise<void>
     update: { status: "UNSUBSCRIBED", unsubscribedAt: now, confirmHash: null },
     create: { email: e, status: "UNSUBSCRIBED", unsubscribedAt: now, consentSource: source },
   });
+  // Phase 27: the customer account with this email stops getting marketing emails too.
+  const user = await db.user.findUnique({
+    where: { email: e },
+    select: { id: true, emailMarketingConsent: true },
+  });
+  if (user?.emailMarketingConsent) {
+    const { setConsent } = await import("@/services/privacy.service");
+    await setConsent(user.id, "email_marketing", false, "unsubscribe_link");
+  }
   logger.info("marketing.unsubscribed", { source });
 }
 
@@ -163,6 +174,8 @@ export async function scanAbandonedCarts(
       FROM "Cart" c
       JOIN "CartItem" i ON i."cartId" = c."id"
       JOIN "User" u ON u."id" = c."userId"
+     -- Phase 27: marketing emails only with the customer's opt-in.
+     WHERE u."emailMarketingConsent" = true AND u."deletedAt" IS NULL
      GROUP BY c."userId", u."email"
     HAVING MAX(i."updatedAt") <= ${utc(newest)}::timestamp
        AND MAX(i."updatedAt") >= ${utc(oldest)}::timestamp
@@ -372,8 +385,8 @@ async function phonesOf(userId: string): Promise<Set<string>> {
     db.order.findMany({ where: { userId }, select: { addressSnapshot: true }, take: 50 }),
   ]);
   const raw = [
-    ...addresses.map((a) => a.phone),
-    ...orders.map((o) => (o.addressSnapshot as { phone?: string } | null)?.phone ?? ""),
+    ...addresses.map((a) => decryptPii(a.phone)),
+    ...orders.map((o) => openSnapshot(o.addressSnapshot).phone ?? ""),
   ];
   return new Set(raw.map((p) => normaliseMobile(p)).filter((p): p is string => Boolean(p)));
 }

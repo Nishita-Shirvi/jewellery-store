@@ -2,6 +2,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
+import { runWithContext } from "@/lib/request-context";
 
 /**
  * Background jobs in Postgres (Phase 19) — no Redis, no extra service.
@@ -36,6 +37,8 @@ export const JOB_TYPES = [
   "reservations.release",
   "email.marketing",
   "marketing.scan",
+  "reco.compute",
+  "alerts.notify",
 ] as const;
 export type JobType = (typeof JOB_TYPES)[number];
 
@@ -161,14 +164,26 @@ async function finish(job: ClaimedJob, error: unknown) {
 }
 
 async function execute(job: ClaimedJob) {
-  const { runJobHandler } = await import("@/services/job-handlers");
-  let error: unknown = null;
-  try {
-    await runJobHandler(job.type, job.payload);
-  } catch (e) {
-    error = e ?? new Error("Job failed");
-  }
-  return finish(job, error);
+  // Phase 26: every log line of this job carries its id (and the job type).
+  return runWithContext(
+    { requestId: `job-${job.id}`, jobId: job.id, jobType: job.type },
+    async () => {
+      const { runJobHandler } = await import("@/services/job-handlers");
+      let error: unknown = null;
+      try {
+        await runJobHandler(job.type, job.payload);
+      } catch (e) {
+        error = e ?? new Error("Job failed");
+      }
+      const outcome = await finish(job, error);
+      if (outcome === "dead" && job.type !== "alerts.notify") {
+        const keys: ("dead_jobs" | "webhooks")[] = ["dead_jobs"];
+        if (job.type.startsWith("webhook.")) keys.push("webhooks");
+        await (await import("@/services/monitor.service")).evaluateAlerts(keys).catch(() => []);
+      }
+      return outcome;
+    },
+  );
 }
 
 export interface RunSummary {

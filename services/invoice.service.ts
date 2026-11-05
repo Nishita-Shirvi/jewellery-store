@@ -11,8 +11,8 @@ import {
 } from "@/lib/gst";
 import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
-import type { AddressSnapshot } from "@/services/address.service";
 import { lineName } from "@/lib/variants";
+import { openSnapshot } from "@/services/address.service";
 
 export interface InvoiceLine {
   name: string;
@@ -76,7 +76,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
   if (!invoiceDate) return null;
 
   const seller = getBusiness();
-  const address = order.addressSnapshot as AddressSnapshot;
+  const address = openSnapshot(order.addressSnapshot);
   const intra = isIntraState(seller.state, address.state);
 
   const lines: InvoiceLine[] = order.items.map((item) => {

@@ -48,6 +48,7 @@ export async function getVariantEditor(productId: string) {
           id: true,
           sku: true,
           label: true,
+          compareAtPriceInPaise: true,
           optionKey: true,
           priceInPaise: true,
           stock: true,
@@ -190,6 +191,8 @@ export interface VariantRowInput {
   id: string;
   sku: string;
   priceInPaise: number;
+  /** "Was" price for a sale badge; null = not on sale. Must be above priceInPaise. */
+  compareAtPriceInPaise?: number | null;
   stock: number;
   netWeightMg: number;
   grossWeightMg: number | null;
@@ -217,6 +220,11 @@ export async function bulkUpdateVariants(
   }
   const dupes = duplicateSkus(skus);
   if (dupes.length) throw new AdminInputError(`The same SKU is used twice: ${dupes.join(", ")}`);
+  for (const row of rows) {
+    const was = row.compareAtPriceInPaise;
+    if (was != null && (!Number.isInteger(was) || was <= row.priceInPaise))
+      throw new AdminInputError(`${row.sku}: the "was" price must be higher than the price.`);
+  }
 
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   try {
@@ -227,6 +235,7 @@ export async function bulkUpdateVariants(
           id: true,
           sku: true,
           priceInPaise: true,
+          compareAtPriceInPaise: true,
           stock: true,
           isActive: true,
           reservedStock: true,
@@ -252,6 +261,10 @@ export async function bulkUpdateVariants(
           data: {
             sku: row.sku,
             priceInPaise: row.priceInPaise,
+            // Not sent (older callers) = leave the "was" price as it is.
+            ...(row.compareAtPriceInPaise !== undefined
+              ? { compareAtPriceInPaise: row.compareAtPriceInPaise }
+              : {}),
             netWeightMg: row.netWeightMg,
             grossWeightMg: row.grossWeightMg,
             isActive: row.isActive,
@@ -267,6 +280,13 @@ export async function bulkUpdateVariants(
         for (const [field, from, to] of [
           ["sku", before.sku, row.sku],
           ["price", before.priceInPaise, row.priceInPaise],
+          [
+            "wasPrice",
+            before.compareAtPriceInPaise,
+            row.compareAtPriceInPaise === undefined
+              ? before.compareAtPriceInPaise
+              : row.compareAtPriceInPaise,
+          ],
           ["stock", before.stock, row.stock],
           ["active", before.isActive, row.isActive],
         ] as const) {

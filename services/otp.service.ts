@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { maskMobile } from "@/lib/cod";
+import { decryptPii, encryptPii } from "@/lib/pii";
 
 /**
  * SMS one-time codes (Phase 18, used before cash-on-delivery orders).
@@ -78,7 +79,7 @@ export async function sendOtp(
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   const expiresAt = new Date(Date.now() + OTP_MINUTES * 60_000);
   const challenge = await db.otpChallenge.create({
-    data: { userId, phone, purpose, codeHash: "pending", expiresAt },
+    data: { userId, phone: encryptPii(phone), purpose, codeHash: "pending", expiresAt },
     select: { id: true },
   });
   await db.otpChallenge.update({
@@ -128,7 +129,7 @@ export async function checkOtp(input: {
       : null;
   if (!row)
     throw new OtpError("This code has expired or was tried too many times. Send a new one.");
-  if (row.phone !== input.phone || row.purpose !== input.purpose)
+  if (decryptPii(row.phone) !== input.phone || row.purpose !== input.purpose)
     throw new OtpError("This code was sent to a different number. Send a new one.");
   const expected = Buffer.from(row.codeHash, "hex");
   const given = Buffer.from(hashCode(input.challengeId, input.code), "hex");

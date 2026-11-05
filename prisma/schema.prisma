@@ -134,35 +134,42 @@ enum Purity {
 // ─────────────────────── Users and Auth.js ───────────────────────
 
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String    @unique
-  emailVerified      DateTime?
-  image              String?
+  id                    String    @id @default(cuid())
+  name                  String?
+  email                 String    @unique
+  emailVerified         DateTime?
+  image                 String?
   /// bcrypt hash. Null for users who only sign in with Google.
-  passwordHash       String?
-  role               Role      @default(CUSTOMER)
+  passwordHash          String?
+  role                  Role      @default(CUSTOMER)
   /// Cash-on-delivery parcels this customer refused (returned to origin). COD is blocked at
   /// [cod] max_refusals in config.ini.
-  codRefusals        Int       @default(0)
+  codRefusals           Int       @default(0)
   /// Personal referral code (Phase 20), created the first time the customer opens it.
-  referralCode       String?   @unique
+  referralCode          String?   @unique
   /// Staff (Phase 21): set when the owner deactivates this person (role goes back to CUSTOMER).
-  staffDeactivatedAt DateTime?
+  staffDeactivatedAt    DateTime?
   /// Authenticator-app secret, encrypted (lib/secret-box.ts). Null = two-step sign-in not set up.
-  totpSecret         String?
-  totpEnabledAt      DateTime?
+  totpSecret            String?
+  totpEnabledAt         DateTime?
   /// Last accepted 30-second step: a code can't be used twice.
-  totpLastStep       Int?
+  totpLastStep          Int?
   /// SHA-256 hashes of unused one-time recovery codes.
-  recoveryCodes      String[]  @default([])
+  recoveryCodes         String[]  @default([])
   /// Account lockout (Phase 23): wrong passwords in a row, and when the lock ends.
-  failedLogins       Int       @default(0)
-  lockedUntil        DateTime?
+  failedLogins          Int       @default(0)
+  lockedUntil           DateTime?
   /// Sessions started before this are signed out (password changed / reset).
-  passwordChangedAt  DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  passwordChangedAt     DateTime?
+  /// Phase 27 consents (DPDP Act). Marketing emails (cart reminders, offers) need an opt-in;
+  /// order-update SMS are service messages, on until the customer turns them off.
+  /// Every change is also written to ConsentEvent.
+  emailMarketingConsent Boolean   @default(false)
+  smsUpdatesConsent     Boolean   @default(true)
+  /// Set when the customer deleted their account: personal data removed, orders kept for tax.
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   accounts          Account[]
   wishlist          WishlistItem[]
@@ -178,6 +185,7 @@ model User {
   cartReminders     CartReminder[]
   staffRoles        UserRole[]
   passwordResets    PasswordResetToken[]
+  consentEvents     ConsentEvent[]
   supportTickets    SupportTicket[]      @relation("TicketCustomer")
   assignedTickets   SupportTicket[]      @relation("TicketAssignee")
 
@@ -283,39 +291,50 @@ model Product {
   categoryId    String
 
   // Jewellery details
-  metalType           MetalType
-  purity              Purity
-  metalColour         MetalColour
+  metalType             MetalType
+  purity                Purity
+  metalColour           MetalColour
   /// Whole piece including stones, in milligrams.
-  grossWeightMg       Int?
+  grossWeightMg         Int?
   /// Metal only, in milligrams.
-  netWeightMg         Int
-  gemstone            String?
+  netWeightMg           Int
+  gemstone              String?
   /// BIS hallmark unique ID (6 characters) where applicable.
-  huid                String?
-  makingChargeInPaise Int         @default(0)
+  huid                  String?
+  makingChargeInPaise   Int         @default(0)
   /// GST: HSN code and rate in basis points (300 = 3%). Jewellery is usually HSN 7113 at 3% — confirm with your CA.
-  hsnCode             String      @default("7113")
-  gstRateBps          Int         @default(300)
+  hsnCode               String      @default("7113")
+  gstRateBps            Int         @default(300)
   /// Approved reviews only, recalculated in the same transaction as each moderation change.
-  reviewCount         Int         @default(0)
-  ratingSum           Int         @default(0)
+  reviewCount           Int         @default(0)
+  ratingSum             Int         @default(0)
   /// Average × 100 (e.g. 467 = 4.67 stars): whole numbers, no floating point.
-  ratingAvgX100       Int         @default(0)
+  ratingAvgX100         Int         @default(0)
   /// Lower-case words used by search (name, stones, category, metal, purity). Rebuilt on every product/category save.
-  searchText          String      @default("")
-  isReturnable        Boolean     @default(true)
+  searchText            String      @default("")
+  isReturnable          Boolean     @default(true)
+  /// Shown on the product page (Legal Metrology rules for online sellers).
+  countryOfOrigin       String      @default("India")
+  /// "Was" price of the variant shown as the "from" price (Phase 24), kept in sync like priceInPaise.
+  /// Null = not on sale. The badge's % off is worked out on the server from these two numbers.
+  compareAtPriceInPaise Int?
+  /// Lower-case labels for rule-based collections, e.g. "bridal", "daily-wear", "festive", "gift".
+  tags                  String[]    @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category      Category         @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category      Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   variants      ProductVariant[]
   options       ProductOption[]
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   reviews       Review[]
   orderItems    OrderItem[]
+  collections   CollectionProduct[]
+  boughtWith    ProductPair[]       @relation("pairProduct")
+  boughtWithOf  ProductPair[]       @relation("pairRelated")
+  trend         ProductTrend?
 
   @@index([categoryId])
   @@index([isActive, isFeatured])
@@ -323,6 +342,7 @@ model Product {
   @@index([isActive, priceInPaise])
   @@index([isActive, ratingAvgX100])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([tags], type: Gin)
 }
 
 // ─────────────────────── Product variants (Phase 17) ───────────────────────
@@ -356,31 +376,33 @@ model ProductOptionValue {
 /// One buyable version of a product (size × colour …). Every product has at least one.
 /// Products without options have a single "base" variant whose optionKey is "".
 model ProductVariant {
-  id            String       @id @default(cuid())
-  productId     String
+  id                    String       @id @default(cuid())
+  productId             String
   /// Stock-keeping unit: upper-case letters, digits and dashes, unique across the store.
-  sku           String       @unique
+  sku                   String       @unique
   /// Sorted option value ids joined with "." ("" for the base variant). Unique per product,
   /// so the same combination can never exist twice.
-  optionKey     String       @default("")
+  optionKey             String       @default("")
   /// Shown to customers, e.g. "Ring size 12 / Rose". Empty for the base variant.
-  label         String       @default("")
-  priceInPaise  Int
-  stock         Int          @default(0)
+  label                 String       @default("")
+  priceInPaise          Int
+  /// "Was" price for a sale badge (Phase 24). Must be above priceInPaise, or null.
+  compareAtPriceInPaise Int?
+  stock                 Int          @default(0)
   /// Units held by unpaid orders. Available = stock - reservedStock.
-  reservedStock Int          @default(0)
+  reservedStock         Int          @default(0)
   /// Variant photos; empty = use the product's photos.
-  images        String[]
-  isActive      Boolean      @default(true)
-  position      Int          @default(0)
+  images                String[]
+  isActive              Boolean      @default(true)
+  position              Int          @default(0)
   /// Weight differs per size, so it lives on the variant (milligrams).
-  netWeightMg   Int
-  grossWeightMg Int?
+  netWeightMg           Int
+  grossWeightMg         Int?
   /// Overrides the product's colour / purity when the option changes them (null = same as product).
-  metalColour   MetalColour?
-  purity        Purity?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  metalColour           MetalColour?
+  purity                Purity?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
 
   product      Product              @relation(fields: [productId], references: [id], onDelete: Cascade)
   optionValues VariantOptionValue[]
@@ -461,6 +483,9 @@ model Address {
 model Order {
   id                 String           @id @default(cuid())
   userId             String
+  /// Phase 25: which recommendation widget led to each product, e.g. {"<productId>": "similar"}.
+  /// Copied from the shopper's cookie when the order is created; purchase stats read it.
+  recoAttribution    Json?
   status             OrderStatus      @default(PENDING)
   subtotalInPaise    Int
   shippingInPaise    Int              @default(0)
@@ -1144,4 +1169,211 @@ model AppSetting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────── Merchandising and CMS (Phase 24) ───────────────────────
+
+/// Draft = only staff (and preview links) see it. Published = live within its dates.
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+}
+
+/// MANUAL = hand-picked products in order. RULE = products matching `rules` (see lib/merch.ts).
+enum CollectionKind {
+  MANUAL
+  RULE
+}
+
+model Collection {
+  id             String         @id @default(cuid())
+  /// URL: /collections/<slug>. Can't clash with a category slug (checked on save).
+  slug           String         @unique
+  title          String
+  /// Intro shown above the products (simple markdown).
+  description    String         @default("")
+  seoTitle       String?
+  seoDescription String?
+  image          String?
+  kind           CollectionKind @default(MANUAL)
+  /// RULE collections: { categorySlug?, metalType?, purity?, tags?, minPrice?, maxPrice?, onSale?, newWithinDays? }
+  rules          Json           @default("{}")
+  status         ContentStatus  @default(DRAFT)
+  /// Live from/until (null = no limit). Checked on every request: no deploy or job needed.
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  products     CollectionProduct[]
+  homeSections HomeSection[]
+
+  @@index([status, startsAt, endsAt])
+}
+
+model CollectionProduct {
+  collectionId String
+  productId    String
+  position     Int        @default(0)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([collectionId, productId])
+  @@index([productId])
+}
+
+enum HomeSectionKind {
+  /// Big image with heading, text and a button.
+  HERO
+  /// A row of products from a collection.
+  PRODUCTS
+  /// A wide clickable image (e.g. a festival sale).
+  BANNER
+  /// Heading and text.
+  TEXT
+}
+
+/// Homepage builder. When no section is live, the built-in homepage shows instead.
+model HomeSection {
+  id           String          @id @default(cuid())
+  kind         HomeSectionKind
+  title        String          @default("")
+  subtitle     String          @default("")
+  body         String          @default("")
+  linkUrl      String?
+  linkLabel    String?
+  imageDesktop String?
+  /// Optional narrower image for phones (falls back to imageDesktop).
+  imageMobile  String?
+  collectionId String?
+  position     Int             @default(0)
+  status       ContentStatus   @default(DRAFT)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  collection Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  @@index([status, position])
+}
+
+/// The thin bar above the header. The live one with the highest priority shows.
+model Announcement {
+  id        String        @id @default(cuid())
+  message   String
+  linkUrl   String?
+  linkLabel String?
+  priority  Int           @default(0)
+  status    ContentStatus @default(DRAFT)
+  startsAt  DateTime?
+  endsAt    DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([status, priority])
+}
+
+/// Editable pages at /pages/<slug> (About us, Jewellery care…). The legal pages stay in code
+/// because they read the business details from config.ini.
+model ContentPage {
+  id             String        @id @default(cuid())
+  slug           String        @unique
+  title          String
+  /// What customers see (set when published).
+  body           String        @default("")
+  /// Work in progress; "Publish" copies it to body.
+  draftBody      String        @default("")
+  seoDescription String?
+  status         ContentStatus @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+// ─────────────────────── Recommendations (Phase 25) ───────────────────────
+
+/// "Frequently bought together": how many paid orders contained both products (last 365 days).
+/// Rebuilt as a whole by the nightly job, so running it twice gives the same rows.
+model ProductPair {
+  productId  String
+  relatedId  String
+  /// Orders containing both.
+  orders     Int
+  computedAt DateTime @default(now())
+
+  product Product @relation("pairProduct", fields: [productId], references: [id], onDelete: Cascade)
+  related Product @relation("pairRelated", fields: [relatedId], references: [id], onDelete: Cascade)
+
+  @@id([productId, relatedId])
+  @@index([productId, orders])
+}
+
+/// "Trending": units sold in the last 14 days, recent days weighted more. Rebuilt nightly.
+model ProductTrend {
+  productId  String   @id
+  score      Int
+  computedAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([score])
+}
+
+/// Widget clicks / add-to-carts / purchases per day. Several "shard" rows per counter so busy
+/// pages never queue behind one row lock; reports add them up.
+model RecoStat {
+  day    DateTime @db.Date
+  widget String
+  /// impression | click | add_to_cart | purchase
+  event  String
+  shard  Int
+  count  Int      @default(0)
+
+  @@id([day, widget, event, shard])
+}
+
+// ─────────────────────── Monitoring and alerts (Phase 26) ───────────────────────
+
+/// Per-minute counters for things that leave no other trace: payment gateway errors, bad webhook
+/// signatures, error log lines. Kept 3 days (pruned by the cron).
+model Metric {
+  key    String
+  /// Start of the minute (UTC).
+  minute DateTime
+  count  Int      @default(0)
+
+  @@id([key, minute])
+  @@index([minute])
+}
+
+/// One row per business alert: whether it's firing and when we last told someone.
+/// Alerts email once when they start, remind every few hours while firing, and say when resolved.
+model AlertState {
+  key            String    @id
+  firing         Boolean   @default(false)
+  since          DateTime?
+  lastNotifiedAt DateTime?
+  /// What the last check saw (shown in Admin → System).
+  detail         String    @default("")
+  checkedAt      DateTime  @default(now())
+}
+
+// ─────────────────────── Privacy (Phase 27) ───────────────────────
+
+/// Every consent given or withdrawn, never edited — proof of what a customer agreed to, and when.
+model ConsentEvent {
+  id        String   @id @default(cuid())
+  /// Null once the account is deleted (the event itself is kept as a record).
+  userId    String?
+  /// email_marketing | sms_updates | analytics
+  channel   String
+  granted   Boolean
+  /// register | account | cookie_banner | unsubscribe_link | account_deleted
+  source    String
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

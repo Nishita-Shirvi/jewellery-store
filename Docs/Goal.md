@@ -344,49 +344,53 @@ Tick a box only when it has been built **and** verified.
 
 ### Phase 24 — Merchandising and CMS
 
-- [ ] Manual and rule-based collections with SEO pages
-- [ ] Homepage builder with scheduled sections and mobile/desktop images
-- [ ] Announcement bar and sale badges (compare-at price, % off on the server)
-- [ ] Editable static pages with markdown and preview
-- [ ] Draft/publish with preview links and cache refresh
+- [x] Manual and rule-based collections with SEO pages
+- [x] Homepage builder with scheduled sections and mobile/desktop images
+- [x] Announcement bar and sale badges (compare-at price, % off on the server)
+- [x] Editable static pages with markdown and preview
+- [x] Draft/publish with preview links and cache refresh
 
 **Jewellery-specific:** ready-made collections for occasions (Bridal, Daily Wear, Festive, Gifts) and festival scheduling (Akshaya Tritiya, Dhanteras, Diwali, wedding season).
 
 **Done when:** the owner schedules a sale banner and collection for a future date without a deploy, and it goes live and expires automatically.
+**Status:** done — proven by a browser test that schedules both through the admin screens and watches them go live and expire (tests/e2e/content.spec.ts).
 
 ### Phase 25 — Recommendations
 
-- [ ] "Frequently bought together" from a nightly idempotent job
-- [ ] "Similar products", "Recently viewed", "Trending"
-- [ ] Cart upsell for free shipping
-- [ ] Click/conversion tracking per widget
-- [ ] Recommendations read from cache
+- [x] "Frequently bought together" from a nightly idempotent job
+- [x] "Similar products", "Recently viewed", "Trending"
+- [x] Cart upsell for free shipping
+- [x] Click/conversion tracking per widget
+- [x] Recommendations read from cache
 
 **Done when:** widgets show sensible items for the dummy data, the nightly job is idempotent, and pages don't get slower.
+**Status:** done — job idempotency and overlap tested on a real database; pages measured side by side with the pre-Week-4 build (equal within noise).
 
 ### Phase 26 — Monitoring and alerts
 
-- [ ] Structured JSON logs with request/correlation IDs; no personal data or secrets in logs
-- [ ] Sentry tracing and release tracking
-- [ ] Uptime checks on home, health, checkout and webhooks
-- [ ] Business alerts (no orders, high payment failures, dead-letter jobs, webhook failures, top-seller stock-outs, error spikes)
-- [ ] `/admin/system` health page
-- [ ] `RUNBOOK.md` entry for every alert
+- [x] Structured JSON logs with request/correlation IDs; no personal data or secrets in logs
+- [x] Sentry tracing and release tracking
+- [x] Uptime checks on home, health, checkout and webhooks
+- [x] Business alerts (no orders, high payment failures, dead-letter jobs, webhook failures, top-seller stock-outs, error spikes)
+- [x] `/admin/system` health page
+- [x] `RUNBOOK.md` entry for every alert
 
 **Done when:** a simulated payment outage alerts within 5 minutes, and every alert has a runbook entry.
+**Status:** done — a simulated payment outage (5 failed checkouts) alerted 8 ms after the last failure in the browser test; every alert has a RUNBOOK.md section (checked by a unit test).
 
 ### Phase 27 — Privacy and legal compliance
 
-- [ ] "Download my data" and "Delete my account" (keeping tax records)
-- [ ] Separate consents for email, SMS and analytics, logged and respected
-- [ ] Auto-purge of old data on a schedule
-- [ ] Seller details, grievance officer, country of origin, total price with taxes, return policy on product pages
-- [ ] Phone numbers and addresses encrypted at the application level
-- [ ] Privacy policy and terms updated to match the system
+- [x] "Download my data" and "Delete my account" (keeping tax records)
+- [x] Separate consents for email, SMS and analytics, logged and respected
+- [x] Auto-purge of old data on a schedule
+- [x] Seller details, grievance officer, country of origin, total price with taxes, return policy on product pages
+- [x] Phone numbers and addresses encrypted at the application level
+- [x] Privacy policy and terms updated to match the system
 
 **Jewellery-specific:** show BIS hallmark / HUID details on product pages where applicable.
 
 **Done when:** data export and deletion work end to end, consent toggles change behaviour, and seller/grievance info is visible.
+**Status:** done — browser test: sign-up opt-in, SMS opt-out, data download and account deletion (old login refused); consent changes behaviour (reminders and SMS, DB tests); seller and grievance details on product pages.
 
 ### Phase 28 — Accessibility, Hindi, UX polish
 

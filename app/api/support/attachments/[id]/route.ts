@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, staffHasPermission } from "@/lib/auth-guards";
 import { getAttachmentForViewer } from "@/services/support.service";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
  * found" and "not yours". Served so it can never run as a page: exact type from the bytes,
  * nosniff, a sandboxing CSP, private no-store caching.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Please log in." }, { status: 401 });
   const { id } = await params;
@@ -34,3 +35,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     },
   });
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

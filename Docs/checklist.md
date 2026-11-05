@@ -173,28 +173,28 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 
 ## Week 4 — Launch readiness ⬜
 
-### 24. Merchandising & CMS
+### 24. Merchandising & CMS ✅
 
-- [ ] Collections (manual + rule-based)
-- [ ] Homepage builder with scheduled sections
-- [ ] Announcement bar, sale badges, editable pages
+- [x] Collections (manual + rule-based)
+- [x] Homepage builder with scheduled sections
+- [x] Announcement bar, sale badges, editable pages
 
-### 25. Recommendations
+### 25. Recommendations ✅
 
-- [ ] Frequently bought together, similar, recently viewed, trending
-- [ ] Free-shipping upsell in cart
+- [x] Frequently bought together, similar, recently viewed, trending
+- [x] Free-shipping upsell in cart
 
-### 26. Monitoring & alerts
+### 26. Monitoring & alerts ✅
 
-- [ ] Structured logs, Sentry tracing, uptime checks
-- [ ] Business alerts + `/admin/system` page + runbook
+- [x] Structured logs, Sentry tracing, uptime checks
+- [x] Business alerts + `/admin/system` page + runbook
 
-### 27. Privacy & legal compliance
+### 27. Privacy & legal compliance ✅
 
-- [ ] Download my data / delete my account
-- [ ] Consent management (email, SMS, analytics)
-- [ ] Seller / grievance info on product pages
-- [ ] Encrypted phone numbers and addresses
+- [x] Download my data / delete my account
+- [x] Consent management (email, SMS, analytics)
+- [x] Seller / grievance info on product pages
+- [x] Encrypted phone numbers and addresses
 
 ### 28. Accessibility, Hindi, UX polish
 

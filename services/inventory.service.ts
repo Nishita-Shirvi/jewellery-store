@@ -66,6 +66,13 @@ export async function syncProductSummaries(tx: Tx, productIds: string[]): Promis
                                      WHERE v."productId" = p."id" AND v."isActive"), 0),
         "priceInPaise" = COALESCE((SELECT MIN(v."priceInPaise") FROM "ProductVariant" v
                                     WHERE v."productId" = p."id" AND v."isActive"), p."priceInPaise"),
+        -- Sale badge (Phase 24): the "was" price of the variant giving the "from" price, so the
+        -- card's price and its % off always describe the same piece. Only when it's a real saving.
+        "compareAtPriceInPaise" = (SELECT CASE WHEN v."compareAtPriceInPaise" > v."priceInPaise"
+                                               THEN v."compareAtPriceInPaise" END
+                                     FROM "ProductVariant" v
+                                    WHERE v."productId" = p."id" AND v."isActive"
+                                    ORDER BY v."priceInPaise", v."position", v."id" LIMIT 1),
         "updatedAt" = NOW()
       WHERE p."id" = ${productId}`;
   }

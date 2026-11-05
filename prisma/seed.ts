@@ -65,6 +65,31 @@ async function seedCategories(): Promise<Map<string, string>> {
   return idsBySlug;
 }
 
+/**
+ * Demo occasion tags (Phase 24) so the starter collections — Bridal, Daily Wear, Festive,
+ * Gifts — have products. Only applied to products that have no tags yet, so re-running the
+ * seed never overwrites tags the owner has set.
+ */
+const DEMO_TAGS: Record<string, string[]> = {
+  "classic-solitaire-ring": ["bridal", "gift"],
+  "floral-band-ring": ["daily-wear", "gift"],
+  "infinity-ring": ["daily-wear", "gift"],
+  "ruby-cocktail-ring": ["festive"],
+  "temple-lakshmi-necklace": ["bridal", "festive"],
+  "heart-pendant-with-chain": ["gift", "daily-wear"],
+  "freshwater-pearl-strand": ["gift"],
+  "classic-mangalsutra": ["bridal", "daily-wear"],
+  "evil-eye-pendant": ["daily-wear", "gift"],
+  "diamond-stud-earrings": ["gift", "daily-wear"],
+  "traditional-jhumka": ["festive", "bridal"],
+  "everyday-hoop-earrings": ["daily-wear"],
+  "kundan-chandbali-earrings": ["festive", "bridal"],
+  "plain-gold-bangles": ["bridal", "festive"],
+  "diamond-tennis-bracelet": ["gift"],
+  "charm-bracelet": ["gift", "daily-wear"],
+  "mens-gold-kada": ["festive", "gift"],
+};
+
 async function seedProducts(categoryIds: Map<string, string>) {
   for (const product of dummyProducts) {
     const categoryId = categoryIds.get(product.categorySlug);
@@ -110,6 +135,9 @@ async function seedProducts(categoryIds: Map<string, string>) {
         images: [],
       },
     });
+  }
+  for (const [slug, tags] of Object.entries(DEMO_TAGS)) {
+    await db.product.updateMany({ where: { slug, tags: { isEmpty: true } }, data: { tags } });
   }
   console.log(`✔ Products: ${dummyProducts.length}`);
   // Build the search words for every product (same rules as services/search.service.ts; it also self-heals on first search).

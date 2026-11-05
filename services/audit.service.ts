@@ -18,7 +18,11 @@ export interface AuditEntry {
     | "job"
     | "staff"
     | "ticket"
-    | "faq";
+    | "faq"
+    | "collection"
+    | "home_section"
+    | "announcement"
+    | "page";
   entityId: string;
   summary: string;
   changes?: Record<string, { from: unknown; to: unknown }>;

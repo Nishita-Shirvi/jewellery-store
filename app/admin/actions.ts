@@ -57,6 +57,29 @@ import { createInvoiceForOrder } from "@/services/invoice.service";
 import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.service";
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
+import { evaluateAlerts } from "@/services/monitor.service";
+import {
+  announcementFormSchema,
+  collectionFormSchema,
+  contentPageFormSchema,
+  homeSectionFormSchema,
+  parseProductList,
+} from "@/lib/validation/content";
+import {
+  ContentInputError,
+  createStarterCollections,
+  deleteAnnouncement,
+  deleteCollection,
+  deleteHomeSection,
+  deletePage,
+  publishPage,
+  saveAnnouncement,
+  saveCollection,
+  saveHomeSection,
+  savePageDraft,
+  setCollectionProducts,
+  unpublishPage,
+} from "@/services/merch.service";
 import { MAX_OPTIONS, optionsInputSchema, parseValueList } from "@/lib/variants";
 import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
 import {
@@ -614,6 +637,13 @@ export async function saveVariantsAction(
     const sku = String(formData.get(`sku_${v}`) ?? "");
     if (price === null || price <= 0)
       return { error: `${sku || v}: enter a price in rupees`, values: typedValues(formData) };
+    const compareText = String(formData.get(`compare_${v}`) ?? "").trim();
+    const compareAt = compareText ? parseRupeesToPaise(compareText) : null;
+    if (compareText && (compareAt === null || compareAt <= price))
+      return {
+        error: `${sku || v}: the "was" price must be higher than the price (or leave it empty)`,
+        values: typedValues(formData),
+      };
     if (stock === null || stock > 100000)
       return { error: `${sku || v}: stock must be a whole number`, values: typedValues(formData) };
     if (!net)
@@ -624,6 +654,7 @@ export async function saveVariantsAction(
       id: v,
       sku,
       priceInPaise: price,
+      compareAtPriceInPaise: compareAt,
       stock,
       netWeightMg: net,
       grossWeightMg: gross,
@@ -1024,4 +1055,286 @@ export async function deleteCannedReplyAction(formData: FormData): Promise<void>
     summary: "Canned reply deleted",
   });
   revalidatePath("/admin/faqs");
+}
+
+// ───────────────────────── Content: collections, homepage, announcements, pages (Phase 24) ─────
+
+const contentIdSchema = z.string().regex(/^[a-z0-9]{1,40}$/i);
+const optionalContentId = (v: FormDataEntryValue | null) =>
+  typeof v === "string" && v ? v : undefined;
+
+/** Back to an admin page with a message (errors show as an alert, others as a notice). */
+function backTo(path: string, params: { error?: string; saved?: string }): never {
+  const [base, hash] = path.split("#");
+  const q = new URLSearchParams(params as Record<string, string>).toString();
+  redirect(`${base}?${q}${hash ? `#${hash}` : ""}`);
+}
+
+/** The content forms name their status "contentStatus" (it isn't an order status). */
+function contentForm(formData: FormData, idField: string) {
+  const raw = Object.fromEntries(formData) as Record<string, string>;
+  return {
+    ...raw,
+    id: optionalContentId(formData.get(idField)),
+    status: raw.contentStatus,
+  } as Record<string, string | undefined>;
+}
+
+function firstIssue(error: z.ZodError) {
+  const i = error.issues[0];
+  if (!i) return "Check the form";
+  const field = i.path.join(".");
+  return field ? `${field}: ${i.message}` : i.message;
+}
+
+export async function saveCollectionAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const parsed = collectionFormSchema.safeParse(contentForm(formData, "collectionId"));
+  const editPath = (id?: string) => `/admin/content/collections/${id ?? "new"}`;
+  if (!parsed.success)
+    backTo(editPath(optionalContentId(formData.get("collectionId"))), {
+      error: firstIssue(parsed.error),
+    });
+  let id: string;
+  try {
+    id = (await saveCollection(parsed.data)).id;
+  } catch (error) {
+    if (error instanceof ContentInputError)
+      backTo(editPath(parsed.data.id), { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: parsed.data.id ? "collection.update" : "collection.create",
+    entityType: "collection",
+    entityId: id,
+    summary: `Collection ${parsed.data.title} (${parsed.data.status.toLowerCase()})`,
+  });
+  revalidatePath("/admin/content");
+  backTo(editPath(id), { saved: "Collection saved." });
+}
+
+export async function setCollectionProductsAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("collectionId"));
+  if (!id.success) backTo("/admin/content", { error: "Invalid collection." });
+  const slugs = parseProductList(String(formData.get("productSlugs") ?? ""));
+  let count: number;
+  try {
+    count = await setCollectionProducts(id.data, slugs);
+  } catch (error) {
+    if (error instanceof ContentInputError)
+      backTo(`/admin/content/collections/${id.data}`, { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: "collection.products",
+    entityType: "collection",
+    entityId: id.data,
+    summary: `Collection products set (${count})`,
+  });
+  backTo(`/admin/content/collections/${id.data}`, { saved: `${count} product(s) saved.` });
+}
+
+export async function deleteCollectionAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("collectionId"));
+  if (!id.success) return;
+  await deleteCollection(id.data);
+  await audit(admin, {
+    action: "collection.delete",
+    entityType: "collection",
+    entityId: id.data,
+    summary: "Collection deleted",
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content", { saved: "Collection deleted." });
+}
+
+export async function createStarterCollectionsAction(): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const created = await createStarterCollections();
+  await audit(admin, {
+    action: "collection.starters",
+    entityType: "collection",
+    entityId: "starters",
+    summary: `Starter collections added (${created})`,
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content", {
+    saved: created
+      ? `${created} occasion collection(s) added as drafts. Tag products bridal / daily-wear / festive / gift, then publish them.`
+      : "The occasion collections already exist.",
+  });
+}
+
+export async function saveHomeSectionAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const raw = contentForm(formData, "sectionId");
+  const parsed = homeSectionFormSchema.safeParse({
+    ...raw,
+    kind: raw.sectionKind,
+    body: raw.sectionBody,
+    collectionId: raw.sectionCollectionId,
+  });
+  if (!parsed.success) backTo("/admin/content#homepage", { error: firstIssue(parsed.error) });
+  let id: string;
+  try {
+    id = (await saveHomeSection(parsed.data)).id;
+  } catch (error) {
+    if (error instanceof ContentInputError)
+      backTo("/admin/content#homepage", { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: parsed.data.id ? "home_section.update" : "home_section.create",
+    entityType: "home_section",
+    entityId: id,
+    summary: `Homepage ${parsed.data.kind.toLowerCase()} section: ${parsed.data.title || "(no title)"}`,
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content#homepage", { saved: "Homepage section saved." });
+}
+
+export async function deleteHomeSectionAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("sectionId"));
+  if (!id.success) return;
+  await deleteHomeSection(id.data);
+  await audit(admin, {
+    action: "home_section.delete",
+    entityType: "home_section",
+    entityId: id.data,
+    summary: "Homepage section deleted",
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content#homepage", { saved: "Homepage section deleted." });
+}
+
+export async function saveAnnouncementAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const parsed = announcementFormSchema.safeParse(contentForm(formData, "announcementId"));
+  if (!parsed.success) backTo("/admin/content#announcements", { error: firstIssue(parsed.error) });
+  let id: string;
+  try {
+    id = (await saveAnnouncement(parsed.data)).id;
+  } catch (error) {
+    if (error instanceof ContentInputError)
+      backTo("/admin/content#announcements", { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: parsed.data.id ? "announcement.update" : "announcement.create",
+    entityType: "announcement",
+    entityId: id,
+    summary: `Announcement: ${parsed.data.message.slice(0, 80)}`,
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content#announcements", { saved: "Announcement saved." });
+}
+
+export async function deleteAnnouncementAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("announcementId"));
+  if (!id.success) return;
+  await deleteAnnouncement(id.data);
+  await audit(admin, {
+    action: "announcement.delete",
+    entityType: "announcement",
+    entityId: id.data,
+    summary: "Announcement deleted",
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content#announcements", { saved: "Announcement deleted." });
+}
+
+export async function savePageAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const raw = Object.fromEntries(formData) as Record<string, string>;
+  const pageId = optionalContentId(formData.get("pageId"));
+  const parsed = contentPageFormSchema.safeParse({ ...raw, id: pageId });
+  const editPath = (id?: string) => `/admin/content/pages/${id ?? "new"}`;
+  if (!parsed.success) backTo(editPath(pageId), { error: firstIssue(parsed.error) });
+  let id: string;
+  try {
+    id = (await savePageDraft(parsed.data)).id;
+  } catch (error) {
+    if (error instanceof ContentInputError) backTo(editPath(pageId), { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: pageId ? "page.update" : "page.create",
+    entityType: "page",
+    entityId: id,
+    summary: `Page draft saved: ${parsed.data.title}`,
+  });
+  revalidatePath("/admin/content");
+  backTo(editPath(id), { saved: "Draft saved. Customers still see the published version." });
+}
+
+export async function publishPageAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("pageId"));
+  if (!id.success) return;
+  try {
+    await publishPage(id.data);
+  } catch (error) {
+    if (error instanceof ContentInputError)
+      backTo(`/admin/content/pages/${id.data}`, { error: error.message });
+    throw error;
+  }
+  await audit(admin, {
+    action: "page.publish",
+    entityType: "page",
+    entityId: id.data,
+    summary: "Page published",
+  });
+  revalidatePath("/admin/content");
+  backTo(`/admin/content/pages/${id.data}`, {
+    saved: "Published — customers now see this version.",
+  });
+}
+
+export async function unpublishPageAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("pageId"));
+  if (!id.success) return;
+  await unpublishPage(id.data);
+  await audit(admin, {
+    action: "page.unpublish",
+    entityType: "page",
+    entityId: id.data,
+    summary: "Page unpublished",
+  });
+  revalidatePath("/admin/content");
+  backTo(`/admin/content/pages/${id.data}`, { saved: "Unpublished — the page is hidden." });
+}
+
+export async function deletePageAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("content.manage");
+  const id = contentIdSchema.safeParse(formData.get("pageId"));
+  if (!id.success) return;
+  await deletePage(id.data);
+  await audit(admin, {
+    action: "page.delete",
+    entityType: "page",
+    entityId: id.data,
+    summary: "Page deleted",
+  });
+  revalidatePath("/admin/content");
+  backTo("/admin/content", { saved: "Page deleted." });
+}
+
+// ───────────────────────── System (Phase 26) ─────────────────────────
+
+/** Runs every alert check now (otherwise they run with each cron tick). */
+export async function runAlertChecksAction(): Promise<void> {
+  const admin = await requirePermission("system.view");
+  const changes = await evaluateAlerts();
+  await audit(admin, {
+    action: "system.check_alerts",
+    entityType: "job",
+    entityId: "alerts",
+    summary: `Alert checks run (${changes.length} change(s))`,
+  });
+  revalidatePath("/admin/system");
 }

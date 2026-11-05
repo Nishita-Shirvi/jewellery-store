@@ -20,6 +20,12 @@ const serverSchema = z.object({
   AUTH_SECRET: z
     .string({ message: "AUTH_SECRET is required (see .env.example for how to generate one)" })
     .min(32, { message: "AUTH_SECRET must be at least 32 characters" }),
+  // Phase 27: key for customers' phone numbers and addresses (encrypted in the database).
+  // Strongly recommended — without it the key is derived from AUTH_SECRET, so AUTH_SECRET could
+  // then never be changed without first re-encrypting (Docs/RUNBOOK.md → "Rotating keys").
+  PII_ENCRYPTION_KEY: z.string().min(32).optional(),
+  // The old key while rotating to a new PII_ENCRYPTION_KEY (remove after `npm run pii:encrypt`).
+  PII_PREVIOUS_KEY: z.string().min(32).optional(),
   AUTH_URL: z.url().optional(),
   AUTH_TRUST_HOST: z.enum(["true", "false"]).optional(),
   AUTH_GOOGLE_ID: z.string().min(1).optional(),
@@ -34,6 +40,8 @@ const serverSchema = z.object({
 
   // Email via Resend (emails are logged instead of sent until RESEND_API_KEY is set)
   RESEND_API_KEY: z.string().startsWith("re_").optional(),
+  // Optional chat alerts (Phase 26): a Slack / Google Chat / Discord incoming-webhook URL.
+  ALERT_WEBHOOK_URL: z.url({ protocol: /^https$/ }).optional(),
   EMAIL_FROM: z.string().min(3).default("Jewellery Store <onboarding@resend.dev>"),
 
   // Product image uploads (Cloudinary). Without these, admins pick from placeholder images.

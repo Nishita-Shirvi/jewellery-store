@@ -78,6 +78,8 @@ export default async function EditProductPage({
             netWeight: mgToGramsInput(product.netWeightMg),
             grossWeight: product.grossWeightMg ? mgToGramsInput(product.grossWeightMg) : "",
             gemstone: product.gemstone ?? "",
+            tags: product.tags.join(", "),
+            countryOfOrigin: product.countryOfOrigin,
             huid: product.huid ?? "",
             hsnCode: product.hsnCode,
             gstRate: formatRate(product.gstRateBps).replace("%", ""),

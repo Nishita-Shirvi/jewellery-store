@@ -5,6 +5,10 @@ import { ProductImage } from "@/components/catalog/product-image";
 import { ProductGrid } from "@/components/catalog/product-grid";
 import { Button } from "@/components/ui/button";
 import { getCategories, getFeaturedProducts } from "@/services/catalog.service";
+import { HomeSections } from "@/components/merch/home-sections";
+import { getLiveHomeSections } from "@/services/merch.service";
+import { checkPreviewToken } from "@/lib/preview";
+import { RecoRow } from "@/components/reco/reco-row";
 
 const TRUST = [
   {
@@ -29,7 +33,33 @@ const TRUST = [
   },
 ];
 
-export default async function HomePage() {
+/**
+ * Home: the sections built in Admin → Content when any are live (Phase 24); otherwise the
+ * built-in homepage below. A content problem never takes the homepage down.
+ */
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>;
+}) {
+  const preview = checkPreviewToken("home", "home", (await searchParams).preview);
+  const sections = await getLiveHomeSections(new Date(), { preview }).catch(() => []);
+  if (sections.length > 0)
+    return (
+      <>
+        {preview && (
+          <p role="status" className="bg-amber-50 p-3 text-center text-sm text-amber-900">
+            Homepage preview — showing drafts and scheduled sections too. Customers see only
+            what&apos;s live.
+          </p>
+        )}
+        <HomeSections sections={sections} />
+      </>
+    );
+  return <DefaultHome />;
+}
+
+async function DefaultHome() {
   const [categories, featured] = await Promise.all([getCategories(), getFeaturedProducts(8)]);
 
   return (
@@ -164,6 +194,7 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+        <RecoRow widget="trending" query="w=trending" />
       </div>
 
       {/* Why buy here */}

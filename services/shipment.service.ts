@@ -15,10 +15,10 @@ import {
   requestPickup,
   trackingUrlFor,
 } from "@/lib/shipping/shiprocket";
-import type { AddressSnapshot } from "@/services/address.service";
 import { lineName } from "@/lib/variants";
 import { READY_TO_SHIP_STATUSES } from "@/lib/order-status";
 import { restockLines } from "@/services/inventory.service";
+import { openSnapshot } from "@/services/address.service";
 
 function titleCase(value: string): string {
   return value.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
@@ -67,7 +67,7 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
   }
 
   let shipment = order.shipment ?? (await db.shipment.create({ data: { orderId } }));
-  const address = order.addressSnapshot as AddressSnapshot;
+  const address = openSnapshot(order.addressSnapshot);
 
   try {
     if (!shipment.providerShipmentId) {

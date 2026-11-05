@@ -53,6 +53,13 @@ export function RegisterForm({ callbackUrl }: { callbackUrl: string }) {
         required
         errors={state.fieldErrors?.confirmPassword}
       />
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="marketingConsent" className="mt-1" />
+        <span>
+          Email me offers, new collections and reminders about my cart. (Optional — change it any
+          time in Account → Privacy.)
+        </span>
+      </label>
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
       </Button>

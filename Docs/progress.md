@@ -3,7 +3,7 @@
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
 **Last updated:** 2026-11-03
-**Current phase:** Week 3 built and tested on branch `week3-growth` (Phases 17–23). Release checklist: Docs/RELEASE_WEEK3.md. Deploy waits on client accounts (B-10). Next: Week 4 (Phase 24).
+**Current phase:** Week 3 merged to main and deployed (PR #11). Week 4: Phases 24–26 in PR #12 (`week4-launch`); Phase 27 on `week4-part2`. Next: Phase 28 — Accessibility, Hindi, UX polish.
 
 ---
 
@@ -11,44 +11,80 @@
 
 Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked · ⏭️ Deferred
 
-| Phase | Name                            | Status | Started    | Finished   | Notes                                                                                                            |
-| ----- | ------------------------------- | ------ | ---------- | ---------- | ---------------------------------------------------------------------------------------------------------------- |
-| 0     | Planning and Docs folder        | ✅     | 2026-10-08 | 2026-10-08 | Docs created                                                                                                     |
-| 1     | Project setup                   | ✅     | 2026-10-08 | 2026-10-08 | Health check verified against real PostgreSQL (200 when up, 503 when down)                                       |
-| 2     | Database schema                 | ✅     | 2026-10-08 | 2026-10-09 | Migrated and seeded on Neon (Singapore) by the client                                                            |
-| 3     | Authentication                  | ✅     | 2026-10-09 | 2026-10-09 | 24/24 browser checks in the sandbox; Google login waits for keys (B-06)                                          |
-| 4     | Catalog                         | ✅     | 2026-10-09 | 2026-10-09 | 25/25 browser checks in the sandbox                                                                              |
-| 5     | Cart                            | ✅     | 2026-10-09 | 2026-10-09 | 20/20 browser checks + unit tests                                                                                |
-| 6     | Checkout and payments           | ✅     | 2026-10-09 | 2026-10-09 | 27/27 payment scenarios + race test; needs real test keys locally (B-01)                                         |
-| 7     | Account and admin panel         | ✅     | 2026-10-09 | 2026-10-09 | 38/38 browser checks + admin-security unit tests                                                                 |
-| 8     | Hardening and deployment        | ✅     | 2026-10-09 | 2026-10-09 | Code + CI done; going live waits on client accounts (DEPLOY.md)                                                  |
-| 9     | Inventory reservation           | ✅     | 2026-10-09 | 2026-10-09 | 7 real-DB concurrency tests, 35/35 payment scenarios, full regression green                                      |
-| 10    | Shipping (Shiprocket)           | ✅     | 2026-10-09 | 2026-10-09 | 21/21 shipping checks; full regression 163 browser + 86 unit + 7 DB tests                                        |
-| 11    | Cancellations, returns, refunds | ✅     | 2026-10-10 | 2026-10-10 | 34/34 refund checks; full regression 218 browser + 3 Playwright + 105 unit + 7 DB                                |
-| 12    | GST invoices and order emails   | ✅     | 2026-10-10 | 2026-10-10 | 20/20 invoice checks (PDF text verified) + 5 DB tests; full regression green                                     |
-| 13    | Coupons and wishlist            | ✅     | 2026-10-10 | 2026-10-11 | 24/24 browser checks, coupon rules unit-tested, 2 DB concurrency tests; full regression green                    |
-| 14    | Reviews and ratings             | ✅     | 2026-10-11 | 2026-10-11 | 20/20 browser checks + DB concurrency test (found and fixed a stale-average race)                                |
-| 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                             |
-| 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                     |
-| 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E    |
-| 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E   |
-| 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E        |
-| 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                     |
-| 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA             |
-| 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                |
-| 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10             |
-| 24    | Merchandising and CMS           | ⬜     |            |            |                                                                                                                  |
-| 25    | Recommendations                 | ⬜     |            |            |                                                                                                                  |
-| 26    | Monitoring and alerts           | ⬜     |            |            |                                                                                                                  |
-| 27    | Privacy and compliance          | ⬜     |            |            | Needs legal/CA review                                                                                            |
-| 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                     |
-| 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                  |
-| 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                                                                  |
-| F     | Final frontend design           | 🟨     | 2026-10-11 |            | Design system + header, footer, home, product card/page done; next: listing, cart, checkout, account, auth pages |
+| Phase | Name                            | Status | Started    | Finished   | Notes                                                                                                             |
+| ----- | ------------------------------- | ------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------- |
+| 0     | Planning and Docs folder        | ✅     | 2026-10-08 | 2026-10-08 | Docs created                                                                                                      |
+| 1     | Project setup                   | ✅     | 2026-10-08 | 2026-10-08 | Health check verified against real PostgreSQL (200 when up, 503 when down)                                        |
+| 2     | Database schema                 | ✅     | 2026-10-08 | 2026-10-09 | Migrated and seeded on Neon (Singapore) by the client                                                             |
+| 3     | Authentication                  | ✅     | 2026-10-09 | 2026-10-09 | 24/24 browser checks in the sandbox; Google login waits for keys (B-06)                                           |
+| 4     | Catalog                         | ✅     | 2026-10-09 | 2026-10-09 | 25/25 browser checks in the sandbox                                                                               |
+| 5     | Cart                            | ✅     | 2026-10-09 | 2026-10-09 | 20/20 browser checks + unit tests                                                                                 |
+| 6     | Checkout and payments           | ✅     | 2026-10-09 | 2026-10-09 | 27/27 payment scenarios + race test; needs real test keys locally (B-01)                                          |
+| 7     | Account and admin panel         | ✅     | 2026-10-09 | 2026-10-09 | 38/38 browser checks + admin-security unit tests                                                                  |
+| 8     | Hardening and deployment        | ✅     | 2026-10-09 | 2026-10-09 | Code + CI done; going live waits on client accounts (DEPLOY.md)                                                   |
+| 9     | Inventory reservation           | ✅     | 2026-10-09 | 2026-10-09 | 7 real-DB concurrency tests, 35/35 payment scenarios, full regression green                                       |
+| 10    | Shipping (Shiprocket)           | ✅     | 2026-10-09 | 2026-10-09 | 21/21 shipping checks; full regression 163 browser + 86 unit + 7 DB tests                                         |
+| 11    | Cancellations, returns, refunds | ✅     | 2026-10-10 | 2026-10-10 | 34/34 refund checks; full regression 218 browser + 3 Playwright + 105 unit + 7 DB                                 |
+| 12    | GST invoices and order emails   | ✅     | 2026-10-10 | 2026-10-10 | 20/20 invoice checks (PDF text verified) + 5 DB tests; full regression green                                      |
+| 13    | Coupons and wishlist            | ✅     | 2026-10-10 | 2026-10-11 | 24/24 browser checks, coupon rules unit-tested, 2 DB concurrency tests; full regression green                     |
+| 14    | Reviews and ratings             | ✅     | 2026-10-11 | 2026-10-11 | 20/20 browser checks + DB concurrency test (found and fixed a stale-average race)                                 |
+| 15    | Search, SEO, performance        | ✅     | 2026-10-11 | 2026-10-11 | 21/21 browser checks + 9 DB search tests; Lighthouse to be measured on the live site                              |
+| 16    | Analytics, reports, release     | ✅     | 2026-10-11 | 2026-10-11 | 18/18 browser checks (reports match DB); see note D-114 for regression scope                                      |
+| 17    | Product variants                | ✅     | 2026-11-03 | 2026-11-03 | 23 DB + 31 unit variant checks, migration verified on a copy, 2 E2E; full regression 203 unit + 48 DB + 4 E2E     |
+| 18    | COD and payment options         | ✅     | 2026-11-03 | 2026-11-03 | 15 DB + 27 unit COD checks, 2 E2E; live SMS needs MSG91 + DLT (B-08); full regression 236 unit + 63 DB + 7 E2E    |
+| 19    | Background jobs                 | ✅     | 2026-11-03 | 2026-11-03 | Postgres job queue (no Redis/Inngest); 20 DB job checks + 1 E2E; full regression 239 unit + 83 DB + 8 E2E         |
+| 20    | Abandoned cart and marketing    | ✅     | 2026-11-03 | 2026-11-03 | 13 DB + 9 unit marketing checks (short timers), 4 E2E; full regression green                                      |
+| 21    | Staff roles and permissions     | ✅     | 2026-11-03 | 2026-11-03 | 26 actions × 6 checks, 10 DB + 16 unit (RFC 6238 vectors), 3 E2E; all admin E2E now sign in with 2FA              |
+| 22    | Customer support                | ✅     | 2026-11-04 | 2026-11-04 | 18 unit + 10 DB support checks (privacy mutation-tested), 1 E2E end to end; full regression green                 |
+| 23    | Security, PWA, release          | ✅     | 2026-11-03 | 2026-11-03 | 0 high/critical left (SECURITY_REVIEW.md); k6 200 users 0% errors p95 < 700 ms; deploy waits on B-10              |
+| 24    | Merchandising and CMS           | ✅     | 2026-11-04 | 2026-11-04 | 33 unit + 14 DB checks (6 mutations caught), 3 E2E incl. real-time schedule go-live/expiry; full regression green |
+| 25    | Recommendations                 | ✅     | 2026-11-04 | 2026-11-04 | 8 unit + 12 DB checks (5 mutations caught), 2 E2E; page speed equal to pre-Week-4 build side by side              |
+| 26    | Monitoring and alerts           | ✅     | 2026-11-04 | 2026-11-04 | 10 unit + 13 DB checks, 1 E2E (outage alerted in 8 ms); every alert has a runbook entry                           |
+| 27    | Privacy and compliance          | ✅     | 2026-11-04 | 2026-11-04 | 7 unit + 9 DB checks (6 mutations caught), 2 E2E; legal text still to be checked by a lawyer/CA (B-09)            |
+| 28    | Accessibility, Hindi, UX polish | ⬜     |            |            | Best done after final design                                                                                      |
+| 29    | Accounting and integrations     | ⬜     |            |            |                                                                                                                   |
+| 30    | Disaster recovery, docs, launch | ⬜     |            |            |                                                                                                                   |
+| F     | Final frontend design           | 🟨     | 2026-10-11 |            | Design system + header, footer, home, product card/page done; next: listing, cart, checkout, account, auth pages  |
 
 ---
 
 ## Pre-phase log (newest first)
+
+### Before Phase 27 — Privacy and compliance (2026-11-04)
+
+**Done so far:** Phases 1–26; PR #12 (Phases 24–26) open, CI green, code-review fixes applied, Docs/BACKLOG.md started.
+**Not finished / carried over:** BL-1…BL-3 in Docs/BACKLOG.md (non-breaking).
+**Open blockers:** B-04 (business and grievance details in config.ini — shown on product pages and policies), B-09 (lawyer/CA review of the policy wording).
+**Plan for this phase:** consents with a log; download my data; delete my account (orders kept); scheduled clean-up; seller / grievance / country of origin on product pages; addresses and phone numbers encrypted; policy text matching the system.
+**Risks:** making existing addresses unreadable (key handling); deleting tax records; consents that don't change anything; marketing to people who never opted in.
+**Git:** branch `week4-part2` from aac4ddd.
+
+### Before Phase 26 — Monitoring and alerts (2026-11-04)
+
+**Done so far:** Phases 1–25 (latest 3ee5efb, recommendations).
+**Not finished / carried over:** None.
+**Open blockers:** B-07 (Resend + domain) for alert emails to arrive; Sentry DSN (B-10) for error tracking. Alerts still show on Admin → System without them.
+**Plan for this phase:** correlation ids in logs; Sentry releases; uptime checks; six business alerts with start / reminder / resolved emails; Admin → System; RUNBOOK.md.
+**Risks:** alert storms (duplicate emails), logging floods during an error storm, alerts nobody can act on, an outage noticed too late.
+**Git:** after 3ee5efb on `week4-launch`.
+
+### Before Phase 25 — Recommendations (2026-11-04)
+
+**Done so far:** Phases 1–24 (latest 3fe3a66, merchandising).
+**Not finished / carried over:** None.
+**Open blockers:** None for this phase (few real orders yet, so widgets fall back to sensible defaults).
+**Plan for this phase:** nightly idempotent job for bought-together and trending; similar, recently viewed, trending widgets; free-shipping upsell; click/add-to-cart/purchase tracking per widget; reads from cache.
+**Risks:** slower pages; a nightly job that doubles rows when run twice; stats writes contending under load; tracking cookies trusted blindly.
+**Git:** after 3fe3a66 on `week4-launch`.
+
+### Before Phase 24 — Merchandising and CMS (2026-11-04)
+
+**Done so far:** Phases 1–23; Week 3 merged to main (fe1c0eb) and deployed on Vercel; CI green.
+**Not finished / carried over:** None.
+**Open blockers:** B-02 (real photos/brand) — banners use placeholder images until then.
+**Plan for this phase:** collections (hand-picked and rule-based), homepage sections, announcement bar, sale ("was") prices with % off, editable pages, draft/publish, preview links, festival scheduling, content.manage permission.
+**Risks:** scheduled items stuck behind the page cache; a "was" price that misrepresents the discount; staff-typed text or links injecting scripts; collection addresses clashing with categories.
+**Git:** branch `week4-launch` from fe1c0eb.
 
 ### Before Phase 23 — Security, PWA, release (2026-11-03)
 

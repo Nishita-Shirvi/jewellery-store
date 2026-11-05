@@ -6,12 +6,13 @@ import { audit } from "@/services/audit.service";
 import { displayOrderNumber } from "@/services/order.service";
 import { ordersForExport } from "@/services/report.service";
 import { lineName } from "@/lib/variants";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/admin/orders/export?from=2026-10-01&to=2026-10-31 → orders.csv (staff with reports.view). */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   let admin;
   try {
     admin = await requirePermission("reports.view");
@@ -79,3 +80,6 @@ export async function GET(request: Request) {
     },
   });
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

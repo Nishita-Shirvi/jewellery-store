@@ -6,6 +6,7 @@ import { availableStock } from "@/services/inventory.service";
 import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
 import { variantJewellery } from "@/lib/variants";
+import { percentOff } from "@/lib/merch";
 import { PAGE_SIZE, slugSchema, type ProductListQuery } from "@/lib/validation/catalog";
 import type {
   CategorySummary,
@@ -18,11 +19,12 @@ import type {
 export const CATALOG_TAG = "catalog";
 const CACHE_SECONDS = 300;
 
-const cardSelect = {
+export const cardSelect = {
   name: true,
   slug: true,
   images: true,
   priceInPaise: true,
+  compareAtPriceInPaise: true,
   stock: true,
   reservedStock: true,
   reviewCount: true,
@@ -35,14 +37,21 @@ const cardSelect = {
 
 type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
 
+/** "Was" price and % off, only when it's a real saving (worked out here, never in the browser). */
+function salePrice(priceInPaise: number, compareAt: number | null) {
+  const pct = percentOff(priceInPaise, compareAt);
+  return { compareAtPriceInPaise: pct ? compareAt : null, percentOff: pct };
+}
+
 const FALLBACK_IMAGE = "/images/products/classic-solitaire-ring.svg";
 
-function toCard(row: CardRow): ProductCardData {
+export function toCard(row: CardRow): ProductCardData {
   return {
     name: row.name,
     slug: row.slug,
     image: row.images[0] ?? FALLBACK_IMAGE,
     priceInPaise: row.priceInPaise,
+    ...salePrice(row.priceInPaise, row.compareAtPriceInPaise),
     materialSummary: materialSummary(row),
     inStock: availableStock(row) > 0,
     reviewCount: row.reviewCount,
@@ -120,7 +129,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v2"],
+  ["catalog:list:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -134,7 +143,7 @@ export const getFeaturedProducts = unstable_cache(
     });
     return rows.map(toCard);
   },
-  ["catalog:featured"],
+  ["catalog:featured:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -175,6 +184,7 @@ export const getProductBySlug = unstable_cache(
         grossWeightMg: true,
         gemstone: true,
         huid: true,
+        countryOfOrigin: true,
         isReturnable: true,
         category: { select: { name: true, slug: true } },
         options: {
@@ -193,6 +203,7 @@ export const getProductBySlug = unstable_cache(
             sku: true,
             label: true,
             priceInPaise: true,
+            compareAtPriceInPaise: true,
             stock: true,
             reservedStock: true,
             images: true,
@@ -220,6 +231,7 @@ export const getProductBySlug = unstable_cache(
       grossWeightMg: row.grossWeightMg,
       gemstone: row.gemstone,
       huid: row.huid,
+      countryOfOrigin: row.countryOfOrigin,
       isReturnable: row.isReturnable,
       category: row.category,
       options: row.options.filter((o) => o.values.length > 0),
@@ -228,6 +240,7 @@ export const getProductBySlug = unstable_cache(
         sku: v.sku,
         label: v.label,
         priceInPaise: v.priceInPaise,
+        ...salePrice(v.priceInPaise, v.compareAtPriceInPaise),
         available: availableStock(v),
         images: v.images,
         netWeightMg: v.netWeightMg,
@@ -237,6 +250,6 @@ export const getProductBySlug = unstable_cache(
       })),
     };
   },
-  ["catalog:product"],
+  ["catalog:product:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );

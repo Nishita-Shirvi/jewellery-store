@@ -1,3 +1,4 @@
+import { Price } from "@/components/catalog/price";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,10 +15,13 @@ import { TrackEvent } from "@/components/analytics/track-event";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isWishlisted } from "@/services/wishlist.service";
 import { ProductImage } from "@/components/catalog/product-image";
-import { formatINR, formatWeight } from "@/lib/format";
+import { formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
 import { getProductBySlug } from "@/services/catalog.service";
+import { ViewTracker } from "@/components/reco/view-tracker";
+import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
+import { getBusiness } from "@/lib/business";
 
 type Params = Promise<{ slug: string }>;
 
@@ -63,6 +67,7 @@ export default async function ProductPage({
   const saved = viewer ? await isWishlisted(viewer.id, product.id) : false;
 
   const stock = stockStatus(product.stock);
+  const business = getBusiness();
   const details: [string, string][] = [
     [
       "Metal",
@@ -79,6 +84,7 @@ export default async function ProductPage({
   }
   if (product.gemstone) details.push(["Stones", product.gemstone]);
   if (product.huid) details.push(["BIS hallmark (HUID)", product.huid]);
+  details.push(["Country of origin", product.countryOfOrigin]);
   details.push([
     "Returns",
     product.isReturnable ? "Returnable within 7 days of delivery" : "Not returnable",
@@ -149,7 +155,14 @@ export default async function ProductPage({
             </div>
           ) : (
             <>
-              <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
+              <div className="mt-5">
+                <Price
+                  size="lg"
+                  priceInPaise={product.priceInPaise}
+                  compareAtPriceInPaise={product.compareAtPriceInPaise}
+                  percentOff={product.percentOff}
+                />
+              </div>
               <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
               <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 
@@ -185,6 +198,30 @@ export default async function ProductPage({
               </div>
             ))}
           </dl>
+
+          {/* Seller details (Consumer Protection (E-Commerce) Rules, 2020; Phase 27). */}
+          <section aria-labelledby="seller-h" className="mt-8 text-sm" data-testid="seller-details">
+            <h2 id="seller-h" className="text-sm font-semibold">
+              Sold by
+            </h2>
+            <p className="text-muted-foreground mt-2 leading-relaxed">
+              {business.legalName}, {business.address}
+              {business.gstin ? ` · GSTIN ${business.gstin}` : ""}
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Grievance officer: {business.grievanceName} ({business.grievanceEmail}) ·{" "}
+              <Link href="/refund-policy" className="underline">
+                Returns and refunds
+              </Link>{" "}
+              ·{" "}
+              <Link href="/shipping-policy" className="underline">
+                Delivery
+              </Link>
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Price includes all taxes (GST). Delivery charges, if any, are shown at checkout.
+            </p>
+          </section>
         </div>
       </div>
       <script
@@ -232,12 +269,17 @@ export default async function ProductPage({
           ],
         }}
       />
+      {/* Recommendations (Phase 25): each streams in on its own, so the page never waits. */}
+      <ViewTracker slug={product.slug} />
+      <RecoRow widget="bought_together" query={`w=bought_together&id=${product.id}`} />
+      <RecoRow widget="similar" query={`w=similar&id=${product.id}`} />
       <ReviewSection
         product={product}
         viewerId={viewer?.id ?? null}
         sort={reviewSort}
         page={reviewPage}
       />
+      <RecentlyViewedRow excludeSlug={product.slug} />
     </div>
   );
 }

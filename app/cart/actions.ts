@@ -6,6 +6,10 @@ import { addToCartSchema, removeItemSchema, updateQuantitySchema } from "@/lib/v
 import { addItem, clearCart, removeItem, setItemQuantity } from "@/services/cart.service";
 import type { CartActionResult } from "@/types/cart";
 import { countFunnel } from "@/services/report.service";
+import { cookies } from "next/headers";
+import { after } from "next/server";
+import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/reco";
+import { recordRecoEvent } from "@/services/reco.service";
 
 const INVALID: CartActionResult = { ok: false, error: "Something was wrong with that request." };
 
@@ -31,6 +35,11 @@ export async function addToCartAction(input: {
   if (result.ok) {
     refresh();
     await countFunnel("add_to_cart");
+    // Phase 25: credit the recommendation that led here (counted after the response).
+    const widget = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value)[
+      parsed.data.productId
+    ];
+    if (widget) after(() => recordRecoEvent(widget, "add_to_cart"));
   }
   return result;
 }

@@ -3,12 +3,13 @@ import { getCurrentUser, staffHasPermission } from "@/lib/auth-guards";
 import { renderInvoicePdf } from "@/lib/invoice/invoice-pdf";
 import { logger } from "@/lib/logger";
 import { getInvoiceForViewer } from "@/services/invoice.service";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** GET /api/invoices/<orderId> — the order's owner or staff with orders.view downloads the tax invoice PDF. */
-export async function GET(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
+async function handleGET(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Please log in." }, { status: 401 });
   const { orderId } = await params;
@@ -35,3 +36,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ord
     return NextResponse.json({ error: "Couldn't create the PDF." }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

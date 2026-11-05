@@ -22,6 +22,8 @@ const TYPE_LABEL: Record<string, string> = {
   "reservations.release": "Release expired stock holds",
   "email.marketing": "Marketing email",
   "marketing.scan": "Cart reminders / back-in-stock / referrals",
+  "reco.compute": "Recommendations (nightly)",
+  "alerts.notify": "Alert email / chat message",
 };
 
 /** What the job was about, for people (order number when there is one). */

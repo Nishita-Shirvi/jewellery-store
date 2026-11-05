@@ -22,6 +22,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
         <Link href="/account/support" className="hover:underline">
           Support
         </Link>
+        <Link href="/account/privacy" className="hover:underline">
+          Privacy
+        </Link>
       </nav>
       {children}
     </div>

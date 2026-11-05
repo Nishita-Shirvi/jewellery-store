@@ -1,5 +1,64 @@
 # Changelog
 
+## Week 4 — Phase 27: Privacy and compliance — 2026-11-04
+
+### Added
+
+- **Account → Privacy:** turn offers / cart-reminder emails, order-update SMS and analytics cookies on or off (each choice is recorded), **download my data**, and **delete my account**.
+- Sign-up has an optional, unticked "email me offers" box.
+- Phone numbers and addresses are **encrypted in the database**; `npm run pii:encrypt` encrypts older rows (and re-encrypts after a key change).
+- A daily clean-up deletes data no longer needed (one-time codes, old reset links, old reminder records…); periods in `config.ini` → `[privacy]`.
+- Product pages show who sells it (legal name, address, GSTIN), the grievance officer, country of origin, and links to returns and delivery policies.
+- Privacy policy and terms describe exactly what the store does, including retention periods.
+
+### Changed
+
+- **Cart reminders and offers are only emailed to customers who opted in** (existing customers start opted out). Unsubscribe links also turn the account's offers off.
+
+## Week 4 — Phase 26: Monitoring and alerts — 2026-11-04
+
+### Added
+
+- **Business alerts** by email (and optional Slack / Google Chat / Discord): payments failing, no orders for a long time, failed background jobs, webhook problems, best-sellers out of stock, many errors. One email when it starts, reminders while it lasts, and a "Resolved" email. A payment outage is detected within seconds.
+- **Admin → System:** database, scheduler, background jobs, alert status, integrations and the deployed version; "Run alert checks now".
+- **`Docs/RUNBOOK.md`:** what each alert means, what to check, how to fix it.
+- **Uptime checks** every 5 minutes (GitHub Actions) on the home page, health, checkout and webhooks, plus a deeper health check for the scheduler and stuck jobs.
+- Log lines from one request or job share an id (`requestId`, `jobId`); API responses return it as `x-request-id`. Sentry errors are tagged with the deployed version.
+
+### Changed
+
+- Business alert emails go to `[alerts] admin_email`, else to Owners and Managers only (the low-stock email is unchanged).
+
+## Week 4 — Phase 25: Recommendations — 2026-11-04
+
+### Added
+
+- Product pages: **Often bought together**, **You may also like** and **Recently viewed**.
+- Cart: **Add ₹X more for free shipping** with pieces that close the gap, and **Customers also bought**. Empty cart and homepage: **Trending now**.
+- A nightly job rebuilds "bought together" and "trending" from orders (safe to run twice; a second run at the same time skips).
+- **Admin → Reports → Recommendations:** per row — shown, clicks, click rate, added to cart, bought, revenue.
+
+### Changed
+
+- Recommendation rows load after the page, as the shopper scrolls to them, so pages stay as fast as before.
+
+## Week 4 — Phase 24: Merchandising and CMS — 2026-11-04
+
+### Added
+
+- **Admin → Content:** announcement bar, homepage sections, collections and pages — all with Draft/Published and optional live-from/until dates. Scheduled items go live and disappear on time by themselves.
+- **Collections** at `/collections/<address>`: hand-picked products or rules (tags, category, metal, price, on sale, new). One click adds the occasion collections Bridal, Daily Wear, Festive and Gifts (as drafts).
+- **Homepage builder:** big image with heading, clickable banners, product rows from a collection, text — with separate phone images. The current homepage stays until a section is published.
+- **Sale prices:** a "Was price" per size on the variants page; the shop shows it crossed out with a "% off" badge.
+- **Editable pages** (About us, Jewellery care…) at `/pages/<address>`, with simple formatting, a private draft and a Publish button.
+- **Preview links** for drafts and scheduled items (48 hours); festival quick dates from `config.ini` `[festivals]`.
+- **Product tags** on the product form, used by rule-based collections.
+
+### Changed
+
+- The variants grid's "On sale" column is now called "Available" (it always meant "can be bought"), next to the new "Was price" column.
+- Catalog editors can also manage content (new permission `content.manage`).
+
 ## Week 3 release summary (Phases 17–23)
 
 Sizes and variants, cash on delivery, background jobs, cart reminders and newsletter, staff roles with two-step sign-in, customer support, and a security pass. Release steps: `Docs/RELEASE_WEEK3.md`. Not yet deployed (waits on client accounts, B-10).

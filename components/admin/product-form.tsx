@@ -22,6 +22,8 @@ export interface ProductFormValues {
   netWeight: string;
   grossWeight: string;
   gemstone: string;
+  tags: string;
+  countryOfOrigin: string;
   huid: string;
   hsnCode: string;
   gstRate: string;
@@ -264,6 +266,24 @@ export function ProductForm({
             name="gemstone"
             defaultValue={values.gemstone}
             errors={e.gemstone}
+          />
+        </div>
+        <div className="md:col-span-3">
+          <FormField
+            label="Country of origin"
+            name="countryOfOrigin"
+            defaultValue={values.countryOfOrigin}
+            errors={e.countryOfOrigin}
+            hint="Shown on the product page (required for online sellers)."
+          />
+        </div>
+        <div className="md:col-span-3">
+          <FormField
+            label="Tags (optional)"
+            name="tags"
+            defaultValue={values.tags}
+            errors={e.tags}
+            hint="Comma-separated, e.g. bridal, festive, gift, daily wear. Collections can pick products by tag."
           />
         </div>
       </section>

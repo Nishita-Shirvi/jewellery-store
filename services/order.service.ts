@@ -6,7 +6,12 @@ import { materialSummary } from "@/lib/jewellery";
 import { variantJewellery } from "@/lib/variants";
 import { logger } from "@/lib/logger";
 import { createRazorpayOrder } from "@/lib/payments/razorpay";
-import { addressSnapshot, getAddressForUser } from "@/services/address.service";
+import {
+  addressSnapshot,
+  getAddressForUser,
+  openSnapshot,
+  sealSnapshot,
+} from "@/services/address.service";
 import { getCartView } from "@/services/cart.service";
 import { getShippingRule } from "@/lib/shipping-config";
 import { getBusiness } from "@/lib/business";
@@ -38,6 +43,7 @@ import {
 } from "@/lib/cod";
 import { OtpError, checkOtp, consumeOtp, otpAvailable, sendOtp } from "@/services/otp.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import { addMetric } from "@/lib/metrics";
 
 /** Short reference shown to customers, e.g. #K3F9Q2ZA. */
 export function displayOrderNumber(orderId: string): string {
@@ -208,7 +214,7 @@ async function insertOrderTx(
       subtotalInPaise: subtotal,
       shippingInPaise: shippingFee,
       totalInPaise: total,
-      addressSnapshot: addressSnapshot(input.address),
+      addressSnapshot: sealSnapshot(addressSnapshot(input.address)),
       checkoutKey: input.checkoutKey,
       couponId: input.priced.couponId,
       couponCode: input.priced.couponCode,
@@ -314,6 +320,9 @@ export async function startCheckout(
       orderId: order.id,
       error,
     });
+    // Phase 26: a gateway outage must alert within minutes, not at the next cron run.
+    await addMetric("payments.gateway_error");
+    await (await import("@/services/monitor.service")).checkSoon(["payments"]);
     return { ok: false, error: "We couldn't reach the payment provider. Please try again." };
   }
 }
@@ -577,7 +586,7 @@ export async function resumePayment(
   }
   const payment = order.payments[0];
   if (!payment) return { ok: false, error: "This order can't be paid. Please check out again." };
-  const contact = (order.addressSnapshot as { phone?: string } | null)?.phone ?? "";
+  const contact = openSnapshot(order.addressSnapshot).phone ?? "";
   return {
     ok: true,
     session: sessionFor(user, order.id, payment.providerOrderId, order.totalInPaise, contact),
@@ -807,6 +816,7 @@ export async function markPaymentFailed(input: {
     razorpayPaymentId: input.razorpayPaymentId,
     reason: input.reason,
   });
+  await (await import("@/services/monitor.service")).checkSoon(["payments"]);
   return { outcome: updated.count > 0 ? "failed" : "ignored" };
 }
 
@@ -868,7 +878,7 @@ export async function getOrderForUser(
     createdAt: order.createdAt,
     paidAt: order.paidAt,
     cancellationReason: order.cancellationReason,
-    address: order.addressSnapshot as OrderSummary["address"],
+    address: openSnapshot(order.addressSnapshot) as OrderSummary["address"],
     items: order.items.map((i) => ({
       name: i.productName,
       slug: i.productSlug,

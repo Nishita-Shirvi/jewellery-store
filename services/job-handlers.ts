@@ -90,6 +90,23 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
     await processShiprocketEvent(p.webhookEventId);
   },
 
+  // Phase 26: one business-alert email / chat message (started, reminder or resolved).
+  "alerts.notify": async (payload) => {
+    const { ALERT_KEYS, deliverAlert } = await import("@/services/monitor.service");
+    const p = parse(
+      z.object({
+        key: z.enum(ALERT_KEYS as [string, ...string[]]),
+        change: z.enum(["started", "reminder", "resolved"]),
+        detail: z.string().max(2000),
+        at: z.string().max(40),
+        to: z.email().optional(),
+        chat: z.boolean().optional(),
+      }),
+      payload,
+    );
+    await deliverAlert(p as Parameters<typeof deliverAlert>[0]);
+  },
+
   "alerts.low_stock": async () => {
     const { sendLowStockAlert } = await import("@/services/alert.service");
     await sendLowStockAlert();
@@ -128,6 +145,12 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
   "marketing.scan": async () => {
     const { runMarketingScan } = await import("@/services/marketing.service");
     await runMarketingScan();
+  },
+
+  // Phase 25: nightly "bought together" + trending rebuild (idempotent, locked).
+  "reco.compute": async () => {
+    const { computeRecommendations } = await import("@/services/reco.service");
+    await computeRecommendations();
   },
 
   "reservations.release": async () => {

@@ -7,6 +7,7 @@ import "@fontsource/marcellus/400.css";
 import "@fontsource-variable/figtree";
 import "./globals.css";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
+import { AnnouncementBar } from "@/components/merch/announcement-bar";
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_APP_URL),
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en-IN">
       <body className="flex min-h-dvh flex-col antialiased">
+        <AnnouncementBar />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

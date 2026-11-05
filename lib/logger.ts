@@ -1,4 +1,31 @@
 import { config } from "@/lib/config";
+import { currentContext } from "@/lib/request-context";
+
+/**
+ * Error lines are counted for the "error spike" alert (Phase 26). At most one write is in
+ * flight per server instance: errors arriving meanwhile are added up and written together as
+ * soon as it finishes. So an error storm costs a handful of writes (it can't flood the database)
+ * and every error is counted — none waits for a later error to be written.
+ */
+let pendingErrors = 0;
+let writingErrors = false;
+function countError() {
+  pendingErrors += 1;
+  if (writingErrors) return;
+  writingErrors = true;
+  const flush = () => {
+    const n = pendingErrors;
+    pendingErrors = 0;
+    import("@/lib/metrics")
+      .then((m) => m.addMetric("log.error", n))
+      .catch(() => {})
+      .finally(() => {
+        if (pendingErrors > 0) flush();
+        else writingErrors = false;
+      });
+  };
+  flush();
+}
 
 /**
  * Structured logger used by all server code. Never use console.* directly.
@@ -13,7 +40,9 @@ import { config } from "@/lib/config";
  *   Development: one readable line per event.
  * - Keys that look secret (password, token, secret, signature, …) are replaced with "[redacted]".
  *   Still: never log card data, full addresses or whole request bodies.
- * - error level is also sent to Sentry when SENTRY_DSN is set.
+ * - error level is also sent to Sentry when SENTRY_DSN is set, and counted for the error-spike
+ *   alert (Phase 26).
+ * - Inside a request or background job, lines also carry requestId / jobId (lib/request-context).
  */
 export type LogLevel = "debug" | "info" | "warn" | "error";
 type Fields = Record<string, unknown>;
@@ -60,8 +89,11 @@ function sanitize(value: unknown, depth = 0): unknown {
 }
 
 function write(level: LogLevel, event: string, fields: Fields) {
+  if (level === "error") countError();
   if (LEVELS[level] < minLevel) return;
-  const data = sanitize(fields) as Fields;
+  // Correlation ids (Phase 26): every line inside a request / job carries them.
+  const ctx = currentContext();
+  const data = sanitize(ctx ? { ...ctx, ...fields } : fields) as Fields;
   const time = new Date().toISOString();
   const line = pretty
     ? `${time.slice(11, 23)} ${level.toUpperCase().padEnd(5)} ${event}${

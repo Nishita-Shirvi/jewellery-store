@@ -14,13 +14,16 @@ export async function listCategoriesAdmin() {
   });
 }
 
+/** Categories and collections (Phase 24) share /collections/<slug>, so neither may reuse the other's. */
 async function slugTaken(slug: string, excludeId?: string) {
-  return Boolean(
-    await db.category.findFirst({
+  const [category, collection] = await Promise.all([
+    db.category.findFirst({
       where: { slug, ...(excludeId ? { id: { not: excludeId } } : {}) },
       select: { id: true },
     }),
-  );
+    db.collection.findUnique({ where: { slug }, select: { id: true } }),
+  ]);
+  return Boolean(category || collection);
 }
 
 export async function createCategory(input: CategoryFormInput, adminId: string) {

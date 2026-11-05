@@ -113,6 +113,9 @@ test("cash on delivery: placed with an SMS code → shipped → delivered → ca
   expect(placed).toMatchObject({ status: "CONFIRMED", paymentMethod: "COD", paidAt: null });
 
   // Admin: ship, deliver, record the cash.
+  // Leave the page first: its background requests (link prefetches) could otherwise finish
+  // after the cookies are cleared and put the customer's refreshed sign-in cookie back.
+  await page.goto("about:blank");
   await page.context().clearCookies();
   await staffLogin(page, await createStaff(db, ["OWNER"]));
 

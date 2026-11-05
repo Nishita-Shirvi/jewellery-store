@@ -20,6 +20,14 @@ const CONFIG_FILE = "config.ini";
 
 const bool = z.enum(["true", "false"]).transform((v) => v === "true");
 const optionalEmail = z.email().optional();
+/** "2026-11-06..2026-11-06" (inclusive) or empty. */
+const festivalRange = z
+  .string()
+  .regex(
+    /^(\d{4}-\d{2}-\d{2}\s*\.\.\s*\d{4}-\d{2}-\d{2})?$/,
+    "use YYYY-MM-DD..YYYY-MM-DD, e.g. 2026-11-06..2026-11-08",
+  )
+  .default("");
 
 const configSchema = z.object({
   business: z.object({
@@ -50,6 +58,20 @@ const configSchema = z.object({
   }),
   alerts: z.object({
     admin_email: optionalEmail,
+    // Phase 26 business alerts (Docs/RUNBOOK.md has what to do for each). 0 = that alert is off.
+    no_orders_hours: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(24 * 30)
+      .default(48),
+    payment_failures_min: z.coerce.number().int().min(0).max(1000).default(5),
+    payment_failure_rate_percent: z.coerce.number().int().min(1).max(100).default(50),
+    payment_window_minutes: z.coerce.number().int().min(5).max(240).default(15),
+    error_spike_count: z.coerce.number().int().min(0).max(100_000).default(25),
+    bad_webhook_signatures_per_hour: z.coerce.number().int().min(0).max(10_000).default(10),
+    stockout_top_sellers: z.coerce.number().int().min(0).max(100).default(10),
+    repeat_hours: z.coerce.number().int().min(1).max(168).default(6),
   }),
   features: z.object({
     sms: bool.default(false),
@@ -96,6 +118,26 @@ const configSchema = z.object({
       .string()
       .regex(/^[0-9+ ]*$/, "digits only, with country code, e.g. 919876543210")
       .default(""),
+  }),
+  privacy: z.object({
+    // Phase 27: how long data no longer needed is kept before the daily clean-up deletes it.
+    // Orders and invoices are never deleted (tax records).
+    otp_days: z.coerce.number().int().min(1).max(365).default(2),
+    password_reset_days: z.coerce.number().int().min(1).max(365).default(7),
+    cart_reminder_days: z.coerce.number().int().min(30).max(3650).default(180),
+    stock_alert_days: z.coerce.number().int().min(30).max(3650).default(365),
+    unconfirmed_subscriber_days: z.coerce.number().int().min(7).max(3650).default(30),
+    webhook_event_days: z.coerce.number().int().min(30).max(3650).default(90),
+    audit_log_days: z.coerce.number().int().min(365).max(3650).default(730),
+  }),
+  festivals: z.object({
+    // Date ranges "YYYY-MM-DD..YYYY-MM-DD" (India time, both days included). Shown as
+    // one-click date pickers when scheduling banners and collections. Empty = not shown.
+    // Festival dates follow the lunar calendar: update them every year.
+    akshaya_tritiya: festivalRange,
+    dhanteras: festivalRange,
+    diwali: festivalRange,
+    wedding_season: festivalRange,
   }),
   logging: z.object({
     level: z.enum(["debug", "info", "warn", "error"]).default("info"),

@@ -32,6 +32,7 @@ const addresses = await import("@/services/address.service");
 const orders = await import("@/services/order.service");
 const returns = await import("@/services/return.service");
 const { getInvoiceForViewer } = await import("@/services/invoice.service");
+const { decryptPii } = await import("@/lib/pii");
 
 const RUN = `as${Date.now().toString(36)}`;
 const ids: string[] = [];
@@ -248,7 +249,9 @@ describe("one customer can't reach another's data (IDOR)", () => {
       } as never)
       .catch(() => null);
     const after = await db.address.findUniqueOrThrow({ where: { id: addr.id } });
-    expect(after.fullName).toBe("Me");
+    // Stored encrypted (Phase 27); unchanged once decrypted.
+    expect(after.fullName).toMatch(/^pii:v1:/);
+    expect(decryptPii(after.fullName)).toBe("Me");
     expect(after.userId).toBe(me.id);
   });
 });

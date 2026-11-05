@@ -6,6 +6,8 @@ import { logger } from "@/lib/logger";
 import { getClientIp } from "@/lib/request";
 import { rateLimit } from "@/lib/rate-limit";
 import { bodyHash, recordWebhook, shiprocketWebhookSchema } from "@/services/webhook.service";
+import { addMetric } from "@/lib/metrics";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +25,7 @@ function tokenMatches(given: string | null): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const limit = rateLimit(`courier-webhook:${getClientIp(request.headers)}`, 600, 60_000);
   if (!limit.ok) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
 
@@ -31,6 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "not_configured" }, { status: 503 });
   if (!tokenMatches(request.headers.get("x-api-key"))) {
     logger.warn("webhook.courier_bad_token", { ip: getClientIp(request.headers) });
+    await addMetric("webhook.bad_signature");
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -61,3 +64,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const POST = withRequestId(handlePOST);

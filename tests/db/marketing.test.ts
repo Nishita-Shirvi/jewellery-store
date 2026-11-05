@@ -51,7 +51,10 @@ const emails: string[] = [];
 async function user(phone = `98${String(Date.now() + ++seq).slice(-8)}`) {
   const email = `${RUN}-${++seq}@example.com`;
   emails.push(email);
-  const u = await db.user.create({ data: { email, name: `Buyer ${seq}` } });
+  // Cart reminders are marketing: these shoppers opted in (Phase 27).
+  const u = await db.user.create({
+    data: { email, name: `Buyer ${seq}`, emailMarketingConsent: true },
+  });
   userIds.push(u.id);
   await db.address.create({
     data: {
@@ -140,6 +143,17 @@ afterAll(async () => {
 });
 
 describe("cart reminders (short timers)", () => {
+  it("no marketing consent → no reminder; once the customer opts in, it's sent (Phase 27)", async () => {
+    const u = await user();
+    await db.user.update({ where: { id: u.id }, data: { emailMarketingConsent: false } });
+    await cartFor(u.id, 2);
+    await m.scanAbandonedCarts(new Date(), short);
+    expect(await stepsFor(u.id)).toEqual([]);
+    await db.user.update({ where: { id: u.id }, data: { emailMarketingConsent: true } });
+    await m.scanAbandonedCarts(new Date(), short);
+    expect(await stepsFor(u.id)).toEqual([1]);
+  });
+
   it("1st after 1 min, 2nd after 5 min with a personal single-use coupon, each sent once", async () => {
     const u = await user();
     await cartFor(u.id, 2);
