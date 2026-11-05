@@ -11,6 +11,16 @@ Decisions or actions for the client before going live. Nothing here is broken in
 | BL-6 | 2026-11-05 | Zoho Books / Tally live sync    | Phase 29 gives monthly GST reports and a sales register CSV to import into Zoho Books or Tally. A live, automatic sync needs the client's Zoho Books account (API client id/secret, organisation id) or a Tally connector on the office PC. Decide which accounting software is used, then share access.                                                                                                                                 | **Needs Vineet review** |
 | BL-7 | 2026-11-05 | Restore drill on production     | Run `npm run backup:drill -- --target "<empty Neon branch URL>"` with the production `DIRECT_URL`, then add the timings to `Docs/BACKUPS.md` → Drill log. The drill has only been run on the local test copy so far (passed, 3.1 s). Needs production database access.                                                                                                                                                                   | **Needs Vineet review** |
 
+## After the final design
+
+Parts of Phase 28 that depend on the final look of the site. Doing them now would mean doing them twice.
+
+| #     | Area            | What                                                                                                                                                        |
+| ----- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BL-8  | Hindi           | English + Hindi with next-intl: every customer-facing text, a language switcher, `hreflang`, Hindi emails/SMS. Needs the final copy and a Hindi translator. |
+| BL-9  | Dark mode       | Colour tokens exist (CSS variables); dark values and a toggle belong with the final colour palette.                                                         |
+| BL-10 | Optimistic cart | Cart count and line changes shown instantly, before the server answers. Today they update after ~200 ms; worth doing with the final cart/header design.     |
+
 ## Code review findings
 
 Known issues worth fixing that don't lose data or break anything today. Found by code review; newest first. When one is fixed, delete it here and mention it in `CHANGELOG.md`.

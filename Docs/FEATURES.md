@@ -78,6 +78,13 @@ Google login setup: `INTEGRATIONS.md`.
   - **Webhooks:** POST a JSON event to your https address when an order is confirmed, shipped, delivered, cancelled or refunded, signed with `X-Store-Signature: t=…,v1=HMAC-SHA256(secret, "t.body")`. Private / local addresses are refused. Failed deliveries retry (Admin → Jobs).
 - Buyer name, phone, email and address on invoices are now encrypted like saved addresses (`npm run pii:encrypt` also converts old invoices).
 
+## Accessibility and polish (Phase 28)
+
+- Checked with axe (WCAG 2.1 A/AA) on the home, collection, product, search, cart, login, register, contact, not-found, checkout and main admin pages: no violations. The whole purchase works with the keyboard alone. Both are automated browser tests.
+- Address forms fill in the **State from the pincode** (India Post ranges, built in — no outside service). Pincodes shared by two states are left for the customer; a state they chose is never changed.
+- On phones, **Add to cart** stays at the bottom of the screen (with the price) once the main button scrolls away.
+- Loading placeholders on the product list (they respect "reduce motion"). Not on product, collection or account pages: there they would make missing pages answer 200 instead of 404.
+
 ## Kill switches and launch (Phase 30)
 
 - Admin → **System → Kill switches** (permission `switches.manage`, Owner and Manager): pause **Checkout**, **Cash on delivery**, **Coupons** or **Recommendation rows** within seconds, with an optional reason. Enforced on the server; customers see a short "paused" message; every change is in the activity log.

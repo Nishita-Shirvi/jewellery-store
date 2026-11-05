@@ -120,6 +120,7 @@ export function VariantPurchase({
         productId={productId}
         variantId={selected?.id}
         stock={selected?.available ?? 0}
+        priceInPaise={selected?.priceInPaise}
       />
       {selected && selected.available === 0 && (
         <NotifyMe key={selected.id} variantId={selected.id} email={viewerEmail} />
