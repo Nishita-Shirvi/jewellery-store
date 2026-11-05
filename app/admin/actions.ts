@@ -58,6 +58,7 @@ import { saveCoupon, setCouponActive } from "@/services/admin/coupon-admin.servi
 import { ReviewError, moderateReview } from "@/services/review.service";
 import { couponFormSchema } from "@/lib/validation/admin";
 import { importProductsCsv, type ImportReport } from "@/services/product-csv.service";
+import { SWITCHES, SWITCH_KEYS, setSwitch, type SwitchKey } from "@/services/switches.service";
 import {
   getReconRun,
   parseRemittanceCsv,
@@ -1644,4 +1645,25 @@ export async function setWebhookActiveAction(formData: FormData): Promise<void> 
         : `Webhook ${active ? "resumed" : "paused"}`,
   });
   revalidatePath("/admin/integrations");
+}
+
+// ───────────────────────── Kill switches (Phase 30) ─────────────────────────
+
+/** Pauses or resumes one part of the shop at once (Admin → System). */
+export async function setSwitchAction(formData: FormData): Promise<void> {
+  const admin = await requirePermission("switches.manage");
+  const key = z
+    .enum(SWITCH_KEYS as [SwitchKey, ...SwitchKey[]])
+    .safeParse(formData.get("switchKey"));
+  if (!key.success) return;
+  const off = formData.get("switchOff") === "true";
+  const note = String(formData.get("switchNote") ?? "").trim();
+  await setSwitch(key.data, off, admin.email ?? admin.id, note);
+  await audit(admin, {
+    action: off ? "switch.paused" : "switch.resumed",
+    entityType: "staff",
+    entityId: key.data,
+    summary: `${SWITCHES[key.data].label}: ${off ? "paused" : "back on"}${note ? ` — ${note}` : ""}`,
+  });
+  revalidatePath("/admin/system");
 }

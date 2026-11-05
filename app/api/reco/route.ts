@@ -11,6 +11,7 @@ import {
   getTrending,
   type RecoCard,
 } from "@/services/reco.service";
+import { isOff } from "@/services/switches.service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,9 @@ export async function GET(request: Request) {
   const w = q.get("w");
   const id = q.get("id") ?? "";
   let items: RecoCard[] = [];
+  // Kill switch (Phase 30): rows disappear; not cached, so they come back as soon as it's on.
+  if (await isOff("recommendations"))
+    return NextResponse.json({ items }, { headers: { "Cache-Control": "no-store" } });
   try {
     if ((w === "similar" || w === "bought_together") && ID_RE.test(id)) {
       items = w === "similar" ? await getSimilar(id, 4) : await getBoughtTogether(id, 4);

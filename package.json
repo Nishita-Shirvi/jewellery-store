@@ -25,7 +25,8 @@
     "test:db": "vitest run --config vitest.db.config.ts",
     "verify": "npm run lint && npm run typecheck && npm test",
     "staff:reset-2fa": "tsx scripts/staff-reset-2fa.ts",
-    "pii:encrypt": "tsx --conditions=react-server scripts/pii-encrypt.ts"
+    "pii:encrypt": "tsx --conditions=react-server scripts/pii-encrypt.ts",
+    "backup:drill": "tsx scripts/restore-drill.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",

@@ -45,6 +45,17 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] `app.start` log line shows `razorpayMode: "live"`, `email: true`, `cronJobs: true`
 - [ ] Google login redirect URI updated (if used)
 
+## Production readiness (Phase 30)
+
+- [ ] Restore drill run against production into a Neon branch, result added to `Docs/BACKUPS.md` → Drill log (BL-7)
+- [ ] All Vercel Production environment variables copied to the password manager (especially `PII_ENCRYPTION_KEY`, `AUTH_SECRET`)
+- [ ] Owner has tried each kill switch once on Admin → System (pause → check the shop → turn back on)
+- [ ] Owner has read `Docs/ADMIN_GUIDE.md`; whoever looks after the code has read `Docs/ONBOARDING.md` and `Docs/RUNBOOK.md`
+- [ ] Admin → System: every alert OK, cron ran in the last 45 minutes, health "OK"
+- [ ] Admin → Jobs: nothing failed
+- [ ] Load test passed on the production build (`tests/load`, 2× expected traffic, see LAUNCH.md)
+- [ ] `Docs/LAUNCH.md` read: who watches what in the first 24 hours, and how to roll back
+
 ## Real-money test (do this last)
 
 - [ ] Add a cheap product (e.g. ₹1–₹10) or temporarily set a price that low

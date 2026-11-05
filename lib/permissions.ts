@@ -19,6 +19,7 @@ export const PERMISSIONS = {
   "faqs.manage": "Edit help-centre FAQs and canned replies",
   "content.manage": "Homepage, announcement bar, collections and editable pages",
   "system.view": "System health: uptime, background jobs, alerts and errors",
+  "switches.manage": "Pause checkout, COD, coupons or recommendations (kill switches)",
   "accounting.manage": "Reconciliation, GST reports, bulk product import/export",
   "integrations.manage": "API keys and outgoing webhooks",
   "audit.view": "Read the activity log",

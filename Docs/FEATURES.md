@@ -78,6 +78,12 @@ Google login setup: `INTEGRATIONS.md`.
   - **Webhooks:** POST a JSON event to your https address when an order is confirmed, shipped, delivered, cancelled or refunded, signed with `X-Store-Signature: t=…,v1=HMAC-SHA256(secret, "t.body")`. Private / local addresses are refused. Failed deliveries retry (Admin → Jobs).
 - Buyer name, phone, email and address on invoices are now encrypted like saved addresses (`npm run pii:encrypt` also converts old invoices).
 
+## Kill switches and launch (Phase 30)
+
+- Admin → **System → Kill switches** (permission `switches.manage`, Owner and Manager): pause **Checkout**, **Cash on delivery**, **Coupons** or **Recommendation rows** within seconds, with an optional reason. Enforced on the server; customers see a short "paused" message; every change is in the activity log.
+- `npm run backup:drill`: backs up, restores into a fresh database, compares every table, prints timings (`Docs/BACKUPS.md`).
+- Guides: `Docs/ADMIN_GUIDE.md` (owner and staff), `Docs/ONBOARDING.md` (developers), `Docs/LAUNCH.md` (soft launch, first 24 hours, rollback).
+
 ## Reports, activity log and analytics
 
 - Admin → **Reports**: orders, gross/net sales, refunds, average order, revenue by day and week, top products, shopping funnel, low stock, **Download CSV**.

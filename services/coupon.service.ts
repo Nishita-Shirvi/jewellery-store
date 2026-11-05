@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { describeCoupon, evaluateCoupon, normalizeCode, type CouponResult } from "@/lib/coupons";
+import { pausedMessage } from "@/services/switches.service";
 
 type Tx = Prisma.TransactionClient;
 
@@ -38,6 +39,8 @@ export async function checkCoupon(
   userId: string,
   subtotalInPaise: number,
 ): Promise<CouponResult & { couponId?: string; code?: string; description?: string }> {
+  const paused = await pausedMessage("coupons");
+  if (paused) return { ok: false, error: paused };
   const coupon = await findCoupon(code);
   // Personal coupons (cart-reminder and referral rewards) only work for their owner.
   if (coupon?.assignedUserId && coupon.assignedUserId !== userId)

@@ -44,6 +44,7 @@ import {
 import { OtpError, checkOtp, consumeOtp, otpAvailable, sendOtp } from "@/services/otp.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { addMetric } from "@/lib/metrics";
+import { pausedMessage } from "@/services/switches.service";
 
 /** Short reference shown to customers, e.g. #K3F9Q2ZA. */
 export function displayOrderNumber(orderId: string): string {
@@ -244,6 +245,8 @@ export async function startCheckout(
   input: { addressId: string; checkoutKey: string; couponCode?: string },
 ): Promise<CheckoutResult> {
   if (!env.RAZORPAY_KEY_ID) return { ok: false, error: "Online payments are not set up yet." };
+  const paused = await pausedMessage("checkout");
+  if (paused) return { ok: false, error: paused };
 
   // Double click / retry with the same key → return the existing order.
   const existing = await db.order.findUnique({
@@ -376,6 +379,8 @@ export async function quoteCod(
   user: Buyer,
   input: { addressId: string; couponCode?: string },
 ): Promise<CodQuote> {
+  const paused = await pausedMessage("cod");
+  if (paused) return { ok: false, reason: paused };
   const address = await getAddressForUser(user.id, input.addressId);
   if (!address) return { ok: false, reason: "Please choose a delivery address." };
   const pricing = await priceCheckout(user, address, input.couponCode);
@@ -428,6 +433,8 @@ export async function placeCodOrder(
   };
   const existing = await sameKey();
   if (existing) return existing;
+  const paused = await pausedMessage("cod");
+  if (paused) return { ok: false, error: paused };
 
   const address = await getAddressForUser(user.id, input.addressId);
   if (!address) return { ok: false, error: "Please choose a delivery address." };
@@ -556,6 +563,8 @@ export async function resumePayment(
   user: { id: string; email: string | null; name: string | null },
   orderId: string,
 ): Promise<CheckoutResult> {
+  const paused = await pausedMessage("checkout");
+  if (paused) return { ok: false, error: paused };
   const order = await db.order.findFirst({
     where: { id: orderId, userId: user.id },
     select: {

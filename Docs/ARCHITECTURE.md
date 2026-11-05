@@ -58,7 +58,7 @@ PostgreSQL (prisma/schema.prisma)
 | `prisma/`                                    | `schema.prisma`, `migrations/` (applied in production), `seed.ts` + `seed-data/`                                                                    |
 | `tests/`                                     | Unit tests (`*.test.ts`), real-DB tests (`tests/db/`), Playwright (`tests/e2e/`)                                                                    |
 | `types/`                                     | Shared TypeScript types, Auth.js session typing                                                                                                     |
-| `scripts/`                                   | `check-client-bundle.mjs` — fails the build if a secret leaks into browser JS                                                                       |
+| `scripts/`                                   | `check-client-bundle.mjs` (fails the build if a secret leaks into browser JS), `pii-encrypt.ts`, `restore-drill.ts`, `staff-reset-2fa.ts`           |
 | `config.ini`                                 | Non-secret settings (see `CONFIGURATION.md`)                                                                                                        |
 | `auth.ts`, `auth.config.ts`, `middleware.ts` | Login setup (full / Edge-safe) and route protection                                                                                                 |
 | `instrumentation*.ts`                        | Server start-up (startup log + Sentry) and browser Sentry                                                                                           |
@@ -66,7 +66,9 @@ PostgreSQL (prisma/schema.prisma)
 | `vercel.json`                                | Cron schedule                                                                                                                                       |
 | `.github/workflows/`                         | `ci.yml` (full test pipeline), `cron.yml` (optional 10-minute stock-hold release for the free Vercel plan)                                          |
 
-## Background work (no queue — kept minimal on purpose)
+## Background work (a Postgres job queue — no Redis)
+
+Slow or retryable work (emails, SMS, invoices, alerts, webhooks to other systems, the daily recommendation rebuild and Razorpay settlement check) goes into the `Job` table (`services/jobs.service.ts`, handlers in `services/job-handlers.ts`). A job is queued **inside the same transaction** as the change it belongs to, retried with backoff, and shown on Admin → Jobs when it gives up. The cron endpoints below run due jobs.
 
 | Endpoint                         | Trigger                                             | Does                                                                                                                       |
 | -------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -85,8 +87,12 @@ Cron endpoints require `Authorization: Bearer <CRON_SECRET>`. Webhooks verify a 
 - **Stock can't be oversold**: one conditional SQL update per line (`services/inventory.service.ts`), tested under real concurrency (`tests/db/reservation.test.ts`).
 - **Order status changes** must be allowed by `lib/order-status.ts` (`ORDER_TRANSITIONS`).
 - **Payments are idempotent**: callback and webhook may both arrive; only the first changes anything (`markOrderPaid` in `services/order.service.ts`).
-- **Admin access is checked twice**: cookie in middleware, then role in the DB on every admin action (`lib/auth-guards.ts`, tested by `tests/admin-actions-guard.test.ts`).
+- **Admin access is checked twice**: cookie in middleware, then the staff member's **permission** in the DB on every admin action (`lib/permissions.ts`, `lib/auth-guards.ts`; every action is listed in `tests/admin-actions-guard.test.ts`, which fails if a new one isn't).
+- **Personal data is encrypted at rest**: addresses, phone numbers and invoice buyer details (`lib/pii.ts`, AES-GCM, key `PII_ENCRYPTION_KEY`).
+- **Kill switches** (`services/switches.service.ts`): checkout, COD, coupons and recommendations can be paused from Admin → System, enforced on the server.
+- **Works without outside accounts**: no courier API → manual tracking; no payment keys → "contact us to order"; no email/SMS keys → messages are logged and retried later.
+- **Public API and webhooks** (`/api/v1`, `services/integrations.service.ts`): hashed API keys with rate limits; outgoing webhooks are HMAC-signed and never sent to private addresses.
 
 ## Deliberately NOT included (add when needed)
 
-No Docker, no job queue/Redis, no separate backend service, no microservices. Rate limiting is in-memory per server instance (`lib/rate-limit.ts`). The roadmap for these is in `Goal.md` (Phases 17–30); add them only when traffic or a real need asks for it.
+No Docker, no Redis, no separate backend service, no microservices. Rate limiting is in-memory per server instance (`lib/rate-limit.ts`). The roadmap for these is in `Goal.md` (Phases 17–30); add them only when traffic or a real need asks for it.

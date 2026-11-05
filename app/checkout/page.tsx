@@ -12,16 +12,39 @@ import { shippingFeeFor } from "@/lib/shipping-fee";
 import { config } from "@/lib/config";
 import { otpAvailable } from "@/services/otp.service";
 import { whatsappLink } from "@/lib/support";
+import { getSwitches, SWITCHES } from "@/services/switches.service";
 
 export const metadata: Metadata = { title: "Checkout", robots: { index: false } };
 
 export default async function CheckoutPage() {
   const user = await requireUserPage("/checkout");
-  const [cart, addresses] = await Promise.all([getCartView(user.id), listAddresses(user.id)]);
+  const [cart, addresses, switches] = await Promise.all([
+    getCartView(user.id),
+    listAddresses(user.id),
+    getSwitches(),
+  ]);
   if (cart.itemCount === 0 || cart.hasIssues) redirect("/cart");
 
   const shipping = shippingFeeFor(cart.subtotalInPaise, getShippingRule());
   const total = cart.subtotalInPaise + shipping;
+
+  // Kill switch (Phase 30): no way to pay while checkout is paused; the cart stays as it is.
+  if (switches.checkout.off)
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-10">
+        <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+        <p
+          role="status"
+          data-testid="checkout-paused"
+          className="mt-6 rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+        >
+          {SWITCHES.checkout.paused}
+        </p>
+        <Link href="/cart" className="mt-6 inline-block text-sm underline">
+          Back to your cart
+        </Link>
+      </div>
+    );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -40,7 +63,7 @@ export default async function CheckoutPage() {
           shippingInPaise={shipping}
           storeName={publicEnv.NEXT_PUBLIC_SITE_NAME}
           // Cash on delivery needs its SMS code service in production (Phase 18).
-          codEnabled={config.cod.enabled && otpAvailable()}
+          codEnabled={config.cod.enabled && otpAvailable() && !switches.cod.off}
           contactHref={
             whatsappLink(config.support.whatsapp_number, "Hello, I'd like to place an order.") ??
             "/contact"
