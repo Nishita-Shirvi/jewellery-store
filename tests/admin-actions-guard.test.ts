@@ -132,6 +132,16 @@ vi.mock("@/services/merch.service", () => ({
   unpublishPage: spy("unpublishPage"),
   deletePage: spy("deletePage"),
 }));
+vi.mock("@/services/switches.service", () => ({
+  SWITCHES: {
+    checkout: { label: "Checkout" },
+    cod: { label: "COD" },
+    coupons: { label: "Coupons" },
+    recommendations: { label: "Reco" },
+  },
+  SWITCH_KEYS: ["checkout", "cod", "coupons", "recommendations"],
+  setSwitch: spy("setSwitch"),
+}));
 vi.mock("@/services/product-csv.service", () => ({
   importProductsCsv: vi.fn(async () => {
     touched.push("importProductsCsv");
@@ -226,6 +236,8 @@ function validForm() {
     faqId: "abc123",
     courier: "Blue Dart",
     runId: "abc123",
+    switchKey: "coupons",
+    switchOff: "true",
     reconKind: "cod_remittance",
     keyName: "Marketplace feed",
     keyId: "abc123",
@@ -319,6 +331,7 @@ const NEEDS: Record<string, Permission> = {
   runAlertChecksAction: "system.view",
   saveManualTrackingAction: "orders.update",
   importProductsAction: "accounting.manage",
+  setSwitchAction: "switches.manage",
   reconcileUploadAction: "accounting.manage",
   recordRemittanceAction: "cod.manage",
   createApiKeyAction: "integrations.manage",

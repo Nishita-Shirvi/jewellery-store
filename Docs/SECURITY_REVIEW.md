@@ -7,16 +7,36 @@
 
 ## Findings and what was done
 
-| #   | Severity | Finding                                                                                                                                                  | Status                                                                                                                                                                                                                                             | Test                                                                         |
-| --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| M1  | Medium   | Open redirect: `/login?callbackUrl=/%09/evil.com` passed the check (browsers drop the tab, giving `//evil.com`).                                         | **Fixed** — control characters and backslashes refused, and the path must resolve to this site (`lib/safe-redirect.ts`).                                                                                                                           | `tests/security.test.ts` (12 attack strings), `tests/e2e/security.spec.ts`   |
-| M2  | Medium   | Rate limits used the first `X-Forwarded-For` entry, which the visitor controls: limits could be bypassed, and anyone could lock any account by spoofing. | **Fixed** — IP taken from Vercel's own headers (`x-real-ip` / `x-vercel-forwarded-for`), else the entry added by the nearest proxy (`lib/request.ts`). The lockout still applies per account (see "Accepted" below).                               | `tests/security.test.ts`                                                     |
-| L1  | Low      | Review and return photo URLs accepted images from **any** Cloudinary account.                                                                            | **Fixed** — must be our account and the right folder (`isOwnUpload` in `services/upload.service.ts`); the image optimiser is also limited to our Cloudinary account.                                                                               | Unit + DB suites                                                             |
-| L2  | Low      | Sign-up says "An account with this email already exists", so someone can check whether an email is a customer.                                           | **Accepted** — normal for shops and needed so customers know to log in instead; limited to 5 sign-ups/hour per (now unspoofable) IP. Revisit with email verification.                                                                              | —                                                                            |
-| L3  | Low      | No Content-Security-Policy.                                                                                                                              | **Fixed** — CSP on every response (`lib/csp.ts`): no framing, no plugins, scripts only from this site/Razorpay/Google Analytics, forms only to this site/Google sign-in.                                                                           | `tests/security.test.ts`; E2E: checkout and main pages run with 0 violations |
-| L4  | Low      | Customer emails/phone numbers written to logs in full.                                                                                                   | **Fixed** — `to`, `email`, `phone`… fields are masked (`pr***@gmail.com`, `98******10`) in `lib/logger.ts`.                                                                                                                                        | `tests/security.test.ts`                                                     |
-| —   | Critical | Dependency: Next.js ≤ 15.5.27 — remote code execution in the image optimiser with SVG files (the store serves SVG placeholder images).                   | **Fixed** — upgraded to Next.js 15.5.28 (patch release).                                                                                                                                                                                           | Full regression                                                              |
-| —   | High     | Dependencies: `prisma` CLI → `deepmerge-ts` (stack exhaustion), PostCSS bundled inside Next (source-map file read / `</style>` escaping).                | **Accepted for now** — both run only at build time on this project's own files (Prisma's config loader, the CSS compiler); no visitor input reaches them. Fixes need major upgrades (Prisma 7, Next 16): planned as a separate, fully tested step. | —                                                                            |
+- **M1 · Medium**
+  - Finding: Open redirect: `/login?callbackUrl=/%09/evil.com` passed the check (browsers drop the tab, giving `//evil.com`).
+  - Status: **Fixed** — control characters and backslashes refused, and the path must resolve to this site (`lib/safe-redirect.ts`).
+  - Test: `tests/security.test.ts` (12 attack strings), `tests/e2e/security.spec.ts`
+- **M2 · Medium**
+  - Finding: Rate limits used the first `X-Forwarded-For` entry, which the visitor controls: limits could be bypassed, and anyone could lock any account by spoofing.
+  - Status: **Fixed** — IP taken from Vercel's own headers (`x-real-ip` / `x-vercel-forwarded-for`), else the entry added by the nearest proxy (`lib/request.ts`). The lockout still applies per account (see "Accepted" below).
+  - Test: `tests/security.test.ts`
+- **L1 · Low**
+  - Finding: Review and return photo URLs accepted images from **any** Cloudinary account.
+  - Status: **Fixed** — must be our account and the right folder (`isOwnUpload` in `services/upload.service.ts`); the image optimiser is also limited to our Cloudinary account.
+  - Test: Unit + DB suites
+- **L2 · Low**
+  - Finding: Sign-up says "An account with this email already exists", so someone can check whether an email is a customer.
+  - Status: **Accepted** — normal for shops and needed so customers know to log in instead; limited to 5 sign-ups/hour per (now unspoofable) IP. Revisit with email verification.
+- **L3 · Low**
+  - Finding: No Content-Security-Policy.
+  - Status: **Fixed** — CSP on every response (`lib/csp.ts`): no framing, no plugins, scripts only from this site/Razorpay/Google Analytics, forms only to this site/Google sign-in.
+  - Test: `tests/security.test.ts`; E2E: checkout and main pages run with 0 violations
+- **L4 · Low**
+  - Finding: Customer emails/phone numbers written to logs in full.
+  - Status: **Fixed** — `to`, `email`, `phone`… fields are masked (`pr***@gmail.com`, `98******10`) in `lib/logger.ts`.
+  - Test: `tests/security.test.ts`
+- **— · Critical**
+  - Finding: Dependency: Next.js ≤ 15.5.27 — remote code execution in the image optimiser with SVG files (the store serves SVG placeholder images).
+  - Status: **Fixed** — upgraded to Next.js 15.5.28 (patch release).
+  - Test: Full regression
+- **— · High**
+  - Finding: Dependencies: `prisma` CLI → `deepmerge-ts` (stack exhaustion), PostCSS bundled inside Next (source-map file read / `</style>` escaping).
+  - Status: **Accepted for now** — both run only at build time on this project's own files (Prisma's config loader, the CSS compiler); no visitor input reaches them. Fixes need major upgrades (Prisma 7, Next 16): planned as a separate, fully tested step.
 
 ## New protections added in Phase 23
 
@@ -27,18 +47,16 @@
 
 ## OWASP Top 10 (2021) — where each is covered
 
-| Risk                                  | How this store handles it                                                                                                                                                                                                                                                                                                             |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A01 Broken access control             | Every customer query filters by the signed-in user's id (orders, addresses, returns, cancellations, invoices, tickets, attachments, wishlist, cart). Every admin action calls `requirePermission` first (checked by a test that lists all of them). IDOR tests in `tests/db/account-security.test.ts` and the Phase 22 support tests. |
-| A02 Cryptographic failures            | bcrypt passwords; reset/invite/unsubscribe tokens are random and stored hashed; TOTP secrets encrypted (AES-GCM); HTTPS only (HSTS); secure, HTTP-only cookies.                                                                                                                                                                       |
-| A03 Injection                         | Prisma queries; raw SQL only as tagged templates; LIKE input escaped; React escapes output; JSON-LD escaped; CSV export guards against spreadsheet formulas; CSP as a second layer.                                                                                                                                                   |
-| A04 Insecure design                   | Prices, discounts and stock always recalculated on the server inside a transaction; one-use actions guarded by conditional updates (tested with parallel requests).                                                                                                                                                                   |
-| A05 Security misconfiguration         | CSP, `X-Frame-Options`/`frame-ancestors`, nosniff, Referrer-Policy, Permissions-Policy, HSTS; API errors return no internal details; env validated at start-up.                                                                                                                                                                       |
-| A06 Vulnerable components             | `npm audit` reviewed (table above); Next.js patched.                                                                                                                                                                                                                                                                                  |
-| A07 Identification and authentication | Lockout, rate limits, reset links, session expiry, sign-out on password change, staff two-step sign-in with recovery codes.                                                                                                                                                                                                           |
-| A08 Software and data integrity       | Razorpay and Shiprocket webhooks verified (HMAC / constant-time token), processed idempotently; payment callback signature-checked; image uploads signed.                                                                                                                                                                             |
-| A09 Logging and monitoring            | Structured logs with secrets redacted and personal data masked; staff activity log including refused attempts; Sentry when configured.                                                                                                                                                                                                |
-| A10 Server-side request forgery       | The server only calls fixed provider URLs (Razorpay, Shiprocket, Resend, MSG91, Cloudinary); no user-supplied URL is ever fetched.                                                                                                                                                                                                    |
+- **A01 Broken access control** — Every customer query filters by the signed-in user's id (orders, addresses, returns, cancellations, invoices, tickets, attachments, wishlist, cart). Every admin action calls `requirePermission` first (checked by a test that lists all of them). IDOR tests in `tests/db/account-security.test.ts` and the Phase 22 support tests.
+- **A02 Cryptographic failures** — bcrypt passwords; reset/invite/unsubscribe tokens are random and stored hashed; TOTP secrets encrypted (AES-GCM); HTTPS only (HSTS); secure, HTTP-only cookies.
+- **A03 Injection** — Prisma queries; raw SQL only as tagged templates; LIKE input escaped; React escapes output; JSON-LD escaped; CSV export guards against spreadsheet formulas; CSP as a second layer.
+- **A04 Insecure design** — Prices, discounts and stock always recalculated on the server inside a transaction; one-use actions guarded by conditional updates (tested with parallel requests).
+- **A05 Security misconfiguration** — CSP, `X-Frame-Options`/`frame-ancestors`, nosniff, Referrer-Policy, Permissions-Policy, HSTS; API errors return no internal details; env validated at start-up.
+- **A06 Vulnerable components** — `npm audit` reviewed (table above); Next.js patched.
+- **A07 Identification and authentication** — Lockout, rate limits, reset links, session expiry, sign-out on password change, staff two-step sign-in with recovery codes.
+- **A08 Software and data integrity** — Razorpay and Shiprocket webhooks verified (HMAC / constant-time token), processed idempotently; payment callback signature-checked; image uploads signed.
+- **A09 Logging and monitoring** — Structured logs with secrets redacted and personal data masked; staff activity log including refused attempts; Sentry when configured.
+- **A10 Server-side request forgery** — The server only calls fixed provider URLs (Razorpay, Shiprocket, Resend, MSG91, Cloudinary); no user-supplied URL is ever fetched.
 
 ## Accepted risks (and why)
 

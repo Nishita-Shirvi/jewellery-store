@@ -66,7 +66,7 @@ export default async function AccountOrderPage({
         <Link href="/account/orders" className="text-muted-foreground text-sm hover:underline">
           ← Your orders
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Order {order.displayNumber}</h1>
+        <h1 className="text-3xl md:text-4xl">Order {order.displayNumber}</h1>
         <StatusBadge status={order.status} />
       </div>
       <p className="text-muted-foreground text-sm">

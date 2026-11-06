@@ -8,34 +8,60 @@ This folder is the project's memory. It tracks what we are building, where we ar
 
 ### Understand and maintain the code
 
-| File               | Purpose                                                                                                     | Update when                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `learning/`        | Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises | A feature, flow or file location changes     |
-| `ARCHITECTURE.md`  | Stack, layers, folder map, background jobs, safety properties                                               | Structure or stack changes                   |
-| `CONFIGURATION.md` | `config.ini` (settings) vs `.env` (secrets) — every key, overrides, adding a setting                        | A setting or env variable is added/removed   |
-| `LOGGING.md`       | Logger usage, where to read logs, built-in debugging tools                                                  | Logging changes                              |
-| `FEATURES.md`      | What each feature does for customers and admins                                                             | Feature behaviour changes                    |
-| `INTEGRATIONS.md`  | Setup steps: Razorpay, Resend, Shiprocket, Cloudinary, Google, MSG91, Sentry, GA4, cron                     | An integration is added or its setup changes |
+- **`learning/`**
+  - Purpose: Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises
+  - Update when: A feature, flow or file location changes
+- **`ARCHITECTURE.md`**
+  - Purpose: Stack, layers, folder map, background jobs, safety properties
+  - Update when: Structure or stack changes
+- **`CONFIGURATION.md`**
+  - Purpose: `config.ini` (settings) vs `.env` (secrets) — every key, overrides, adding a setting
+  - Update when: A setting or env variable is added/removed
+- **`LOGGING.md`**
+  - Purpose: Logger usage, where to read logs, built-in debugging tools
+  - Update when: Logging changes
+- **`FEATURES.md`**
+  - Purpose: What each feature does for customers and admins
+  - Update when: Feature behaviour changes
+- **`INTEGRATIONS.md`**
+  - Purpose: Setup steps: Razorpay, Resend, Shiprocket, Cloudinary, Google, MSG91, Sentry, GA4, cron
+  - Update when: An integration is added or its setup changes
 
 ### Run and ship
 
-| File                   | Purpose                                                                                 | Update when          |
-| ---------------------- | --------------------------------------------------------------------------------------- | -------------------- |
-| `DEPLOY.md`            | Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email     | Hosting changes      |
-| `GO_LIVE_CHECKLIST.md` | Everything to tick before taking real orders, including switching Razorpay to live keys | Before launch        |
-| `BACKUPS.md`           | Database backups and restore steps                                                      | Backup setup changes |
-| `RELEASE_WEEK2.md`     | Release checklist used for the Week 2 release                                           | (historical)         |
+- **`DEPLOY.md`**
+  - Purpose: Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email
+  - Update when: Hosting changes
+- **`GO_LIVE_CHECKLIST.md`**
+  - Purpose: Everything to tick before taking real orders, including switching Razorpay to live keys
+  - Update when: Before launch
+- **`BACKUPS.md`**
+  - Purpose: Database backups and restore steps
+  - Update when: Backup setup changes
+- **`RELEASE_WEEK2.md`**
+  - Purpose: Release checklist used for the Week 2 release
+  - Update when: (historical)
 
 ### Plan and track
 
-| File           | Purpose                                                           | Update when                                                    |
-| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| `checklist.md` | One-page feature checklist: done vs pending                       | A feature is finished                                          |
-| `Goal.md`      | Detailed goals for every phase, with a "Done when" test           | Tick items as they are finished and verified                   |
-| `progress.md`  | Status of all phases + a log written **before** each phase starts | Before starting a phase, and after finishing it                |
-| `blocker.md`   | Everything stopping or slowing work, who must act, and next steps | As soon as a blocker appears or is solved                      |
-| `note.md`      | Decisions, defaults, jewellery domain notes                       | Whenever a default is chosen or something is worth remembering |
-| `readme.md`    | This file                                                         | When a doc is added or removed                                 |
+- **`checklist.md`**
+  - Purpose: One-page feature checklist: done vs pending
+  - Update when: A feature is finished
+- **`Goal.md`**
+  - Purpose: Detailed goals for every phase, with a "Done when" test
+  - Update when: Tick items as they are finished and verified
+- **`progress.md`**
+  - Purpose: Status of all phases + a log written **before** each phase starts
+  - Update when: Before starting a phase, and after finishing it
+- **`blocker.md`**
+  - Purpose: Everything stopping or slowing work, who must act, and next steps
+  - Update when: As soon as a blocker appears or is solved
+- **`note.md`**
+  - Purpose: Decisions, defaults, jewellery domain notes
+  - Update when: Whenever a default is chosen or something is worth remembering
+- **`readme.md`**
+  - Purpose: This file
+  - Update when: When a doc is added or removed
 
 ## The project in short
 

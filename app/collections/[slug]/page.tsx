@@ -12,6 +12,7 @@ import {
   getCollectionProducts,
   type CollectionView,
 } from "@/services/merch.service";
+import { PageHeader } from "@/components/layout/page-header";
 
 const INTRO: Record<string, string> = {
   rings:
@@ -79,25 +80,21 @@ export default async function CollectionPage({
   const result = await listProducts(query);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
-      <nav aria-label="Breadcrumb" className="text-muted-foreground text-sm">
-        <Link href="/" className="hover:underline">
-          Home
-        </Link>{" "}
-        /{" "}
-        <Link href="/products" className="hover:underline">
-          Jewellery
-        </Link>
-      </nav>
-      <h1 className="mt-3 text-4xl md:text-5xl">{category.name}</h1>
-      <p className="text-muted-foreground mt-3 max-w-2xl">{INTRO[slug] ?? ""}</p>
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+    <div>
+      <PageHeader
+        title={category.name}
+        crumbs={[
+          { href: "/", label: "Home" },
+          { href: "/products", label: "Jewellery" },
+        ]}
+        description={INTRO[slug] || undefined}
+      >
         <p className="text-muted-foreground text-sm">{result.total} pieces</p>
         <Button asChild variant="outline" size="sm">
           <Link href={`/products?category=${slug}`}>Filter and sort</Link>
         </Button>
-      </div>
-      <div className="mt-8">
+      </PageHeader>
+      <div className="mx-auto max-w-6xl px-4 py-10">
         <ProductGrid products={result.items} />
         <Pagination query={query} pageCount={result.pageCount} />
       </div>
@@ -125,33 +122,29 @@ async function MerchCollection({
     return `/collections/${c.slug}${qs ? `?${qs}` : ""}`;
   };
   return (
-    <div className="mx-auto max-w-6xl px-4 py-12">
+    <div>
       {c.isPreview && (
         <p
           role="status"
-          className="mb-6 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
+          className="mx-auto mt-6 max-w-6xl rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
         >
           Preview — customers can&apos;t see this collection yet (it&apos;s a draft or scheduled).
         </p>
       )}
-      <nav aria-label="Breadcrumb" className="text-muted-foreground text-sm">
-        <Link href="/" className="hover:underline">
-          Home
-        </Link>{" "}
-        /{" "}
-        <Link href="/products" className="hover:underline">
-          Jewellery
-        </Link>
-      </nav>
-      <h1 className="mt-3 text-4xl md:text-5xl">{c.title}</h1>
-      {c.description && (
-        <Markdown
-          source={c.description}
-          className="text-muted-foreground mt-3 max-w-2xl space-y-3"
-        />
-      )}
-      <p className="text-muted-foreground mt-6 text-sm">{result.total} pieces</p>
-      <div className="mt-8">
+      <PageHeader
+        title={c.title}
+        eyebrow="Collection"
+        crumbs={[
+          { href: "/", label: "Home" },
+          { href: "/products", label: "Jewellery" },
+        ]}
+        description={
+          c.description ? <Markdown source={c.description} className="space-y-3" /> : undefined
+        }
+      >
+        <p className="text-muted-foreground text-sm">{result.total} pieces</p>
+      </PageHeader>
+      <div className="mx-auto max-w-6xl px-4 py-10">
         {result.items.length > 0 ? (
           <ProductGrid products={result.items} />
         ) : (

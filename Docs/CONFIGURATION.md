@@ -2,10 +2,14 @@
 
 The app has exactly **two** places for settings. Knowing which one a value belongs in prevents most "it works locally but not live" problems.
 
-| Where                                   | What goes there                                                                                                      | Committed to git? | Changes take effect                                                         |
-| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- | --------------------------------------------------------------------------- |
-| `config.ini` (project root)             | Business rules and store details: legal name, GSTIN, state, shipping fee, invoice prefix, stock hold time, log level | **Yes**           | On the next deploy (or `npm run dev` restart)                               |
-| `.env` locally / Vercel → Env Variables | **Secrets** and per-environment URLs: database, Auth secret, Razorpay/Resend/Cloudinary/Shiprocket keys              | **Never**         | Locally on restart; on Vercel after a **redeploy** (Deployments → Redeploy) |
+- **`config.ini` (project root)**
+  - What goes there: Business rules and store details: legal name, GSTIN, state, shipping fee, invoice prefix, stock hold time, log level
+  - Committed to git?: **Yes**
+  - Changes take effect: On the next deploy (or `npm run dev` restart)
+- **`.env` locally / Vercel → Env Variables**
+  - What goes there: **Secrets** and per-environment URLs: database, Auth secret, Razorpay/Resend/Cloudinary/Shiprocket keys
+  - Committed to git?: **Never**
+  - Changes take effect: Locally on restart; on Vercel after a **redeploy** (Deployments → Redeploy)
 
 Rule of thumb: _if it would be bad for a stranger to read it, it's `.env`. Otherwise it's `config.ini`._
 
@@ -22,33 +26,106 @@ Loaded by `lib/config.ts`, validated with Zod. A typo (e.g. `state = Telengana`,
 
 so a bad value can never reach customers.
 
-| Section / key                                                             | Default            | Used for                                                                                                                   | Code that reads it                                                    |
-| ------------------------------------------------------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `[business] legal_name, address, email, phone, gstin`                     | `[placeholders]`   | Legal pages, invoices, footer, emails                                                                                      | `lib/business.ts` → `getBusiness()`                                   |
-| `[business] state`                                                        | `Telangana`        | GST: buyer in same state → CGST+SGST, else IGST                                                                            | `services/order.service.ts` (checkout), `services/invoice.service.ts` |
-| `[grievance_officer] name, email`                                         | `[placeholders]`   | Legal pages (required by e-commerce rules)                                                                                 | `lib/business.ts`                                                     |
-| `[invoice] prefix`                                                        | `INV`              | `INV/2026-27/000001`                                                                                                       | `services/invoice.service.ts`                                         |
-| `[shipping] fee_rupees`, `free_above_rupees`                              | `99`, `999`        | Shipping fee at checkout                                                                                                   | `lib/shipping-config.ts`                                              |
-| `[inventory] reservation_minutes`                                         | `15`               | How long stock is held while a customer pays                                                                               | `services/inventory.service.ts`                                       |
-| `[inventory] low_stock_threshold`                                         | `3`                | "Low stock" on the admin dashboard + daily low-stock email                                                                 | `services/admin/dashboard.service.ts`, `services/report.service.ts`   |
-| `[alerts] admin_email`                                                    | empty = all admins | Who gets low-stock emails                                                                                                  | `services/alert.service.ts`                                           |
-| `[features] sms`                                                          | `false`            | Order SMS through MSG91 (also needs `MSG91_*` keys in `.env`)                                                              | `services/notification.service.ts`                                    |
-| `[marketing] abandoned_cart`                                              | `true`             | Cart reminder emails to signed-in customers                                                                                | `services/marketing.service.ts`                                       |
-| `[marketing] abandoned_first_minutes` / `abandoned_second_hours`          | `60` / `24`        | When the 1st and 2nd reminders go                                                                                          | `lib/marketing.ts`                                                    |
-| `[marketing] abandoned_coupon_percent`                                    | `0`                | % off coupon (single use, personal) in the 2nd reminder; 0 = none                                                          | `services/marketing.service.ts`                                       |
-| `[marketing] referral_reward_rupees` / `referral_min_order_rupees`        | `500` / `2000`     | Referrer's reward coupon and its minimum order; 0 = referrals off                                                          | `services/marketing.service.ts`                                       |
-| `[support] notify_email`                                                  | (business email)   | Where new tickets and customer replies are emailed                                                                         | `services/marketing-email.service.ts`                                 |
-| `[support] whatsapp_number`                                               | (empty = off)      | WhatsApp number with country code for a "Chat on WhatsApp" button                                                          | `lib/support.ts`                                                      |
-| `[festivals] akshaya_tritiya` / `dhanteras` / `diwali` / `wedding_season` | see config.ini     | Date ranges `YYYY-MM-DD..YYYY-MM-DD` offered as one-click dates when scheduling content. Lunar calendar: update every year | `services/merch.service.ts`                                           |
-| `[alerts] no_orders_hours` … `repeat_hours`                               | see config.ini     | Business alert thresholds (0 = off); what to do for each: Docs/RUNBOOK.md                                                  | `services/monitor.service.ts`                                         |
-| `[privacy] otp_days` … `audit_log_days`                                   | see config.ini     | How long data no longer needed is kept before the daily clean-up; shown in the privacy policy                              | `services/privacy.service.ts`                                         |
-| `[cod] enabled`                                                           | `true`             | Offer cash on delivery at checkout                                                                                         | `lib/cod.ts`, `services/order.service.ts`                             |
-| `[cod] max_order_rupees`                                                  | `10000`            | Largest order total (incl. shipping + fee) allowed on COD — kept low on purpose                                            | `lib/cod.ts`                                                          |
-| `[cod] fee_rupees`                                                        | `0`                | Extra COD fee, added to the total and to the invoice                                                                       | `lib/cod.ts`, `services/invoice.service.ts`                           |
-| `[cod] pincodes`                                                          | (empty = all)      | Comma-separated pincodes / prefixes where COD is allowed, e.g. `500, 560001`                                               | `lib/cod.ts`                                                          |
-| `[cod] max_refusals`                                                      | `2`                | Refused COD parcels after which a customer must pay online                                                                 | `lib/cod.ts`, `services/shipment.service.ts`                          |
-| `[cod] otp_required`                                                      | `true`             | SMS one-time code before every COD order (needs `MSG91_OTP_TEMPLATE_ID`)                                                   | `services/otp.service.ts`                                             |
-| `[logging] level`                                                         | `info`             | `debug` / `info` / `warn` / `error` — see `LOGGING.md`                                                                     | `lib/logger.ts`                                                       |
+- **`[business] legal_name, address, email, phone, gstin`**
+  - Default: `[placeholders]`
+  - Used for: Legal pages, invoices, footer, emails
+  - Code that reads it: `lib/business.ts` → `getBusiness()`
+- **`[business] state`**
+  - Default: `Telangana`
+  - Used for: GST: buyer in same state → CGST+SGST, else IGST
+  - Code that reads it: `services/order.service.ts` (checkout), `services/invoice.service.ts`
+- **`[grievance_officer] name, email`**
+  - Default: `[placeholders]`
+  - Used for: Legal pages (required by e-commerce rules)
+  - Code that reads it: `lib/business.ts`
+- **`[invoice] prefix`**
+  - Default: `INV`
+  - Used for: `INV/2026-27/000001`
+  - Code that reads it: `services/invoice.service.ts`
+- **`[shipping] fee_rupees`, `free_above_rupees`**
+  - Default: `99`, `999`
+  - Used for: Shipping fee at checkout
+  - Code that reads it: `lib/shipping-config.ts`
+- **`[inventory] reservation_minutes`**
+  - Default: `15`
+  - Used for: How long stock is held while a customer pays
+  - Code that reads it: `services/inventory.service.ts`
+- **`[inventory] low_stock_threshold`**
+  - Default: `3`
+  - Used for: "Low stock" on the admin dashboard + daily low-stock email
+  - Code that reads it: `services/admin/dashboard.service.ts`, `services/report.service.ts`
+- **`[alerts] admin_email`**
+  - Default: empty = all admins
+  - Used for: Who gets low-stock emails
+  - Code that reads it: `services/alert.service.ts`
+- **`[features] sms`**
+  - Default: `false`
+  - Used for: Order SMS through MSG91 (also needs `MSG91_*` keys in `.env`)
+  - Code that reads it: `services/notification.service.ts`
+- **`[marketing] abandoned_cart`**
+  - Default: `true`
+  - Used for: Cart reminder emails to signed-in customers
+  - Code that reads it: `services/marketing.service.ts`
+- **`[marketing] abandoned_first_minutes` / `abandoned_second_hours`**
+  - Default: `60` / `24`
+  - Used for: When the 1st and 2nd reminders go
+  - Code that reads it: `lib/marketing.ts`
+- **`[marketing] abandoned_coupon_percent`**
+  - Default: `0`
+  - Used for: % off coupon (single use, personal) in the 2nd reminder; 0 = none
+  - Code that reads it: `services/marketing.service.ts`
+- **`[marketing] referral_reward_rupees` / `referral_min_order_rupees`**
+  - Default: `500` / `2000`
+  - Used for: Referrer's reward coupon and its minimum order; 0 = referrals off
+  - Code that reads it: `services/marketing.service.ts`
+- **`[support] notify_email`**
+  - Default: (business email)
+  - Used for: Where new tickets and customer replies are emailed
+  - Code that reads it: `services/marketing-email.service.ts`
+- **`[support] whatsapp_number`**
+  - Default: (empty = off)
+  - Used for: WhatsApp number with country code for a "Chat on WhatsApp" button
+  - Code that reads it: `lib/support.ts`
+- **`[festivals] akshaya_tritiya` / `dhanteras` / `diwali` / `wedding_season`**
+  - Default: see config.ini
+  - Used for: Date ranges `YYYY-MM-DD..YYYY-MM-DD` offered as one-click dates when scheduling content. Lunar calendar: update every year
+  - Code that reads it: `services/merch.service.ts`
+- **`[alerts] no_orders_hours` … `repeat_hours`**
+  - Default: see config.ini
+  - Used for: Business alert thresholds (0 = off); what to do for each: Docs/RUNBOOK.md
+  - Code that reads it: `services/monitor.service.ts`
+- **`[privacy] otp_days` … `audit_log_days`**
+  - Default: see config.ini
+  - Used for: How long data no longer needed is kept before the daily clean-up; shown in the privacy policy
+  - Code that reads it: `services/privacy.service.ts`
+- **`[cod] enabled`**
+  - Default: `true`
+  - Used for: Offer cash on delivery at checkout
+  - Code that reads it: `lib/cod.ts`, `services/order.service.ts`
+- **`[cod] max_order_rupees`**
+  - Default: `10000`
+  - Used for: Largest order total (incl. shipping + fee) allowed on COD — kept low on purpose
+  - Code that reads it: `lib/cod.ts`
+- **`[cod] fee_rupees`**
+  - Default: `0`
+  - Used for: Extra COD fee, added to the total and to the invoice
+  - Code that reads it: `lib/cod.ts`, `services/invoice.service.ts`
+- **`[cod] pincodes`**
+  - Default: (empty = all)
+  - Used for: Comma-separated pincodes / prefixes where COD is allowed, e.g. `500, 560001`
+  - Code that reads it: `lib/cod.ts`
+- **`[cod] max_refusals`**
+  - Default: `2`
+  - Used for: Refused COD parcels after which a customer must pay online
+  - Code that reads it: `lib/cod.ts`, `services/shipment.service.ts`
+- **`[cod] otp_required`**
+  - Default: `true`
+  - Used for: SMS one-time code before every COD order (needs `MSG91_OTP_TEMPLATE_ID`)
+  - Code that reads it: `services/otp.service.ts`
+- **`[logging] level`**
+  - Default: `info`
+  - Used for: `debug` / `info` / `warn` / `error` — see `LOGGING.md`
+  - Code that reads it: `lib/logger.ts`
 
 ### Overriding a value for one environment
 
@@ -83,18 +160,38 @@ Older env names from before `config.ini` existed still work: `FREE_SHIPPING_ABOV
 
 Full commented list: `.env.example`. Validated by `lib/env.ts` the same way — a missing required value stops the app at startup.
 
-| Variable                                                                                           | Required?              | Without it                                                      |
-| -------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------- |
-| `DATABASE_URL`, `DIRECT_URL`                                                                       | Yes                    | App doesn't start                                               |
-| `AUTH_SECRET`                                                                                      | Yes (32+ chars)        | App doesn't start                                               |
-| `NEXT_PUBLIC_APP_URL`                                                                              | Yes in production      | Links in emails/sitemap point to localhost                      |
-| `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`                                | To take payments       | Checkout shows "payments not set up"                            |
-| `RESEND_API_KEY`, `EMAIL_FROM`                                                                     | To send email          | Emails are only written to the log (`email.skipped_no_api_key`) |
-| `CLOUDINARY_*`                                                                                     | To upload photos       | Admin picks from placeholder images                             |
-| `SHIPROCKET_EMAIL`, `SHIPROCKET_PASSWORD`, `SHIPROCKET_PICKUP_PINCODE`, `SHIPROCKET_WEBHOOK_TOKEN` | For automatic shipping | Admin marks orders shipped by hand                              |
-| `CRON_SECRET`                                                                                      | In production          | Cron endpoints return 503 → expired stock holds aren't released |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                                                             | Optional               | "Continue with Google" is hidden                                |
-| `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`                                                             | Optional               | No error alerts (logs still work)                               |
-| `NEXT_PUBLIC_GA_ID`                                                                                | Optional               | No Google Analytics                                             |
+- **`DATABASE_URL`, `DIRECT_URL`**
+  - Required?: Yes
+  - Without it: App doesn't start
+- **`AUTH_SECRET`**
+  - Required?: Yes (32+ chars)
+  - Without it: App doesn't start
+- **`NEXT_PUBLIC_APP_URL`**
+  - Required?: Yes in production
+  - Without it: Links in emails/sitemap point to localhost
+- **`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`**
+  - Required?: To take payments
+  - Without it: Checkout shows "payments not set up"
+- **`RESEND_API_KEY`, `EMAIL_FROM`**
+  - Required?: To send email
+  - Without it: Emails are only written to the log (`email.skipped_no_api_key`)
+- **`CLOUDINARY_*`**
+  - Required?: To upload photos
+  - Without it: Admin picks from placeholder images
+- **`SHIPROCKET_EMAIL`, `SHIPROCKET_PASSWORD`, `SHIPROCKET_PICKUP_PINCODE`, `SHIPROCKET_WEBHOOK_TOKEN`**
+  - Required?: For automatic shipping
+  - Without it: Admin marks orders shipped by hand
+- **`CRON_SECRET`**
+  - Required?: In production
+  - Without it: Cron endpoints return 503 → expired stock holds aren't released
+- **`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`**
+  - Required?: Optional
+  - Without it: "Continue with Google" is hidden
+- **`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`**
+  - Required?: Optional
+  - Without it: No error alerts (logs still work)
+- **`NEXT_PUBLIC_GA_ID`**
+  - Required?: Optional
+  - Without it: No Google Analytics
 
 **Quick check of what is switched on:** every server start logs one line `app.start` with `integrations: { razorpay: true, email: false, … }` (yes/no only, never the values). See `LOGGING.md`.

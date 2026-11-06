@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/auth/form-field";
 import { saveAddressAction, type AccountFormState } from "@/app/account/actions";
 import { INDIAN_STATES } from "@/lib/india";
+import { usePincodeState } from "@/components/checkout/use-pincode-state";
 
 export interface EditableAddress {
   id?: string;
@@ -45,6 +46,7 @@ export function AddressEditor({
   );
   const values = address ?? EMPTY;
   const e = state.fieldErrors ?? {};
+  const pin = usePincodeState();
   const prefix = values.id ? `a-${values.id}-` : "a-new-";
 
   useEffect(() => {
@@ -65,6 +67,7 @@ export function AddressEditor({
       className="border-border grid w-full gap-4 rounded-md border p-4 sm:grid-cols-2"
       noValidate
       aria-label={values.id ? "Edit address" : "New address"}
+      onInput={pin.onInput}
     >
       {values.id && <input type="hidden" name="id" value={values.id} />}
       {state.error && (
@@ -147,6 +150,13 @@ export function AddressEditor({
         defaultValue={values.pincode}
         errors={e.pincode}
       />
+      <p
+        aria-live="polite"
+        className="text-muted-foreground text-xs empty:hidden sm:col-span-2"
+        data-testid="pincode-hint"
+      >
+        {pin.hint}
+      </p>
       <div className="flex gap-2 sm:col-span-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Save address"}

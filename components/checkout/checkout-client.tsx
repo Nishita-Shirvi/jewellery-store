@@ -48,9 +48,18 @@ export function CheckoutClient({
   const noPayment = !paymentsEnabled && !codEnabled;
 
   return (
-    <div className="space-y-8">
-      <section aria-labelledby="address-heading">
-        <h2 id="address-heading" className="text-lg font-medium">
+    <div className="space-y-6">
+      <section
+        aria-labelledby="address-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="address-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            1
+          </span>
           Delivery address
         </h2>
         {addresses.length > 0 && (
@@ -97,8 +106,17 @@ export function CheckoutClient({
         </div>
       </section>
 
-      <section aria-labelledby="coupon-heading">
-        <h2 id="coupon-heading" className="text-lg font-medium">
+      <section
+        aria-labelledby="coupon-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="coupon-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            2
+          </span>
           Coupon
         </h2>
         <div className="mt-3">
@@ -115,8 +133,17 @@ export function CheckoutClient({
         )}
       </section>
 
-      <section aria-labelledby="payment-heading">
-        <h2 id="payment-heading" className="text-lg font-medium">
+      <section
+        aria-labelledby="payment-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="payment-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            3
+          </span>
           Payment
         </h2>
         {codEnabled && paymentsEnabled && (

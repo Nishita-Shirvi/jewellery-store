@@ -2,6 +2,9 @@
  * k6 load test (Phase 23): 200 shoppers at once browsing the store.
  *
  *   k6 run -e BASE_URL=http://localhost:3100 tests/load/k6-shop.js
+ *   k6 run -e BASE_URL=… -e VUS=400 tests/load/k6-shop.js     # a different number of shoppers
+ *
+ * Launch target (Phase 30): about 100 shoppers at once at peak → 200 here is 2× expected traffic.
  *
  * Each virtual shopper: home → collection → product page → search-as-you-type → (health).
  * Targets: 95% of requests under 800 ms, fewer than 1% errors.
@@ -12,14 +15,15 @@ import http from "k6/http";
 import { check, sleep } from "k6";
 
 const BASE = __ENV.BASE_URL || "http://localhost:3100";
+const VUS = Number(__ENV.VUS || 200);
 
 export const options = {
   scenarios: {
     shoppers: {
       executor: "ramping-vus",
       stages: [
-        { duration: "30s", target: 200 }, // ramp up
-        { duration: "1m", target: 200 }, // hold 200 at once
+        { duration: "30s", target: VUS }, // ramp up
+        { duration: "1m", target: VUS }, // hold them all at once
         { duration: "15s", target: 0 },
       ],
       gracefulRampDown: "10s",

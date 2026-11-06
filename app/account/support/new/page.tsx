@@ -24,7 +24,7 @@ export default async function NewTicketPage({
   });
   return (
     <section className="max-w-xl space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Contact support</h1>
+      <h1 className="text-3xl md:text-4xl">Contact support</h1>
       <NewTicketForm
         orders={orders.map((o) => ({
           id: o.id,

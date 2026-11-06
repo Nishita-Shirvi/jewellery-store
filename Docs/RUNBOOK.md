@@ -95,6 +95,12 @@ The alert clears 24 hours after the last failure (retried jobs that succeed no l
 
 ---
 
+## Kill switches
+
+Admin → System → **Kill switches** pauses one part of the shop within seconds, with no deploy: **Checkout** (all new orders and payments, including COD), **Cash on delivery**, **Coupons**, **Recommendation rows**. Customers see a short "paused" message; carts are kept; already-placed orders are untouched. Write a reason in the box — it shows next to the switch and in the activity log. Needs the `switches.manage` permission (Owner and Manager).
+
+Use it first, investigate second: wrong prices or failing payments → Checkout; a COD fraud wave → Cash on delivery; a leaked coupon → Coupons. Rolling back a release: `LAUNCH.md` → "When something goes wrong".
+
 ## Rotating keys
 
 Customers' phone numbers and addresses are encrypted with `PII_ENCRYPTION_KEY` (or, if that isn't set, a key derived from `AUTH_SECRET`). **Never change either without these steps, or saved addresses become unreadable.**

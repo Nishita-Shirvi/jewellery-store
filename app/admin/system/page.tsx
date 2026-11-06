@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { requirePermissionPage } from "@/lib/auth-guards";
+import { requirePermissionPage, staffHasPermission } from "@/lib/auth-guards";
 import { config } from "@/lib/config";
 import { formatIst } from "@/lib/merch";
 import { sumMetric } from "@/lib/metrics";
 import { integrationsSummary } from "@/lib/startup";
 import { getDeepHealth } from "@/services/health.service";
 import { listAlertStates } from "@/services/monitor.service";
-import { runAlertChecksAction } from "../actions";
+import { SWITCHES, SWITCH_KEYS, getSwitches } from "@/services/switches.service";
+import { runAlertChecksAction, setSwitchAction } from "../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -35,13 +36,15 @@ function Pill({ ok, children }: { ok: boolean; children: React.ReactNode }) {
 
 /** Admin → System (Phase 26): is everything running, and is anything on fire. */
 export default async function SystemPage() {
-  await requirePermissionPage("system.view", "/admin/system");
-  const [health, alerts, gateway, badSignatures, errors] = await Promise.all([
+  const staff = await requirePermissionPage("system.view", "/admin/system");
+  const [health, alerts, gateway, badSignatures, errors, switches, canSwitch] = await Promise.all([
     getDeepHealth(),
     listAlertStates(),
     sumMetric("payments.gateway_error", 60),
     sumMetric("webhook.bad_signature", 60),
     sumMetric("log.error", 60),
+    getSwitches(),
+    staffHasPermission(staff.id, "switches.manage"),
   ]);
   const integrations = integrationsSummary();
   const cronOk = health.cronMinutesAgo !== null && health.cronMinutesAgo <= 45;
@@ -103,6 +106,63 @@ export default async function SystemPage() {
             </dd>
           </div>
         </dl>
+      </section>
+
+      <section aria-labelledby="switches-h" className="space-y-3">
+        <h2 id="switches-h" className="text-lg font-medium">
+          Kill switches
+        </h2>
+        <p className="text-muted-foreground text-sm">
+          Pause one part of the shop at once (a pricing mistake, a coupon being abused, a COD fraud
+          wave). Customers see a short &quot;paused&quot; message; nothing else changes. Takes
+          effect within a few seconds on every server.
+        </p>
+        <ul className="divide-border divide-y rounded-md border text-sm">
+          {SWITCH_KEYS.map((k) => {
+            const st = switches[k];
+            return (
+              <li
+                key={k}
+                data-testid={`switch-${k}`}
+                className="flex flex-wrap items-center justify-between gap-2 p-3"
+              >
+                <span>
+                  <strong>{SWITCHES[k].label}</strong>{" "}
+                  <Pill ok={!st.off}>{st.off ? "Paused" : "On"}</Pill>
+                  {st.at && (
+                    <span className="text-muted-foreground block text-xs">
+                      {st.off ? "Paused" : "Turned on"} {formatIst(new Date(st.at))}
+                      {st.by ? ` by ${st.by}` : ""}
+                      {st.note ? ` — ${st.note}` : ""}
+                    </span>
+                  )}
+                </span>
+                {canSwitch && (
+                  <form action={setSwitchAction} className="flex items-center gap-2">
+                    <input type="hidden" name="switchKey" value={k} />
+                    <input type="hidden" name="switchOff" value={st.off ? "false" : "true"} />
+                    {!st.off && (
+                      <input
+                        name="switchNote"
+                        aria-label={`Reason for pausing ${SWITCHES[k].label}`}
+                        placeholder="Reason (optional)"
+                        className="border-input bg-background h-8 w-44 rounded-md border px-2 text-xs"
+                      />
+                    )}
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant={st.off ? "default" : "outline"}
+                      aria-label={`${st.off ? "Turn on" : "Pause"} ${SWITCHES[k].label}`}
+                    >
+                      {st.off ? "Turn back on" : "Pause"}
+                    </Button>
+                  </form>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <section aria-labelledby="alerts-h" className="space-y-3">

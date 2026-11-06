@@ -14,7 +14,7 @@ export default async function AddressesPage() {
 
   return (
     <section className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Addresses</h1>
+      <h1 className="text-3xl md:text-4xl">Addresses</h1>
       <AddressEditor triggerLabel="Add a new address" />
       {addresses.length === 0 ? (
         <p className="text-muted-foreground text-sm">No saved addresses yet.</p>

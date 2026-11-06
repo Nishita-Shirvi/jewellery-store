@@ -171,6 +171,7 @@ export default async function ProductPage({
                   productId={product.id}
                   variantId={base?.id}
                   stock={base ? base.available : 0}
+                  priceInPaise={product.priceInPaise}
                 />
                 {base && base.available === 0 && (
                   <div className="mt-4">

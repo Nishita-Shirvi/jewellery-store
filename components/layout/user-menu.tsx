@@ -11,7 +11,7 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
       <Button asChild variant="outline" size="sm">
         <Link href="/login">
           <User />
-          <span>Log in</span>
+          <span className="max-[380px]:sr-only">Log in</span>
         </Link>
       </Button>
     );
@@ -32,7 +32,7 @@ export function UserMenu({ user }: { user: SessionUser | null }) {
       <Button asChild variant="ghost" size="sm">
         <Link href="/account">
           <User />
-          <span className="max-w-24 truncate">{firstName}</span>
+          <span className="sr-only sm:not-sr-only sm:max-w-24 sm:truncate">{firstName}</span>
         </Link>
       </Button>
       <form action={logoutAction}>

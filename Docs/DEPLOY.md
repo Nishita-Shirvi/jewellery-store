@@ -35,21 +35,19 @@ In Neon, create a **branch** called `production` from `main` (Branches → Creat
 2. Framework: Next.js (detected). Build command: leave default — Vercel runs our `vercel-build` script, which applies database migrations, then builds.
 3. **Environment Variables** — add these for _Production_ (and _Preview_ with test values):
 
-| Variable                                                               | Value                                                                                               |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                                                         | Neon production **pooled** string                                                                   |
-| `DIRECT_URL`                                                           | Neon production **direct** string                                                                   |
-| `AUTH_SECRET`                                                          | a NEW random secret (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`) |
-| `NEXT_PUBLIC_APP_URL`                                                  | `https://www.yourstore.in` (or the `.vercel.app` address for now)                                   |
-| `NEXT_PUBLIC_SITE_NAME`                                                | your store name                                                                                     |
-| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`                              | **test** keys first; live keys at go-live                                                           |
-| `RAZORPAY_WEBHOOK_SECRET`                                              | a new long random text (also entered in Razorpay, step 5)                                           |
-| `RESEND_API_KEY`, `EMAIL_FROM`                                         | from Resend (after verifying your domain)                                                           |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | from Cloudinary                                                                                     |
-| `CRON_SECRET`                                                          | a long random text (cron jobs refuse to run without it)                                             |
-| `SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`                                 | from Sentry (optional)                                                                              |
-| `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`                                 | optional, for Google login                                                                          |
-| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                              | only if you'll seed this database                                                                   |
+- **`DATABASE_URL`** — Neon production **pooled** string
+- **`DIRECT_URL`** — Neon production **direct** string
+- **`AUTH_SECRET`** — a NEW random secret (`node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`)
+- **`NEXT_PUBLIC_APP_URL`** — `https://www.yourstore.in` (or the `.vercel.app` address for now)
+- **`NEXT_PUBLIC_SITE_NAME`** — your store name
+- **`RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`** — **test** keys first; live keys at go-live
+- **`RAZORPAY_WEBHOOK_SECRET`** — a new long random text (also entered in Razorpay, step 5)
+- **`RESEND_API_KEY`, `EMAIL_FROM`** — from Resend (after verifying your domain)
+- **`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`** — from Cloudinary
+- **`CRON_SECRET`** — a long random text (cron jobs refuse to run without it)
+- **`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`** — from Sentry (optional)
+- **`AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`** — optional, for Google login
+- **`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`** — only if you'll seed this database
 
 Business details (legal name, GSTIN, state, grievance officer), shipping fee and invoice prefix are **not** env variables: edit `config.ini`, commit and push — see `CONFIGURATION.md`. Any of them can still be overridden per environment with `SECTION_KEY` (e.g. `LOGGING_LEVEL=debug`).
 

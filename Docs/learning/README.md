@@ -6,26 +6,38 @@ You don't need to read every file. The code is organised so that once you know t
 
 ## The files in this folder
 
-| #   | File                                                 | What you get from it                                                                                |
-| --- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 01  | [01-codebase-map.md](01-codebase-map.md)             | How a request travels through the code; where each kind of code lives                               |
-| 02  | [02-feature-map.md](02-feature-map.md)               | **Feature → files** lookup table. Your main tool when a bug comes in                                |
-| 03  | [03-critical-flows.md](03-critical-flows.md)         | Step-by-step: checkout & payment, webhooks, stock holds, cancel/refund, returns, shipping, invoices |
-| 04  | [04-data-model.md](04-data-model.md)                 | The tables, how they connect, statuses, money/weight rules                                          |
-| 05  | [05-debugging-playbook.md](05-debugging-playbook.md) | Symptom → likely cause → where to look → how to fix                                                 |
-| 06  | [06-practice-exercises.md](06-practice-exercises.md) | Hands-on tasks that prove you understand each area                                                  |
+- **01 · [01-codebase-map.md](01-codebase-map.md)**
+  - What you get from it: How a request travels through the code; where each kind of code lives
+- **02 · [02-feature-map.md](02-feature-map.md)**
+  - What you get from it: **Feature → files** lookup table. Your main tool when a bug comes in
+- **03 · [03-critical-flows.md](03-critical-flows.md)**
+  - What you get from it: Step-by-step: checkout & payment, webhooks, stock holds, cancel/refund, returns, shipping, invoices
+- **04 · [04-data-model.md](04-data-model.md)**
+  - What you get from it: The tables, how they connect, statuses, money/weight rules
+- **05 · [05-debugging-playbook.md](05-debugging-playbook.md)**
+  - What you get from it: Symptom → likely cause → where to look → how to fix
+- **06 · [06-practice-exercises.md](06-practice-exercises.md)**
+  - What you get from it: Hands-on tasks that prove you understand each area
 
 Reference docs one level up: `../ARCHITECTURE.md`, `../CONFIGURATION.md`, `../LOGGING.md`, `../DEPLOY.md`.
 
 ## Suggested plan (about 5 short sessions)
 
-| Session               | Do this                                                                                                                                                                                                                                  | You're done when you can…                                                               |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **1. Run it**         | Follow the root `README.md` setup. Run `npm run dev`, `npm run db:seed`, log in as the seed admin. Click through: home → product → cart → checkout; then `/admin`. Read the `app.start` line in the terminal. Read `../ARCHITECTURE.md`. | …run the app and explain what each top-level folder is for.                             |
-| **2. Layers**         | Read `01-codebase-map.md`. Then trace ONE simple feature end to end: the wishlist heart (`components/wishlist/wishlist-button.tsx` → `app/account/wishlist/actions.ts` → `services/wishlist.service.ts` → `WishlistItem` table).         | …say, for any file, which layer it belongs to and what it's allowed to do.              |
-| **3. Money paths**    | Read `03-critical-flows.md` sections 1–3 with the code open (`services/order.service.ts`, `services/inventory.service.ts`, `app/api/webhooks/razorpay/route.ts`). Do a test payment with Razorpay test keys and watch the logs.          | …draw the checkout flow from memory, including what happens if the webhook comes first. |
-| **4. After the sale** | Read `03-critical-flows.md` sections 4–7 and `04-data-model.md`. In Prisma Studio (`npm run db:studio`) follow one order through `Order`, `OrderItem`, `Payment`, `Invoice`, `Refund`.                                                   | …explain every `OrderStatus` and which code moves an order between them.                |
-| **5. Debug & verify** | Read `05-debugging-playbook.md` and `../LOGGING.md`. Do 3 exercises from `06-practice-exercises.md`. Run `npm run verify` and the DB/E2E tests.                                                                                          | …take a made-up bug, find the file in under 5 minutes, and prove the fix with a test.   |
+- **1. Run it**
+  - Do this: Follow the root `README.md` setup. Run `npm run dev`, `npm run db:seed`, log in as the seed admin. Click through: home → product → cart → checkout; then `/admin`. Read the `app.start` line in the terminal. Read `../ARCHITECTURE.md`.
+  - You're done when you can…: …run the app and explain what each top-level folder is for.
+- **2. Layers**
+  - Do this: Read `01-codebase-map.md`. Then trace ONE simple feature end to end: the wishlist heart (`components/wishlist/wishlist-button.tsx` → `app/account/wishlist/actions.ts` → `services/wishlist.service.ts` → `WishlistItem` table).
+  - You're done when you can…: …say, for any file, which layer it belongs to and what it's allowed to do.
+- **3. Money paths**
+  - Do this: Read `03-critical-flows.md` sections 1–3 with the code open (`services/order.service.ts`, `services/inventory.service.ts`, `app/api/webhooks/razorpay/route.ts`). Do a test payment with Razorpay test keys and watch the logs.
+  - You're done when you can…: …draw the checkout flow from memory, including what happens if the webhook comes first.
+- **4. After the sale**
+  - Do this: Read `03-critical-flows.md` sections 4–7 and `04-data-model.md`. In Prisma Studio (`npm run db:studio`) follow one order through `Order`, `OrderItem`, `Payment`, `Invoice`, `Refund`.
+  - You're done when you can…: …explain every `OrderStatus` and which code moves an order between them.
+- **5. Debug & verify**
+  - Do this: Read `05-debugging-playbook.md` and `../LOGGING.md`. Do 3 exercises from `06-practice-exercises.md`. Run `npm run verify` and the DB/E2E tests.
+  - You're done when you can…: …take a made-up bug, find the file in under 5 minutes, and prove the fix with a test.
 
 ## The 10 files that matter most
 
