@@ -4,20 +4,18 @@ An online jewellery store for India. One Next.js app serves the shop, the custom
 
 ## Stack
 
-| Concern       | Choice                                                               |
-| ------------- | -------------------------------------------------------------------- |
-| Framework     | Next.js 15 App Router, React 19, TypeScript (strict)                 |
-| UI            | Tailwind CSS 4 + a few shadcn/ui components (`components/ui`)        |
-| Database      | PostgreSQL (Neon in production) through Prisma 6                     |
-| Auth          | Auth.js v5 — email/password (bcrypt) + optional Google, JWT sessions |
-| Payments      | Razorpay (popup checkout + webhooks)                                 |
-| Shipping      | Shiprocket (optional; manual shipping without it)                    |
-| Email / SMS   | Resend + React Email; MSG91 SMS behind a flag                        |
-| Images        | Cloudinary (optional; placeholder images without it)                 |
-| Invoices      | `@react-pdf/renderer`, rendered on demand from frozen DB data        |
-| Errors / logs | `lib/logger.ts` JSON logs + Sentry (optional)                        |
-| Hosting       | Vercel (app + cron) + Neon (database)                                |
-| Tests         | Vitest (unit + real-DB tests), Playwright (end-to-end)               |
+- **Framework** — Next.js 15 App Router, React 19, TypeScript (strict)
+- **UI** — Tailwind CSS 4 + a few shadcn/ui components (`components/ui`)
+- **Database** — PostgreSQL (Neon in production) through Prisma 6
+- **Auth** — Auth.js v5 — email/password (bcrypt) + optional Google, JWT sessions
+- **Payments** — Razorpay (popup checkout + webhooks)
+- **Shipping** — Shiprocket (optional; manual shipping without it)
+- **Email / SMS** — Resend + React Email; MSG91 SMS behind a flag
+- **Images** — Cloudinary (optional; placeholder images without it)
+- **Invoices** — `@react-pdf/renderer`, rendered on demand from frozen DB data
+- **Errors / logs** — `lib/logger.ts` JSON logs + Sentry (optional)
+- **Hosting** — Vercel (app + cron) + Neon (database)
+- **Tests** — Vitest (unit + real-DB tests), Playwright (end-to-end)
 
 ## Layers — the one rule that keeps the code findable
 
@@ -48,35 +46,41 @@ PostgreSQL (prisma/schema.prisma)
 
 ## Folder map
 
-| Folder / file                                | Contents                                                                                                                                            |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/`                                       | Routes. `(auth)` login/register, `(legal)` policy pages, `account/`, `admin/`, `cart/`, `checkout/`, `orders/`, `products/`, `collections/`, `api/` |
-| `components/`                                | UI grouped by feature (`catalog`, `cart`, `checkout`, `admin`, `reviews`, …) + `ui/` primitives                                                     |
-| `services/`                                  | Business logic, one file per area; `services/admin/` for admin-only queries                                                                         |
-| `lib/`                                       | Helpers, config, env, logger, validation schemas (`lib/validation/`), external API clients                                                          |
-| `emails/`                                    | React Email template for order emails                                                                                                               |
-| `prisma/`                                    | `schema.prisma`, `migrations/` (applied in production), `seed.ts` + `seed-data/`                                                                    |
-| `tests/`                                     | Unit tests (`*.test.ts`), real-DB tests (`tests/db/`), Playwright (`tests/e2e/`)                                                                    |
-| `types/`                                     | Shared TypeScript types, Auth.js session typing                                                                                                     |
-| `scripts/`                                   | `check-client-bundle.mjs` (fails the build if a secret leaks into browser JS), `pii-encrypt.ts`, `restore-drill.ts`, `staff-reset-2fa.ts`           |
-| `config.ini`                                 | Non-secret settings (see `CONFIGURATION.md`)                                                                                                        |
-| `auth.ts`, `auth.config.ts`, `middleware.ts` | Login setup (full / Edge-safe) and route protection                                                                                                 |
-| `instrumentation*.ts`                        | Server start-up (startup log + Sentry) and browser Sentry                                                                                           |
-| `next.config.ts`                             | Security headers, image domains, config/env validation at build, Sentry                                                                             |
-| `vercel.json`                                | Cron schedule                                                                                                                                       |
-| `.github/workflows/`                         | `ci.yml` (full test pipeline), `cron.yml` (optional 10-minute stock-hold release for the free Vercel plan)                                          |
+- **`app/`** — Routes. `(auth)` login/register, `(legal)` policy pages, `account/`, `admin/`, `cart/`, `checkout/`, `orders/`, `products/`, `collections/`, `api/`
+- **`components/`** — UI grouped by feature (`catalog`, `cart`, `checkout`, `admin`, `reviews`, …) + `ui/` primitives
+- **`services/`** — Business logic, one file per area; `services/admin/` for admin-only queries
+- **`lib/`** — Helpers, config, env, logger, validation schemas (`lib/validation/`), external API clients
+- **`emails/`** — React Email template for order emails
+- **`prisma/`** — `schema.prisma`, `migrations/` (applied in production), `seed.ts` + `seed-data/`
+- **`tests/`** — Unit tests (`*.test.ts`), real-DB tests (`tests/db/`), Playwright (`tests/e2e/`)
+- **`types/`** — Shared TypeScript types, Auth.js session typing
+- **`scripts/`** — `check-client-bundle.mjs` (fails the build if a secret leaks into browser JS), `pii-encrypt.ts`, `restore-drill.ts`, `staff-reset-2fa.ts`
+- **`config.ini`** — Non-secret settings (see `CONFIGURATION.md`)
+- **`auth.ts`, `auth.config.ts`, `middleware.ts`** — Login setup (full / Edge-safe) and route protection
+- **`instrumentation*.ts`** — Server start-up (startup log + Sentry) and browser Sentry
+- **`next.config.ts`** — Security headers, image domains, config/env validation at build, Sentry
+- **`vercel.json`** — Cron schedule
+- **`.github/workflows/`** — `ci.yml` (full test pipeline), `cron.yml` (optional 10-minute stock-hold release for the free Vercel plan)
 
 ## Background work (a Postgres job queue — no Redis)
 
 Slow or retryable work (emails, SMS, invoices, alerts, webhooks to other systems, the daily recommendation rebuild and Razorpay settlement check) goes into the `Job` table (`services/jobs.service.ts`, handlers in `services/job-handlers.ts`). A job is queued **inside the same transaction** as the change it belongs to, retried with backoff, and shown on Admin → Jobs when it gives up. The cron endpoints below run due jobs.
 
-| Endpoint                         | Trigger                                             | Does                                                                                                                       |
-| -------------------------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `/api/cron/jobs`                 | GitHub `cron.yml` every 10 min (if enabled)         | Runs due background jobs + retries, releases expired holds, prunes old jobs; once a day queues the recommendations rebuild |
-| `/api/cron/release-reservations` | Vercel cron daily; also run at every checkout start | Same as `/api/cron/jobs` (kept for existing schedules)                                                                     |
-| `/api/cron/low-stock`            | Vercel cron daily 09:00 IST                         | Queues the low-stock email (once per day) and runs due jobs                                                                |
-| `/api/webhooks/razorpay`         | Razorpay                                            | `payment.captured/failed`, `refund.processed/failed`                                                                       |
-| `/api/webhooks/courier-updates`  | Shiprocket                                          | Tracking updates → SHIPPED / DELIVERED                                                                                     |
+- **`/api/cron/jobs`**
+  - Trigger: GitHub `cron.yml` every 10 min (if enabled)
+  - Does: Runs due background jobs + retries, releases expired holds, prunes old jobs; once a day queues the recommendations rebuild
+- **`/api/cron/release-reservations`**
+  - Trigger: Vercel cron daily; also run at every checkout start
+  - Does: Same as `/api/cron/jobs` (kept for existing schedules)
+- **`/api/cron/low-stock`**
+  - Trigger: Vercel cron daily 09:00 IST
+  - Does: Queues the low-stock email (once per day) and runs due jobs
+- **`/api/webhooks/razorpay`**
+  - Trigger: Razorpay
+  - Does: `payment.captured/failed`, `refund.processed/failed`
+- **`/api/webhooks/courier-updates`**
+  - Trigger: Shiprocket
+  - Does: Tracking updates → SHIPPED / DELIVERED
 
 Cron endpoints require `Authorization: Bearer <CRON_SECRET>`. Webhooks verify a signature/token before doing anything and are idempotent (safe to receive twice).
 

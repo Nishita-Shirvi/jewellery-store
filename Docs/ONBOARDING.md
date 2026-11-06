@@ -18,13 +18,13 @@ Without Razorpay / Shiprocket / Resend / MSG91 keys the shop still works: checko
 
 ## Tests — run before every commit
 
-| Command                                | What                                                                                                                 |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `npm run lint && npm run typecheck`    | ESLint, TypeScript                                                                                                   |
-| `npx prettier --check .`               | Formatting                                                                                                           |
-| `npm test`                             | Unit tests (no database)                                                                                             |
-| `npm run test:db`                      | Real-database tests — needs a **throwaway** database in `DATABASE_URL`                                               |
-| `npm run build && npx playwright test` | Browser tests against a production build (port 3100; `tests/e2e/mock-services.mjs` stands in for Razorpay and MSG91) |
+- `npm run lint && npm run typecheck` — code style and types
+- `npx prettier --check .` — formatting
+- `npm test` — unit tests (no database needed)
+- `npm run test:db` — database tests (use a **throwaway** database in `DATABASE_URL`)
+- `npm run build && npx playwright test` — browser tests on a production build (port 3100; `tests/e2e/mock-services.mjs` pretends to be Razorpay and MSG91)
+
+On a PC with little memory, run these one at a time, not all at once.
 
 The E2E run needs the same variables as CI: copy the `env:` block of `.github/workflows/ci.yml` (with your local `DATABASE_URL`), including `AUTH_TRUST_HOST=true`. CI runs everything on every pull request.
 

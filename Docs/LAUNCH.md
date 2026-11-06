@@ -13,15 +13,27 @@ Pick launch times on a **weekday morning** (Tue–Thu), never before a holiday o
 
 ## 2. First 24 hours — what to watch
 
-| When              | Where                         | Healthy                                                     | If not                                                        |
-| ----------------- | ----------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------- |
-| Every hour        | Admin → System                | All alerts OK, cron < 45 min ago, health OK                 | `RUNBOOK.md` → the section the alert names                    |
-| Every hour        | Admin → Orders                | New orders arrive; none stuck in "Payment pending" > 30 min | Check Razorpay dashboard; RUNBOOK "Payments are failing"      |
-| Every 2 hours     | Admin → Jobs                  | Nothing failed                                              | Retry; read the error; RUNBOOK "Background jobs have failed"  |
-| Morning + evening | Razorpay dashboard → Payments | Success rate > 80 %                                         | Pause checkout (below) if payments fail and you can't see why |
-| Evening           | Admin → Reports               | Orders and revenue match Razorpay                           | Admin → Accounting → upload settlement report                 |
-| Evening           | Inbox (alerts email) + Sentry | No new error types                                          | Fix or pause the feature                                      |
-| Day 2             | Admin → Accounting            | Settlement / COD reconciliation: no unexplained differences | Look at each listed difference                                |
+**Every hour**
+
+- Admin → System: all alerts OK, cron ran in the last 45 minutes. If not, follow the section in `RUNBOOK.md` that the alert names.
+- Admin → Orders: new orders are coming in, and none has been "Payment pending" for more than 30 minutes. If one has, check Razorpay (RUNBOOK → "Payments are failing").
+
+**Every 2 hours**
+
+- Admin → Jobs: nothing failed. If something did, read the error and press Retry.
+
+**Morning and evening**
+
+- Razorpay → Payments: more than 80% succeed. If payments keep failing and you can't see why, pause checkout (below).
+
+**Evening**
+
+- Admin → Reports: orders and revenue match Razorpay.
+- Alert emails and Sentry: no new kinds of errors.
+
+**Day 2**
+
+- Admin → Accounting: upload the settlement and COD files. There should be no unexplained differences.
 
 Numbers to write down at the end of day 1: orders, revenue, payment success rate, COD share, refunds/cancellations, errors in Sentry, slowest page (Vercel → Speed Insights).
 
@@ -29,12 +41,10 @@ Numbers to write down at the end of day 1: orders, revenue, payment success rate
 
 **First, stop the damage — kill switches** (Admin → System → Kill switches, takes effect within seconds):
 
-| Problem                                           | Switch                                                               |
-| ------------------------------------------------- | -------------------------------------------------------------------- |
-| Wrong prices, payments failing, orders not saving | Pause **Checkout**                                                   |
-| Fake COD orders / many refusals                   | Pause **Cash on delivery**                                           |
-| A coupon leaked or is being abused                | Pause **Coupons** (or deactivate that one coupon in Admin → Coupons) |
-| Odd or slow recommendation rows                   | Pause **Recommendation rows**                                        |
+- Wrong prices, payments failing, orders not saving → pause **Checkout**
+- Fake COD orders or many refused parcels → pause **Cash on delivery**
+- A coupon leaked or is being abused → pause **Coupons** (or switch off just that coupon in Admin → Coupons)
+- Odd or slow recommendation rows → pause **Recommendation rows**
 
 Customers see a short "paused" message; carts are kept. Turn the switch back on when fixed.
 

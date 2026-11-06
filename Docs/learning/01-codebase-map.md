@@ -4,12 +4,22 @@
 
 Every behaviour in the app starts at one of these. Find the entry point, then follow its imports.
 
-| Entry point       | Lives in                  | Triggered by                      | Example                                                 |
-| ----------------- | ------------------------- | --------------------------------- | ------------------------------------------------------- |
-| **Page**          | `app/<url>/page.tsx`      | Visiting a URL                    | `/products/gold-ring` → `app/products/[slug]/page.tsx`  |
-| **Server Action** | `app/<area>/actions.ts`   | A form submit / button in the UI  | "Add to cart" → `app/cart/actions.ts`                   |
-| **API route**     | `app/api/<path>/route.ts` | HTTP call from outside or from JS | Razorpay webhook → `app/api/webhooks/razorpay/route.ts` |
-| **Server start**  | `instrumentation.ts`      | App boot                          | Startup log, Sentry init                                |
+- **Page**
+  - Lives in: `app/<url>/page.tsx`
+  - Triggered by: Visiting a URL
+  - Example: `/products/gold-ring` → `app/products/[slug]/page.tsx`
+- **Server Action**
+  - Lives in: `app/<area>/actions.ts`
+  - Triggered by: A form submit / button in the UI
+  - Example: "Add to cart" → `app/cart/actions.ts`
+- **API route**
+  - Lives in: `app/api/<path>/route.ts`
+  - Triggered by: HTTP call from outside or from JS
+  - Example: Razorpay webhook → `app/api/webhooks/razorpay/route.ts`
+- **Server start**
+  - Lives in: `instrumentation.ts`
+  - Triggered by: App boot
+  - Example: Startup log, Sentry init
 
 URL folders in brackets are parameters (`[slug]`, `[id]`). Folders in parentheses are groups that **don't** appear in the URL: `app/(auth)/login` is `/login`, `app/(legal)/privacy` is `/privacy`. `app/products/(list)/page.tsx` is `/products`.
 
@@ -36,26 +46,30 @@ Every feature follows the same shape. Learn it once, reuse it everywhere.
 
 ## Who checks what (security)
 
-| Layer                  | Checks                                                                                                                                | File                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
-| `middleware.ts` (Edge) | Is there a valid session cookie for `/account`, `/checkout`, `/orders`, `/admin`? Admin role in the cookie for `/admin`. Fast, no DB. | `middleware.ts`, `auth.config.ts` |
-| Page / action / route  | `requireUser()` / `requireAdmin()` — admin role re-read **from the DB**                                                               | `lib/auth-guards.ts`              |
-| Service                | Ownership: a customer only gets **their own** order/address (`where: { id, userId }`)                                                 | `services/*.service.ts`           |
-| Input                  | Zod schemas, never trust the browser                                                                                                  | `lib/validation/*.ts`             |
+- **`middleware.ts` (Edge)**
+  - Checks: Is there a valid session cookie for `/account`, `/checkout`, `/orders`, `/admin`? Admin role in the cookie for `/admin`. Fast, no DB.
+  - File: `middleware.ts`, `auth.config.ts`
+- **Page / action / route**
+  - Checks: `requireUser()` / `requireAdmin()` — admin role re-read **from the DB**
+  - File: `lib/auth-guards.ts`
+- **Service**
+  - Checks: Ownership: a customer only gets **their own** order/address (`where: { id, userId }`)
+  - File: `services/*.service.ts`
+- **Input**
+  - Checks: Zod schemas, never trust the browser
+  - File: `lib/validation/*.ts`
 
 ## Where shared stuff lives
 
-| Need                        | Use                                                        |
-| --------------------------- | ---------------------------------------------------------- |
-| Database client             | `import { db } from "@/lib/db"`                            |
-| Secret / URL                | `import { env } from "@/lib/env"`                          |
-| Business setting            | `import { config } from "@/lib/config"`                    |
-| Store/legal details         | `getBusiness()` from `lib/business.ts`                     |
-| Logging                     | `import { logger } from "@/lib/logger"`                    |
-| Money formatting / maths    | `lib/money.ts`, `lib/format.ts` (`formatINR`)              |
-| Order status rules / labels | `lib/order-status.ts`                                      |
-| Rate limiting               | `rateLimit(key, limit, windowMs)` from `lib/rate-limit.ts` |
-| Razorpay / Shiprocket HTTP  | `lib/payments/razorpay.ts`, `lib/shipping/shiprocket.ts`   |
+- **Database client** — `import { db } from "@/lib/db"`
+- **Secret / URL** — `import { env } from "@/lib/env"`
+- **Business setting** — `import { config } from "@/lib/config"`
+- **Store/legal details** — `getBusiness()` from `lib/business.ts`
+- **Logging** — `import { logger } from "@/lib/logger"`
+- **Money formatting / maths** — `lib/money.ts`, `lib/format.ts` (`formatINR`)
+- **Order status rules / labels** — `lib/order-status.ts`
+- **Rate limiting** — `rateLimit(key, limit, windowMs)` from `lib/rate-limit.ts`
+- **Razorpay / Shiprocket HTTP** — `lib/payments/razorpay.ts`, `lib/shipping/shiprocket.ts`
 
 ## Caching (why a change sometimes "doesn't show")
 
@@ -65,11 +79,17 @@ Every feature follows the same shape. Learn it once, reuse it everywhere.
 
 ## Tests map
 
-| Command            | Runs                                                                                                    | Needs                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `npm test`         | `tests/*.test.ts` — pure logic, mocked DB                                                               | nothing                          |
-| `npm run test:db`  | `tests/db/*.test.ts` — concurrency, invoices, coupons, search on real Postgres                          | `DATABASE_URL` (a throwaway DB!) |
-| `npm run test:e2e` | `tests/e2e/` — browser: browse → cart → checkout → pay (fake Razorpay in `tests/e2e/mock-services.mjs`) | a built app + DB                 |
-| `npm run verify`   | lint + typecheck + unit tests                                                                           | nothing                          |
+- **`npm test`**
+  - Runs: `tests/*.test.ts` — pure logic, mocked DB
+  - Needs: nothing
+- **`npm run test:db`**
+  - Runs: `tests/db/*.test.ts` — concurrency, invoices, coupons, search on real Postgres
+  - Needs: `DATABASE_URL` (a throwaway DB!)
+- **`npm run test:e2e`**
+  - Runs: `tests/e2e/` — browser: browse → cart → checkout → pay (fake Razorpay in `tests/e2e/mock-services.mjs`)
+  - Needs: a built app + DB
+- **`npm run verify`**
+  - Runs: lint + typecheck + unit tests
+  - Needs: nothing
 
 CI (`.github/workflows/ci.yml`) runs all of them on every push to `main`.

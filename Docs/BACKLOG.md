@@ -1,32 +1,49 @@
 # Backlog
 
-## Needs Vineet review
+Things still to do. Nothing here is broken today.
 
-Decisions or actions for the client before going live. Nothing here is broken in the code.
+## Needs Vineet (before going live)
 
-| #    | Added      | Area                            | What's needed                                                                                                                                                                                                                                                                                                                                                                                                                            | Status                  |
-| ---- | ---------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| BL-4 | 2026-11-04 | Encryption key (Phase 27)       | Before the Phase 27 deploy, set `PII_ENCRYPTION_KEY` in Vercel (`openssl rand -base64 48`) and keep a copy somewhere safe (password manager). Without it, saved addresses and phone numbers can't be read. After deploying, run `npm run pii:encrypt` once against the live database; `npm run pii:encrypt -- --dry` should then show zeros. Also in `Docs/GO_LIVE_CHECKLIST.md`; rotation steps in `Docs/RUNBOOK.md` → "Rotating keys". | **Needs Vineet review** |
-| BL-5 | 2026-11-04 | Legal text and business details | A lawyer or CA should read the privacy policy and terms (blocker B-09). Fill in the business and grievance officer details in `config.ini` → `[business]` and `[grievance_officer]` (blocker B-04) — they appear on product pages, policies and invoices.                                                                                                                                                                                | **Needs Vineet review** |
-| BL-6 | 2026-11-05 | Zoho Books / Tally live sync    | Phase 29 gives monthly GST reports and a sales register CSV to import into Zoho Books or Tally. A live, automatic sync needs the client's Zoho Books account (API client id/secret, organisation id) or a Tally connector on the office PC. Decide which accounting software is used, then share access.                                                                                                                                 | **Needs Vineet review** |
-| BL-7 | 2026-11-05 | Restore drill on production     | Run `npm run backup:drill -- --target "<empty Neon branch URL>"` with the production `DIRECT_URL`, then add the timings to `Docs/BACKUPS.md` → Drill log. The drill has only been run on the local test copy so far (passed, 3.1 s). Needs production database access.                                                                                                                                                                   | **Needs Vineet review** |
+**BL-4 · Encryption key** (added 4 Nov)
+Customer addresses and phone numbers are stored encrypted. Before deploying:
+
+1. Create a key: `openssl rand -base64 48`
+2. Put it in Vercel as `PII_ENCRYPTION_KEY`, and keep a copy in a password manager. Without it, saved addresses can't be read.
+3. After deploying, run `npm run pii:encrypt` once on the live database. Running `npm run pii:encrypt -- --dry` afterwards should show zeros.
+
+**BL-5 · Legal text and business details** (added 4 Nov)
+
+- A lawyer or CA should read the privacy policy and terms.
+- Fill in the business and grievance officer details in `config.ini` (sections `[business]` and `[grievance_officer]`). They appear on product pages, policies and invoices.
+
+**BL-6 · Zoho Books / Tally** (added 5 Nov)
+Today the shop gives a monthly sales register to import by hand. An automatic sync needs either a Zoho Books account (API details) or a Tally connector on the office PC. Decide which one you use, then share access.
+
+**BL-7 · Backup restore test on the live database** (added 5 Nov)
+The restore test has only been run on a test copy (it passed in 3 seconds). Run it once on production:
+`npm run backup:drill -- --target "<empty Neon branch address>"`
+Then write the result in `Docs/BACKUPS.md`.
 
 ## After the final design
 
-Parts of Phase 28 that depend on the final look of the site. Doing them now would mean doing them twice.
+**BL-8 · Hindi.** All customer text in Hindi too, with a language switch. Needs the final wording and a translator.
 
-| #     | Area            | What                                                                                                                                                        |
-| ----- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| BL-8  | Hindi           | English + Hindi with next-intl: every customer-facing text, a language switcher, `hreflang`, Hindi emails/SMS. Needs the final copy and a Hindi translator. |
-| BL-9  | Dark mode       | Colour tokens exist (CSS variables); dark values and a toggle belong with the final colour palette.                                                         |
-| BL-10 | Optimistic cart | Cart count and line changes shown instantly, before the server answers. Today they update after ~200 ms; worth doing with the final cart/header design.     |
+**BL-9 · Dark mode.** Best done together with the final colours.
 
-## Code review findings
+**BL-10 · Instant cart.** The cart count updates about 0.2 seconds after a click. Making it instant is worth doing with the final header design.
 
-Known issues worth fixing that don't lose data or break anything today. Found by code review; newest first. When one is fixed, delete it here and mention it in `CHANGELOG.md`.
+## Small fixes found in code review
 
-| #    | Found                       | Area                                                         | Issue                                                                                                                                                             | Why it matters                                                                                                       | Suggested fix                                                                                                      |
-| ---- | --------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| BL-1 | 2026-11-04 review of PR #12 | Recommendations stats (`services/reco.service.ts`)           | Impressions are added up in memory and written every few seconds; the last few seconds of a burst stay in memory and are lost if that server instance is stopped. | "Shown" counts and click rates in Admin → Reports can be somewhat low. Clicks, add-to-carts and purchases are exact. | Same pattern as the error counter: start a write as soon as none is in flight, so nothing waits for later traffic. |
-| BL-2 | 2026-11-04 review of PR #12 | Recommendations report                                       | Purchases are credited only once an order is paid (`PAID_STATUSES` with `paidAt`). Cash-on-delivery orders count only after the cash is recorded.                 | For a COD-heavy store, "Bought" and "Revenue" per widget lag behind and look lower than they are.                    | Also count `CONFIRMED` orders (by `createdAt`), shown separately as "COD, not yet paid", or note it on the report. |
-| BL-3 | 2026-11-04 review of PR #12 | Homepage (`services/merch.service.ts` `getLiveHomeSections`) | Product rows are loaded one after another.                                                                                                                        | With many product rows the homepage takes a little longer to start. Fine with 1–3 rows.                              | Load the sections with `Promise.all`, then filter out empty ones.                                                  |
+**BL-1 · "Shown" counts for recommendations can be a little low.**
+Counts are saved every few seconds, so the last few seconds can be lost if a server restarts. Clicks and purchases are always exact.
+Fix: save as soon as nothing else is being saved.
+
+**BL-2 · Cash-on-delivery sales show late in the recommendations report.**
+A COD order counts only after the cash is recorded.
+Fix: also count confirmed COD orders, shown separately.
+
+**BL-3 · The homepage loads its product rows one after another.**
+Fine with 1–3 rows; slower with many.
+Fix: load them all at once.
+
+When something here is fixed, delete it and mention it in `CHANGELOG.md`.

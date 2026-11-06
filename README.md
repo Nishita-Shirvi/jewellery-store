@@ -24,29 +24,29 @@ Generate `AUTH_SECRET` with `node -e "console.log(require('crypto').randomBytes(
 
 ## Settings: `config.ini` vs `.env`
 
-| File         | Holds                                                                                                 | In git?   |
-| ------------ | ----------------------------------------------------------------------------------------------------- | --------- |
-| `config.ini` | Business details (legal name, GSTIN, state), shipping fee, invoice prefix, stock hold time, log level | yes       |
-| `.env`       | Secrets and URLs: database, auth secret, Razorpay / Resend / Cloudinary / Shiprocket keys             | **never** |
+- **`config.ini`**
+  - Holds: Business details (legal name, GSTIN, state), shipping fee, invoice prefix, stock hold time, log level
+  - In git?: yes
+- **`.env`**
+  - Holds: Secrets and URLs: database, auth secret, Razorpay / Resend / Cloudinary / Shiprocket keys
+  - In git?: **never**
 
 Both are validated at startup; a mistake stops `dev`/`build` with a clear message. Full reference: [`Docs/CONFIGURATION.md`](Docs/CONFIGURATION.md). Integration setup (Razorpay, Shiprocket, email, Google…): [`Docs/INTEGRATIONS.md`](Docs/INTEGRATIONS.md).
 
 ## Scripts
 
-| Command                                 | What it does                                                      |
-| --------------------------------------- | ----------------------------------------------------------------- |
-| `npm run dev`                           | Dev server                                                        |
-| `npm run build` / `npm start`           | Production build / run it                                         |
-| `npm run verify`                        | Lint + typecheck + unit tests — run before every push             |
-| `npm test`                              | Unit tests (no database needed)                                   |
-| `npm run test:db`                       | Real-database tests — point `DATABASE_URL` at a **throwaway** DB  |
-| `npm run test:e2e`                      | Playwright browser tests (needs a build + DB)                     |
-| `npm run lint` / `typecheck` / `format` | Individually                                                      |
-| `npm run db:migrate`                    | Create + apply a migration after changing `schema.prisma` (dev)   |
-| `npm run db:deploy`                     | Apply committed migrations (production does this on every deploy) |
-| `npm run db:seed`                       | Load demo data and the admin user (safe to re-run)                |
-| `npm run db:reset`                      | Drop everything and re-seed (development only)                    |
-| `npm run db:studio`                     | Browse/edit data in Prisma Studio                                 |
+- **`npm run dev`** — Dev server
+- **`npm run build` / `npm start`** — Production build / run it
+- **`npm run verify`** — Lint + typecheck + unit tests — run before every push
+- **`npm test`** — Unit tests (no database needed)
+- **`npm run test:db`** — Real-database tests — point `DATABASE_URL` at a **throwaway** DB
+- **`npm run test:e2e`** — Playwright browser tests (needs a build + DB)
+- **`npm run lint` / `typecheck` / `format`** — Individually
+- **`npm run db:migrate`** — Create + apply a migration after changing `schema.prisma` (dev)
+- **`npm run db:deploy`** — Apply committed migrations (production does this on every deploy)
+- **`npm run db:seed`** — Load demo data and the admin user (safe to re-run)
+- **`npm run db:reset`** — Drop everything and re-seed (development only)
+- **`npm run db:studio`** — Browse/edit data in Prisma Studio
 
 ## Folder structure
 

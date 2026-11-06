@@ -16,13 +16,11 @@ const log = logger.child({ module: "shipping", orderId }); // fields added to ev
 log.info("shipment.created", { awb });
 ```
 
-| Feature   | Behaviour                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Levels    | `debug < info < warn < error`. Set in `config.ini` → `[logging] level`, or temporarily with env `LOGGING_LEVEL=debug`.               |
-| Format    | Production: one JSON line per event. `npm run dev`: one readable line (`12:01:02.123 INFO  order.paid {"orderId":"…"}`).             |
-| Errors    | Pass `{ error }` — the logger records `name`, `message` and `stack`.                                                                 |
-| Redaction | Keys that look secret (`password`, `token`, `secret`, `authorization`, `cookie`, `signature`, `otp`, `apiKey`…) become `[redacted]`. |
-| Sentry    | Every `error` line is also sent to Sentry when `SENTRY_DSN` is set (with the stack if an Error was passed).                          |
+- **Levels** — `debug < info < warn < error`. Set in `config.ini` → `[logging] level`, or temporarily with env `LOGGING_LEVEL=debug`.
+- **Format** — Production: one JSON line per event. `npm run dev`: one readable line (`12:01:02.123 INFO  order.paid {"orderId":"…"}`).
+- **Errors** — Pass `{ error }` — the logger records `name`, `message` and `stack`.
+- **Redaction** — Keys that look secret (`password`, `token`, `secret`, `authorization`, `cookie`, `signature`, `otp`, `apiKey`…) become `[redacted]`.
+- **Sentry** — Every `error` line is also sent to Sentry when `SENTRY_DSN` is set (with the stack if an Error was passed).
 
 **Event names** are `area.what_happened` in snake case: `payment.order_paid`, `webhook.razorpay_received`, `cron.release_reservations`. Search the code for an event name to find exactly where it was written.
 
@@ -30,23 +28,19 @@ log.info("shipment.created", { awb });
 
 ## Where to read logs
 
-| Environment | Where                                                                                      |
-| ----------- | ------------------------------------------------------------------------------------------ |
-| Local       | The terminal running `npm run dev`                                                         |
-| Vercel      | Project → **Logs** (live + last few days). Filter by text, e.g. `payment.` or an order id. |
-| Errors      | Sentry → Issues (if `SENTRY_DSN` is set). Each issue shows the stack and the `event` name. |
+- **Local** — The terminal running `npm run dev`
+- **Vercel** — Project → **Logs** (live + last few days). Filter by text, e.g. `payment.` or an order id.
+- **Errors** — Sentry → Issues (if `SENTRY_DSN` is set). Each issue shows the stack and the `event` name.
 
 ## Debugging tools built in
 
-| Tool                    | How to use it                                                                                                                                                                                      |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app.start` log line    | Written once per server start: which integrations are on (Razorpay test/live, email, Shiprocket, SMS…), shipping and stock settings. **Check this first** when a feature "does nothing".           |
-| `GET /api/health`       | `{"status":"ok","db":"ok"}` or HTTP 503 when the database is unreachable. Use for uptime monitors.                                                                                                 |
-| `errorId` in API errors | API routes that use `errorResponse()` (`lib/http.ts`) return `{"error":"Something went wrong.","errorId":"a1b2c3d4"}`. Search the logs for that id to get the full stack (`api.unexpected_error`). |
-| Page error `digest`     | Next.js error pages show a digest; Vercel logs and Sentry contain the same digest with the stack.                                                                                                  |
-| Admin → Audit log       | `/admin/audit`: who changed which product, order, coupon, review, and when (`services/audit.service.ts`).                                                                                          |
-| Database rows           | `npm run db:studio` opens Prisma Studio. `Payment.rawPayload` and `Shipment.rawPayload` keep what Razorpay / Shiprocket actually sent.                                                             |
-| `LOGGING_LEVEL=debug`   | Set on Vercel (or in `.env`), redeploy, reproduce the bug, then remove it again.                                                                                                                   |
+- **`app.start` log line** — Written once per server start: which integrations are on (Razorpay test/live, email, Shiprocket, SMS…), shipping and stock settings. **Check this first** when a feature "does nothing".
+- **`GET /api/health`** — `{"status":"ok","db":"ok"}` or HTTP 503 when the database is unreachable. Use for uptime monitors.
+- **`errorId` in API errors** — API routes that use `errorResponse()` (`lib/http.ts`) return `{"error":"Something went wrong.","errorId":"a1b2c3d4"}`. Search the logs for that id to get the full stack (`api.unexpected_error`).
+- **Page error `digest`** — Next.js error pages show a digest; Vercel logs and Sentry contain the same digest with the stack.
+- **Admin → Audit log** — `/admin/audit`: who changed which product, order, coupon, review, and when (`services/audit.service.ts`).
+- **Database rows** — `npm run db:studio` opens Prisma Studio. `Payment.rawPayload` and `Shipment.rawPayload` keep what Razorpay / Shiprocket actually sent.
+- **`LOGGING_LEVEL=debug`** — Set on Vercel (or in `.env`), redeploy, reproduce the bug, then remove it again.
 
 ## Debugging routine
 

@@ -18,18 +18,28 @@ FAILED/CANCELLED  REFUND_PENDING ───────── refund.processed �
 
 **Files:** `app/checkout/actions.ts`, `services/order.service.ts`, `services/inventory.service.ts`, `lib/payments/razorpay.ts`, `components/checkout/pay-button.tsx`
 
-| Step | Where                                     | What happens                                                                                                                                                                                                                                                                                                                         |
-| ---- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1    | `pay-button.tsx`                          | Customer clicks **Pay**. The browser sends a `checkoutKey` (one per click session).                                                                                                                                                                                                                                                  |
-| 2    | `startCheckoutAction` → `startCheckout()` | Same `checkoutKey` seen before? → return the **same** order (double-click safe).                                                                                                                                                                                                                                                     |
-| 3    | `startCheckout()`                         | Check address belongs to user; `releaseExpiredReservations()` frees stale holds; cart must have no issues; pincode serviceable (skipped if Shiprocket off/down); coupon re-checked.                                                                                                                                                  |
-| 4    | DB transaction                            | Prices and stock **re-read from the DB**; GST split computed (`lib/gst.ts`, seller state from `config.ini`); `Order` (PENDING) + `OrderItem`s with price snapshots created; `reserveLines()` holds stock for `[inventory] reservation_minutes`. If any piece is gone, the whole transaction rolls back → "Some items just sold out". |
-| 5    | `createRazorpayOrder()`                   | Razorpay order created, `Payment` row stored. If Razorpay is unreachable → order FAILED, hold released, friendly error.                                                                                                                                                                                                              |
-| 6    | Browser                                   | Razorpay popup opens (`components/checkout/razorpay.ts`).                                                                                                                                                                                                                                                                            |
-| 7a   | `verifyPaymentAction`                     | Popup success → HMAC signature verified on the server → `markOrderPaid(source: "callback")`.                                                                                                                                                                                                                                         |
-| 7b   | Razorpay webhook                          | Independently, Razorpay calls `/api/webhooks/razorpay` with `payment.captured` → `markOrderPaid(source: "webhook")`.                                                                                                                                                                                                                 |
-| 8    | `markOrderPaid()`                         | **Idempotent.** In one transaction: order PENDING/FAILED/CANCELLED → PAID (conditional update — only the first caller wins), coupon redemption counted, reservation **converted** into a real stock decrease, payment marked captured, cart cleared. Then: funnel counter, invoice created, confirmation email.                      |
-| 9    | `app/orders/[id]/success`                 | Customer sees the success page.                                                                                                                                                                                                                                                                                                      |
+- **1 · `pay-button.tsx`**
+  - What happens: Customer clicks **Pay**. The browser sends a `checkoutKey` (one per click session).
+- **2 · `startCheckoutAction` → `startCheckout()`**
+  - What happens: Same `checkoutKey` seen before? → return the **same** order (double-click safe).
+- **3 · `startCheckout()`**
+  - What happens: Check address belongs to user; `releaseExpiredReservations()` frees stale holds; cart must have no issues; pincode serviceable (skipped if Shiprocket off/down); coupon re-checked.
+- **4 · DB transaction**
+  - What happens: Prices and stock **re-read from the DB**; GST split computed (`lib/gst.ts`, seller state from `config.ini`); `Order` (PENDING) + `OrderItem`s with price snapshots created; `reserveLines()` holds stock for `[inventory] reservation_minutes`. If any piece is gone, the whole transaction rolls back → "Some items just sold out".
+- **5 · `createRazorpayOrder()`**
+  - What happens: Razorpay order created, `Payment` row stored. If Razorpay is unreachable → order FAILED, hold released, friendly error.
+- **6 · Browser**
+  - What happens: Razorpay popup opens (`components/checkout/razorpay.ts`).
+- **7a**
+  - Where: `verifyPaymentAction`
+  - What happens: Popup success → HMAC signature verified on the server → `markOrderPaid(source: "callback")`.
+- **7b**
+  - Where: Razorpay webhook
+  - What happens: Independently, Razorpay calls `/api/webhooks/razorpay` with `payment.captured` → `markOrderPaid(source: "webhook")`.
+- **8 · `markOrderPaid()`**
+  - What happens: **Idempotent.** In one transaction: order PENDING/FAILED/CANCELLED → PAID (conditional update — only the first caller wins), coupon redemption counted, reservation **converted** into a real stock decrease, payment marked captured, cart cleared. Then: funnel counter, invoice created, confirmation email.
+- **9 · `app/orders/[id]/success`**
+  - What happens: Customer sees the success page.
 
 **Edge cases handled (and where):**
 
@@ -46,12 +56,18 @@ FAILED/CANCELLED  REFUND_PENDING ───────── refund.processed �
 available = stock − reservedStock
 ```
 
-| Function                     | When                        | Effect                                                                                       |
-| ---------------------------- | --------------------------- | -------------------------------------------------------------------------------------------- |
-| `reserveLines`               | Checkout start              | `reservedStock += qty` **only if** available ≥ qty (one SQL `UPDATE … WHERE`) → state ACTIVE |
-| `convertReservation`         | Paid                        | `stock −= qty`, `reservedStock −= qty` → CONVERTED                                           |
-| `releaseReservation`         | Failed / cancelled          | `reservedStock −= qty` → RELEASED                                                            |
-| `releaseExpiredReservations` | Cron + every checkout start | All ACTIVE orders past `reservedUntil` → CANCELLED, stock given back                         |
+- **`reserveLines`**
+  - When: Checkout start
+  - Effect: `reservedStock += qty` **only if** available ≥ qty (one SQL `UPDATE … WHERE`) → state ACTIVE
+- **`convertReservation`**
+  - When: Paid
+  - Effect: `stock −= qty`, `reservedStock −= qty` → CONVERTED
+- **`releaseReservation`**
+  - When: Failed / cancelled
+  - Effect: `reservedStock −= qty` → RELEASED
+- **`releaseExpiredReservations`**
+  - When: Cron + every checkout start
+  - Effect: All ACTIVE orders past `reservedUntil` → CANCELLED, stock given back
 
 Why no overselling: two buyers racing for the last piece both run the conditional UPDATE; Postgres row locks make one wait, and then its condition fails. Proven in `tests/db/reservation.test.ts`.
 
@@ -61,12 +77,10 @@ Why no overselling: two buyers racing for the last piece both run the conditiona
 
 1. Rate limit → 2. secret configured? (503 if not) → 3. body ≤ 256 KB → 4. **HMAC signature check** (400 if bad, log `webhook.razorpay_bad_signature`) → 5. parse with Zod → 6. dispatch:
 
-| Event              | Calls                 |
-| ------------------ | --------------------- |
-| `payment.captured` | `markOrderPaid`       |
-| `payment.failed`   | `markPaymentFailed`   |
-| `refund.processed` | `markRefundProcessed` |
-| `refund.failed`    | `markRefundFailed`    |
+- **`payment.captured`** — `markOrderPaid`
+- **`payment.failed`** — `markPaymentFailed`
+- **`refund.processed`** — `markRefundProcessed`
+- **`refund.failed`** — `markRefundFailed`
 
 Returns 200 even for "already processed" so Razorpay stops retrying. A 500 makes Razorpay retry later — safe because every handler is idempotent.
 

@@ -2,10 +2,9 @@
 
 ## Targets
 
-|                                    | Target                                                                                                                        | Why                                                                                  |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| **RPO** (most data we can lose)    | **0–5 minutes** for the database (Neon point-in-time restore); at worst **1 week** if only the weekly `pg_dump` copy survives | Neon keeps every change inside its history window                                    |
-| **RTO** (time to be selling again) | **4 hours**                                                                                                                   | Restore to a Neon branch (minutes) + point Vercel at it + redeploy (~5 min) + checks |
+**How much data could we lose?** 0–5 minutes. Neon keeps every change and can rewind to any moment. Worst case, if only the weekly copy survives: up to 1 week.
+
+**How long until we're selling again?** Up to 4 hours: restore (minutes), point Vercel at it and redeploy (about 5 minutes), then check everything.
 
 Measured with `npm run backup:drill` — see the drill log at the end.
 
@@ -62,7 +61,5 @@ It backs up (`pg_dump`), restores (`pg_restore`), compares the row count of ever
 
 ### Drill log
 
-| Date       | Where                                        | Tables | Backup | Restore | Total | Result                                                |
-| ---------- | -------------------------------------------- | ------ | ------ | ------- | ----- | ----------------------------------------------------- |
-| 2026-11-05 | Local copy (test data, 0.6 MB)               | 63     | 0.6 s  | 2.3 s   | 3.1 s | Passed — every table and the latest invoice identical |
-|            | **Production → Neon branch (before launch)** |        |        |         |       | _to do — BL-7_                                        |
+- **5 Nov 2026 · test copy (0.6 MB):** passed. All 63 tables and the latest invoice matched. Backup 0.6 s, restore 2.3 s, total 3.1 s.
+- **Production → Neon branch:** still to do before launch (BL-7).

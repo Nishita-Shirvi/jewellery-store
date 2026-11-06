@@ -1,40 +1,48 @@
 # Blockers
 
-Anything stopping or slowing a phase goes here. When a blocker is solved, move it to "Resolved" with the date and how it was solved.
+Things only the client can provide. The code for each is ready and waiting.
 
-Priority: 🔴 Blocking now · 🟠 Needed soon (within the next few phases) · 🟢 Needed later
+🔴 needed before going live · 🟠 needed soon · 🟢 nice to have
 
-**Last updated:** 2026-11-03
+## Open
 
----
+**B-01 · Razorpay (payments) 🔴**
+Test keys are free and let us try checkout. Live keys need KYC, which can take up to 2 weeks, so start it now.
+You'll need: business PAN, bank account, GSTIN, and the website with its policy pages.
 
-## Open blockers
+**B-04 · Business details 🔴**
+Legal name, registered address and state, GSTIN, phone, support email, grievance officer.
+Where: `config.ini`, sections `[business]` and `[grievance_officer]`. The pages already show them.
 
-| ID   | Blocker                                                                                                                                                                                          | Affects phase(s)              | Priority | Owner  | Raised     | Status / next step                                                                                                                                                                                                  |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- | -------- | ------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| B-01 | **Razorpay**: test keys needed now to try checkout locally (free, no KYC). Live keys need KYC (days to 2 weeks) before going live in Phase 8.                                                    | 6 (test), 8 (live)            | 🔴       | Client | 2026-10-08 | Create account → Test Mode → API Keys. Start KYC for live keys now: business PAN, bank account, GSTIN, website with policy pages.                                                                                   |
-| B-02 | **Frontend design inputs missing:** logo, brand colours, fonts, real product photos, real product data, homepage content.                                                                        | Future frontend phase, 24, 28 | 🟢       | Client | 2026-10-08 | Not blocking. Using dummy data and placeholder images (see note.md).                                                                                                                                                |
-| B-03 | **Pricing model not decided:** fixed price per product, or price based on daily gold/silver rate (metal rate × weight + making charges + stones + GST).                                          | 2, 4, 5, 6, 12, 17            | 🟠       | Client | 2026-10-08 | Default chosen: fixed price in paise. Weight and making charge fields are stored so we can switch later. Confirm with client before Phase 6.                                                                        |
-| B-04 | **Business details missing** for legal pages: legal name, registered address and state, GSTIN, phone, support email, grievance officer.                                                          | 8, 12, 27                     | 🔴       | Client | 2026-10-08 | Put them in `config.ini` → `[business]` and `[grievance_officer]`, commit, deploy. Pages are ready and waiting.                                                                                                     |
-| B-05 | **Shiprocket account + KYC**, a pickup address named to match `SHIPROCKET_PICKUP_LOCATION`, and confirming which couriers accept jewellery, declared-value limits and insurance.                 | 10, 18                        | 🔴       | Client | 2026-10-08 | Code is ready. Create the account, add an API user (Settings → API → Add New API User), put its email/password in `.env`.                                                                                           |
-| B-06 | **Google OAuth credentials** (client ID/secret) and consent screen.                                                                                                                              | 3                             | 🟢       | Client | 2026-10-08 | Google login code is done and hidden until keys are added. Steps in README → "Google login (optional)".                                                                                                             |
-| B-07 | **Domain name** and email DNS (SPF, DKIM, DMARC) for sending emails.                                                                                                                             | 6 (emails), 8, 30             | 🟠       | Client | 2026-10-08 | Resend test domain can be used until then.                                                                                                                                                                          |
-| B-08 | **MSG91 account + TRAI DLT registration** for SMS templates: order updates and the **cash-on-delivery one-time code** (Phase 18 is built and tested against a stand-in). DLT can take 1–2 weeks. | 12 (optional), 18             | 🟠       | Client | 2026-10-08 | Needed before COD can go live: approve an OTP template with an `otp` variable, then set `MSG91_AUTH_KEY` + `MSG91_OTP_TEMPLATE_ID` (INTEGRATIONS.md → Cash on delivery). Until then COD stays hidden in production. |
-| B-09 | **CA / legal review**: GST rates and HSN codes (default 7113 @ 3%), shipping taxed at the item rate, invoice format, PAN/cash rules for high-value jewellery, privacy and returns policies.      | 12, 18, 27                    | 🟠       | Client | 2026-10-08 | Invoices are working with defaults; show a sample invoice PDF to your CA.                                                                                                                                           |
-| B-10 | **Accounts for going live:** GitHub, Vercel (required); Sentry, Cloudinary, Resend (recommended). (Neon ✅)                                                                                      | 8                             | 🔴       | Client | 2026-10-08 | Follow Docs/DEPLOY.md step by step.                                                                                                                                                                                 |
+**B-05 · Shiprocket (delivery) 🔴**
+Create the account and do KYC, add a pickup address, and check which couriers accept jewellery and up to what value.
+Then add an API user (Settings → API) and send us its email and password.
+Until then, the owner adds tracking by hand on each order.
 
----
+**B-10 · Accounts for going live 🔴**
+Required: GitHub and Vercel. Recommended: Sentry (errors), Cloudinary (photos), Resend (emails). Neon is done ✅.
+Steps: `Docs/DEPLOY.md`.
 
-## Template for a new blocker
+**B-03 · Pricing model 🟠**
+Fixed price per product (used now), or a price from the daily gold/silver rate. Weight and making charge are already stored, so we can switch later.
 
-```
-| B-XX | What is blocked and why | Phase(s) | 🔴/🟠/🟢 | Who must act | YYYY-MM-DD | Next step |
-```
+**B-07 · Domain and email setup 🟠**
+The shop's domain name, plus email DNS records (SPF, DKIM, DMARC) so emails don't land in spam.
 
----
+**B-08 · SMS (MSG91 + DLT registration) 🟠**
+Needed for the cash-on-delivery code and order SMS. DLT approval takes 1–2 weeks.
+Until then, cash on delivery stays hidden on the live site.
 
-## Resolved
+**B-09 · CA / legal review 🟠**
+GST rates and HSN codes (default: 7113 at 3%), invoice format, rules for high-value jewellery, privacy and returns policies.
+Tip: show your CA a sample invoice PDF.
 
-| ID  | Blocker | Resolved on | How it was resolved |
-| --- | ------- | ----------- | ------------------- |
-| —   | —       | —           | —                   |
+**B-02 · Design inputs 🟢**
+Logo, real product photos and product details. Placeholder images are used until then.
+
+**B-06 · Google login 🟢**
+Optional. Hidden until its keys are added (README → "Google login").
+
+## Solved
+
+None yet. When one is solved, move it here with the date and how.
