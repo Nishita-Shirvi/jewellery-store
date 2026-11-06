@@ -8,7 +8,30 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Big version jumps of the framework pieces need planned work (code changes + full testing),
+    # so Dependabot only suggests safe minor/patch updates for them. See Docs/BACKLOG.md → BL-11.
+    ignore:
+      - dependency-name: next
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint-config-next
+        update-types: [version-update:semver-major]
+      - dependency-name: react
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: prisma
+        update-types: [version-update:semver-major]
+      - dependency-name: "@prisma/client"
+        update-types: [version-update:semver-major]
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      # Types must match the Node version the app runs on (Node 22).
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
