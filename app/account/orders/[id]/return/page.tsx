@@ -25,7 +25,7 @@ export default async function ReturnPage({ params }: { params: Promise<{ id: str
       >
         ← Back to order
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Return items</h1>
+      <h1 className="text-3xl md:text-4xl">Return items</h1>
       {options.eligibility.ok ? (
         <>
           <p className="text-muted-foreground text-sm">

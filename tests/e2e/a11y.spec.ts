@@ -99,3 +99,40 @@ test("missing pages answer 404, not 200 (search engines and the error pages rely
   ])
     expect((await request.get(url)).status(), url).toBe(404);
 });
+
+test("phone width: no page is wider than the screen", async ({ browser }) => {
+  test.setTimeout(240_000);
+  const ctx = await browser.newContext({
+    viewport: { width: 360, height: 780 },
+    extraHTTPHeaders: { "x-forwarded-for": visitorIp("phone-width") },
+  });
+  const page = await ctx.newPage();
+  const tooWide = async (url: string) => {
+    await page.goto(url);
+    await page.waitForLoadState("networkidle");
+    return page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  };
+  for (const url of [
+    "/",
+    "/products",
+    "/collections/rings",
+    "/products/floral-band-ring",
+    "/cart",
+    "/login",
+    "/register",
+  ])
+    expect(await tooWide(url), url).toBeLessThanOrEqual(1);
+  // Signed in: the header gains the account and log-out buttons; the account pages their menu.
+  await page.goto("/register");
+  await page.getByLabel("Full name").fill("Phone Width Tester");
+  await page
+    .getByLabel("Email", { exact: true })
+    .fill(`e2e-phone-${Date.now()}-${Math.random().toString(36).slice(2, 5)}@example.com`);
+  await page.getByLabel("Password", { exact: true }).fill("PhoneWidth2026");
+  await page.getByLabel("Confirm password").fill("PhoneWidth2026");
+  await page.getByRole("button", { name: "Create account" }).click();
+  await page.waitForURL((u) => !u.pathname.startsWith("/register"), { timeout: 20_000 });
+  for (const url of ["/account", "/account/orders", "/account/addresses", "/account/privacy"])
+    expect(await tooWide(url), url).toBeLessThanOrEqual(1);
+  await ctx.close();
+});

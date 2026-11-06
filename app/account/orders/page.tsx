@@ -29,7 +29,7 @@ export default async function AccountOrdersPage({
 
   return (
     <section>
-      <h1 className="text-2xl font-semibold tracking-tight">Your orders</h1>
+      <h1 className="text-3xl md:text-4xl">Your orders</h1>
       {orders.length === 0 ? (
         <div className="border-border mt-8 rounded-md border border-dashed p-10 text-center">
           <p className="font-medium">No orders yet</p>

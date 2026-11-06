@@ -6,6 +6,7 @@ import { ProductGrid } from "@/components/catalog/product-grid";
 import { Button } from "@/components/ui/button";
 import { productListQuerySchema } from "@/lib/validation/catalog";
 import { getCategories, listProducts } from "@/services/catalog.service";
+import { PageHeader } from "@/components/layout/page-header";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -49,17 +50,27 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const heading = query.q ? `Results for “${query.q}”` : (category?.name ?? "All jewellery");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-3xl md:text-4xl">{heading}</h1>
+    <div>
+      <PageHeader
+        title={heading}
+        crumbs={[{ href: "/", label: "Home" }]}
+        description={
+          !query.q && !category
+            ? "Hallmarked gold, sterling silver and certified diamonds — every piece insured to your door."
+            : undefined
+        }
+      >
         <p className="text-muted-foreground text-sm" aria-live="polite">
           {result.total} {result.total === 1 ? "piece" : "pieces"}
         </p>
-      </div>
+      </PageHeader>
 
-      <div className="mt-8 grid gap-10 md:grid-cols-[220px_1fr]">
-        <aside>
-          <CatalogFilters query={query} categories={categories} />
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-[230px_1fr]">
+        <aside className="md:sticky md:top-24 md:self-start">
+          <div className="border-border rounded-lg border bg-white/60 p-5">
+            <h2 className="mb-4 text-lg">Refine</h2>
+            <CatalogFilters query={query} categories={categories} />
+          </div>
         </aside>
 
         <section aria-label="Products">
@@ -69,12 +80,16 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
               <Pagination query={query} pageCount={result.pageCount} />
             </>
           ) : (
-            <div className="border-border rounded-md border border-dashed p-10 text-center">
-              <h2 className="font-medium">No jewellery found</h2>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Try a different search or remove some filters.
+            <div className="border-border flex flex-col items-center rounded-lg border border-dashed px-6 py-14 text-center">
+              <div
+                aria-hidden="true"
+                className="arch border-border bg-muted mb-5 h-20 w-16 border"
+              />
+              <h2 className="text-2xl">No jewellery found</h2>
+              <p className="text-muted-foreground mt-2 max-w-sm text-sm">
+                Try a different search or remove some filters — or browse everything we have.
               </p>
-              <Button asChild variant="outline" className="mt-4">
+              <Button asChild variant="outline" className="mt-5">
                 <Link href="/products">See all jewellery</Link>
               </Button>
             </div>

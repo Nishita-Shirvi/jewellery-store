@@ -18,10 +18,10 @@ export async function SiteHeader() {
         Free insured shipping on orders above ₹999. Every gold piece is BIS hallmarked.
       </p>
       <div className="border-border border-b">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:gap-6">
           <Link
             href="/"
-            className="font-display text-primary shrink-0 text-2xl tracking-wide"
+            className="font-display text-primary shrink-0 text-xl tracking-wide min-[380px]:text-2xl"
             style={{ fontFamily: "var(--font-display)" }}
           >
             {publicEnv.NEXT_PUBLIC_SITE_NAME}
