@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { occasionFromSlug } from "@/lib/storefront";
 
 export const SORT_OPTIONS = ["relevance", "newest", "price_asc", "price_desc", "rating"] as const;
 export type SortOption = (typeof SORT_OPTIONS)[number];
@@ -39,6 +40,17 @@ export const productListQuerySchema = z.object({
     .preprocess(single, z.coerce.number().int().min(0).max(10_000_000).optional())
     .catch(undefined),
   inStock: z.preprocess(single, z.enum(["1"]).optional()).catch(undefined),
+  /** "bridal", "daily-wear", … (URL form of the Occasion enum). */
+  occasion: z
+    .preprocess(single, z.string().max(20).optional())
+    .transform((v) => (v ? occasionFromSlug(v) : undefined))
+    .catch(undefined),
+  colour: z
+    .preprocess(single, z.enum(["YELLOW", "WHITE", "ROSE", "SILVER"]).optional())
+    .catch(undefined),
+  /** Net metal weight in grams (up to 3 decimals). */
+  minWeight: z.preprocess(single, z.coerce.number().min(0).max(5000).optional()).catch(undefined),
+  maxWeight: z.preprocess(single, z.coerce.number().min(0).max(5000).optional()).catch(undefined),
   /** Minimum average stars (1–4). */
   rating: z.preprocess(single, z.coerce.number().int().min(1).max(4).optional()).catch(undefined),
   page: z.preprocess(single, z.coerce.number().int().min(1).max(1000).default(1)).catch(1),

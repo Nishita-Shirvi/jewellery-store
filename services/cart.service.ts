@@ -5,13 +5,19 @@ import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
 import { env } from "@/lib/env";
 import { materialSummary } from "@/lib/jewellery";
-import { MAX_CART_LINES, cartLineSchema, type CartLine } from "@/lib/validation/cart";
-import { maxAllowed, mergeLines, priceCart, type PricedProduct } from "@/services/pricing";
+import { MAX_CART_LINES, cartLineSchema, lineKey, type CartLine } from "@/lib/validation/cart";
+import {
+  isValidSize,
+  maxAllowed,
+  mergeLines,
+  priceCart,
+  type PricedProduct,
+} from "@/services/pricing";
 import type { CartActionResult, CartView } from "@/types/cart";
 
 /**
  * Cart storage:
- *  - Guests: a cookie holding only product IDs and quantities (no prices).
+ *  - Guests: a cookie holding only product IDs, sizes and quantities (no prices).
  *  - Signed-in users: Cart/CartItem rows in the database.
  * Prices and stock are ALWAYS re-read from the database.
  *
@@ -57,7 +63,10 @@ async function readUserLines(userId: string): Promise<CartLine[]> {
   const cart = await db.cart.findUnique({
     where: { userId },
     select: {
-      items: { select: { productId: true, quantity: true }, orderBy: { createdAt: "asc" } },
+      items: {
+        select: { productId: true, size: true, quantity: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   return cart?.items ?? [];
@@ -67,25 +76,33 @@ async function readLines(userId: string | null): Promise<CartLine[]> {
   return userId ? readUserLines(userId) : readGuestLines();
 }
 
-/** Sets one product's quantity (0 deletes it). */
-async function writeLine(userId: string | null, productId: string, quantity: number) {
+/** Sets one product + size line's quantity (0 deletes it). */
+async function writeLine(userId: string | null, productId: string, size: string, quantity: number) {
   if (!userId) {
-    const lines = (await readGuestLines()).filter((l) => l.productId !== productId);
-    if (quantity > 0) lines.push({ productId, quantity });
+    const key = lineKey({ productId, size });
+    const lines = (await readGuestLines()).filter((l) => lineKey(l) !== key);
+    if (quantity > 0) lines.push({ productId, size, quantity });
     await writeGuestLines(lines);
     return;
   }
 
   if (quantity <= 0) {
-    await db.cartItem.deleteMany({ where: { cart: { userId }, productId } });
+    await db.cartItem.deleteMany({ where: { cart: { userId }, productId, size } });
     return;
   }
   const cart = await db.cart.upsert({ where: { userId }, update: {}, create: { userId } });
   await db.cartItem.upsert({
-    where: { cartId_productId: { cartId: cart.id, productId } },
+    where: { cartId_productId_size: { cartId: cart.id, productId, size } },
     update: { quantity },
-    create: { cartId: cart.id, productId, quantity },
+    create: { cartId: cart.id, productId, size, quantity },
   });
+}
+
+/** Units of this piece already in the cart in OTHER sizes (they share the piece's stock). */
+function otherSizesQuantity(lines: CartLine[], productId: string, size: string): number {
+  return lines
+    .filter((l) => l.productId === productId && l.size !== size)
+    .reduce((sum, l) => sum + l.quantity, 0);
 }
 
 // ───────────────────────── products ─────────────────────────
@@ -107,6 +124,7 @@ async function loadProducts(productIds: string[]): Promise<Map<string, PricedPro
       purity: true,
       metalColour: true,
       netWeightMg: true,
+      sizes: true,
       category: { select: { isActive: true } },
     },
   });
@@ -122,6 +140,7 @@ async function loadProducts(productIds: string[]): Promise<Map<string, PricedPro
         stock: availableStock(row),
         isAvailable: row.isActive && row.category.isActive,
         materialSummary: materialSummary(row),
+        sizes: row.sizes,
       },
     ]),
   );
@@ -144,19 +163,27 @@ export async function addItem(
   userId: string | null,
   productId: string,
   quantity: number,
+  size = "",
 ): Promise<CartActionResult> {
   const product = await loadProduct(productId);
   if (!product || !product.isAvailable) {
     return { ok: false, error: "This piece is no longer available." };
   }
+  if (!isValidSize(product, size)) {
+    return {
+      ok: false,
+      error: product.sizes.length ? "Please choose a size." : "This piece has no sizes.",
+    };
+  }
 
   const lines = await readLines(userId);
-  const existing = lines.find((l) => l.productId === productId)?.quantity ?? 0;
+  const key = lineKey({ productId, size });
+  const existing = lines.find((l) => lineKey(l) === key)?.quantity ?? 0;
   if (existing === 0 && lines.length >= MAX_CART_LINES) {
     return { ok: false, error: "Your cart is full. Remove something to add this piece." };
   }
 
-  const limit = maxAllowed(product.stock);
+  const limit = Math.max(0, maxAllowed(product.stock) - otherSizesQuantity(lines, productId, size));
   if (limit === 0) return { ok: false, error: "Sorry, this piece is out of stock." };
   if (existing >= limit) {
     return { ok: false, error: `You already have the maximum available (${limit}) in your cart.` };
@@ -169,7 +196,7 @@ export async function addItem(
     };
   }
 
-  await writeLine(userId, productId, existing + quantity);
+  await writeLine(userId, productId, size, existing + quantity);
   return { ok: true, message: "Added to cart." };
 }
 
@@ -177,14 +204,16 @@ export async function setItemQuantity(
   userId: string | null,
   productId: string,
   quantity: number,
+  size = "",
 ): Promise<CartActionResult> {
-  if (quantity === 0) return removeItem(userId, productId);
+  if (quantity === 0) return removeItem(userId, productId, size);
 
   const product = await loadProduct(productId);
-  if (!product || !product.isAvailable) {
+  if (!product || !product.isAvailable || !isValidSize(product, size)) {
     return { ok: false, error: "This piece is no longer available. Please remove it." };
   }
-  const limit = maxAllowed(product.stock);
+  const lines = await readLines(userId);
+  const limit = Math.max(0, maxAllowed(product.stock) - otherSizesQuantity(lines, productId, size));
   if (quantity > limit) {
     return {
       ok: false,
@@ -192,15 +221,16 @@ export async function setItemQuantity(
     };
   }
 
-  await writeLine(userId, productId, quantity);
+  await writeLine(userId, productId, size, quantity);
   return { ok: true };
 }
 
 export async function removeItem(
   userId: string | null,
   productId: string,
+  size = "",
 ): Promise<CartActionResult> {
-  await writeLine(userId, productId, 0);
+  await writeLine(userId, productId, size, 0);
   return { ok: true, message: "Removed from cart." };
 }
 
@@ -220,12 +250,15 @@ export async function mergeGuestCartIntoUser(userId: string): Promise<void> {
 
   const merged = mergeLines(await readUserLines(userId), guestLines);
   const products = await loadProducts(merged.map((l) => l.productId));
+  const used = new Map<string, number>();
 
   for (const line of merged) {
     const product = products.get(line.productId);
-    if (!product?.isAvailable) continue;
-    const quantity = Math.min(line.quantity, maxAllowed(product.stock));
-    if (quantity > 0) await writeLine(userId, line.productId, quantity);
+    if (!product?.isAvailable || !isValidSize(product, line.size)) continue;
+    const already = used.get(line.productId) ?? 0;
+    const quantity = Math.min(line.quantity, Math.max(0, maxAllowed(product.stock) - already));
+    used.set(line.productId, already + quantity);
+    if (quantity > 0) await writeLine(userId, line.productId, line.size, quantity);
   }
   await writeGuestLines([]);
 }

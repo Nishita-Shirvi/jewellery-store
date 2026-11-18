@@ -28,8 +28,10 @@ describe("reviews", () => {
     expect(reviewSchema.safeParse(ok).success).toBe(true);
     expect(reviewSchema.safeParse({ ...ok, rating: "6" }).success).toBe(false);
     expect(reviewSchema.safeParse({ ...ok, body: "short" }).success).toBe(false);
-    expect(reviewSchema.safeParse({ ...ok, images: ["https://evil.example/x.png"] }).success).toBe(
+    expect(reviewSchema.safeParse({ ...ok, images: ["http://evil.example/x.png"] }).success).toBe(
       false,
     );
+    // https links from other hosts pass the shape check; the server action then refuses
+    // anything that isn't in our own storage (isAllowedImageUrl, tested in tests/media.test.ts).
   });
 });

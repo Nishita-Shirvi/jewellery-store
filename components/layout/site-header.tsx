@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import { SearchForm } from "@/components/layout/search-form";
 import { UserMenu } from "@/components/layout/user-menu";
+import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { publicEnv } from "@/lib/env";
 import { getCategories } from "@/services/catalog.service";
@@ -14,9 +15,7 @@ export async function SiteHeader() {
 
   return (
     <header className="bg-background/95 sticky top-0 z-40 backdrop-blur">
-      <p className="bg-primary text-primary-foreground px-4 py-1.5 text-center text-xs">
-        Free insured shipping on orders above ₹999. Every gold piece is BIS hallmarked.
-      </p>
+      <AnnouncementBar />
       <div className="border-border border-b">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
           <Link

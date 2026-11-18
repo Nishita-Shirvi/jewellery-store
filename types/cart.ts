@@ -1,5 +1,7 @@
 export interface CartItemView {
   productId: string;
+  /** Chosen size, or "" for pieces without sizes. */
+  size: string;
   slug: string;
   name: string;
   image: string;

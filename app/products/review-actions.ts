@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth-guards";
 import { rateLimit } from "@/lib/rate-limit";
 import { reviewSchema } from "@/lib/reviews";
+import { isAllowedImageUrl } from "@/lib/media";
 import { ReviewError, submitReview } from "@/services/review.service";
 import { UploadError, uploadImage } from "@/services/upload.service";
 
@@ -15,6 +16,11 @@ export async function submitReviewAction(input: unknown, slug: string): Promise<
   if (!rateLimit(`review:${user.id}`, 10, 60 * 60 * 1000).ok)
     return { ok: false, error: "Too many reviews in a short time. Please try later." };
   const parsed = reviewSchema.safeParse(input);
+  if (
+    parsed.success &&
+    !parsed.data.images.every((u) => isAllowedImageUrl(u, { allowLocal: false }))
+  )
+    return { ok: false, error: "Please upload photos with the button above." };
   if (!parsed.success)
     return {
       ok: false,

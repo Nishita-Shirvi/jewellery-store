@@ -60,6 +60,8 @@ export async function listWishlist(userId: string) {
     materialSummary: materialSummary(p),
     available: p.isActive && p.category.isActive,
     inStock: availableStock(p) > 0,
+    /** Pieces with sizes can't be moved straight to the cart: the customer picks a size first. */
+    needsSize: p.sizes.length > 0,
   }));
 }
 

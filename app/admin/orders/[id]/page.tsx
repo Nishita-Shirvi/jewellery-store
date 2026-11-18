@@ -193,7 +193,14 @@ export default async function AdminOrderPage({
           ))}
           <RefundList refunds={refunds} admin />
           {refunds
-            .filter((r) => r.status === "FAILED")
+            .filter(
+              // Failed, or never reached Razorpay for 10+ minutes (same rule as canRetryRefund).
+              (r) =>
+                r.status === "FAILED" ||
+                (r.status === "PENDING" &&
+                  !r.razorpayRefundId &&
+                  r.updatedAt.getTime() < Date.now() - 10 * 60_000),
+            )
             .map((r) => (
               <form key={r.id} action={retryRefundAction}>
                 <input type="hidden" name="refundId" value={r.id} />
@@ -371,6 +378,7 @@ export default async function AdminOrderPage({
                 <tr key={i.id}>
                   <td className="p-3">
                     {i.productName}
+                    {i.size && <span className="font-medium"> · Size {i.size}</span>}
                     <br />
                     <span className="text-muted-foreground text-xs">
                       {(i.productSnapshot as { materialSummary?: string }).materialSummary}

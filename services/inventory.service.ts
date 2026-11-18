@@ -64,19 +64,36 @@ async function unreserveLines(tx: Tx, lines: ReserveLine[]): Promise<void> {
 /**
  * On PAID: turns the hold into a real stock decrease (stock −q, reserved −q).
  * If the hold had already expired, takes from available stock instead — or throws if it's gone.
+ *
+ * The hold's state is switched to CONVERTED FIRST with a conditional update (ACTIVE → CONVERTED,
+ * else RELEASED/NONE → CONVERTED). That locks the order row, so the state acted on is the real
+ * one even if the expiry job released the hold a moment ago — a stale "ACTIVE" read can never
+ * consume someone else's hold. Any `state` argument is ignored (kept for older callers).
  */
 export async function convertReservation(
   tx: Tx,
   orderId: string,
-  state: "ACTIVE" | "RELEASED" | "NONE",
+  _state?: "ACTIVE" | "RELEASED" | "NONE",
 ): Promise<void> {
+  const converted = { reservationState: "CONVERTED" as const, reservedUntil: null };
+  const fromHold = await tx.order.updateMany({
+    where: { id: orderId, reservationState: "ACTIVE" },
+    data: converted,
+  });
+  if (fromHold.count === 0) {
+    const fromAvailable = await tx.order.updateMany({
+      where: { id: orderId, reservationState: { in: ["RELEASED", "NONE"] } },
+      data: converted,
+    });
+    if (fromAvailable.count === 0) throw new Error(`Order ${orderId} stock was already taken`);
+  }
   const lines = await tx.orderItem.findMany({
     where: { orderId },
     select: { productId: true, quantity: true },
   });
   for (const line of [...lines].sort((a, b) => a.productId.localeCompare(b.productId))) {
     const updated =
-      state === "ACTIVE"
+      fromHold.count > 0
         ? await tx.$executeRaw`
             UPDATE "Product"
                SET "stock" = "stock" - ${line.quantity},
@@ -89,10 +106,6 @@ export async function convertReservation(
              WHERE "id" = ${line.productId} AND "stock" - "reservedStock" >= ${line.quantity}`;
     if (updated === 0) throw new InsufficientStockError(line.productId);
   }
-  await tx.order.update({
-    where: { id: orderId },
-    data: { reservationState: "CONVERTED", reservedUntil: null },
-  });
 }
 
 /**

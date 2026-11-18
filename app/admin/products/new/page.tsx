@@ -2,11 +2,13 @@ import { ProductForm } from "@/components/admin/product-form";
 import { listCategoryOptions } from "@/services/admin/category-admin.service";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { isUploadConfigured } from "@/services/upload.service";
+import { getCurrentRates } from "@/services/metal-rate.service";
 
 export default async function NewProductPage() {
-  const [categories, placeholderImages] = await Promise.all([
+  const [categories, placeholderImages, rates] = await Promise.all([
     listCategoryOptions(),
     listPlaceholderImages(),
+    getCurrentRates(),
   ]);
   return (
     <div>
@@ -16,13 +18,19 @@ export default async function NewProductPage() {
           categories={categories}
           placeholderImages={placeholderImages}
           uploadEnabled={isUploadConfigured()}
+          ratesAvailable={Object.keys(rates)}
           values={{
             name: "",
             slug: "",
             description: "",
             categoryId: categories[0]?.id ?? "",
+            pricingMode: "FIXED",
             price: "",
             makingCharge: "",
+            stoneCharge: "",
+            occasions: [],
+            sizes: "",
+            spinVideoUrl: "",
             stock: "1",
             metalType: "GOLD",
             purity: "K22",

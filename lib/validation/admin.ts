@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
 import { parseRatePercent } from "@/lib/gst";
+import { isAllowedImageUrl, isAllowedVideoUrl } from "@/lib/media";
+import { sizesSchema } from "@/lib/storefront";
 
 const id = z
   .string()
@@ -60,12 +62,9 @@ const grams = (label: string, { required = true } = {}) =>
 export const imageUrlSchema = z
   .string()
   .trim()
-  .refine(
-    (v) =>
-      /^\/images\/[a-z0-9/_-]+\.(svg|png|jpe?g|webp)$/i.test(v) ||
-      /^https:\/\/res\.cloudinary\.com\/[^\s]+$/i.test(v),
-    { message: "Images must be uploaded files or /images/... paths" },
-  );
+  .refine((v) => isAllowedImageUrl(v), {
+    message: "Images must be uploaded files or /images/... paths",
+  });
 
 export const productFormSchema = z
   .object({
@@ -80,8 +79,11 @@ export const productFormSchema = z
       .min(10, { message: "Write at least a short description" })
       .max(4000),
     categoryId: id,
-    price: rupees("price"),
+    /** FIXED: the typed price is used. RATE_LINKED: calculated from today's metal rate on save. */
+    pricingMode: z.enum(["FIXED", "RATE_LINKED"]).default("FIXED"),
+    price: rupees("price", { required: false }),
     makingCharge: rupees("making charge", { required: false }),
+    stoneCharge: z.preprocess((v) => v ?? "", rupees("stone charge", { required: false })),
     stock: z.coerce
       .number({ message: "Enter stock" })
       .int({ message: "Stock must be a whole number" })
@@ -118,7 +120,28 @@ export const productFormSchema = z
           .map((s) => s.trim())
           .filter(Boolean),
       )
+      // Same image twice would show twice in the gallery.
+      .transform((list) => [...new Set(list)])
       .pipe(z.array(imageUrlSchema).min(1, { message: "Add at least one image" }).max(10)),
+    /** Comma-separated by the action from the occasion checkboxes. */
+    occasions: z
+      .string()
+      .optional()
+      .transform((v) => [...new Set((v ?? "").split(",").filter(Boolean))])
+      .pipe(
+        z.array(z.enum(["BRIDAL", "FESTIVE", "DAILY_WEAR", "OFFICE", "GIFTING", "PARTY"])).max(6),
+      ),
+    sizes: sizesSchema,
+    spinVideoUrl: z
+      .string()
+      .trim()
+      .optional()
+      .transform((v) => v || null)
+      .refine((v) => v === null || isAllowedVideoUrl(v), {
+        message: "Use an uploaded .mp4/.webm link from our Cloudinary or R2, or a /videos/... path",
+      }),
+    /** Stock shown when the form was opened; the save refuses if it changed meanwhile. */
+    stockOriginal: z.coerce.number().int().min(0).optional().catch(undefined),
     hsnCode: z
       .string()
       .trim()
@@ -140,7 +163,14 @@ export const productFormSchema = z
     isFeatured: checkbox,
     isReturnable: checkbox,
   })
-  .refine((d) => d.price > 0, { message: "Price must be more than ₹0", path: ["price"] })
+  .refine((d) => d.pricingMode === "RATE_LINKED" || d.price > 0, {
+    message: "Price must be more than ₹0",
+    path: ["price"],
+  })
+  .refine((d) => d.pricingMode === "FIXED" || (d.netWeight ?? 0) > 0, {
+    message: "Rate-linked pieces need a net weight",
+    path: ["netWeight"],
+  })
   .refine((d) => d.grossWeight === null || d.netWeight === null || d.grossWeight >= d.netWeight, {
     message: "Gross weight can't be less than net weight",
     path: ["grossWeight"],
@@ -154,12 +184,13 @@ export const categoryFormSchema = z.object({
     .union([z.literal(""), slug])
     .optional()
     .transform((v) => v || undefined),
+  /** undefined = the form has no description field: keep what's stored. "" clears it. */
   description: z
     .string()
     .trim()
     .max(500)
     .optional()
-    .transform((v) => v || null),
+    .transform((v) => (v === undefined ? undefined : v || null)),
   sortOrder: z.coerce.number().int().min(0).max(1000).default(0),
   isActive: checkbox,
 });
@@ -171,6 +202,8 @@ export const idSchema = z.object({ id });
 export const stockUpdateSchema = z.object({
   id,
   stock: z.coerce.number().int().min(0).max(100000),
+  /** Stock shown when the list was loaded; the update is skipped if a sale changed it since. */
+  stockOriginal: z.coerce.number().int().min(0).optional().catch(undefined),
 });
 
 export const orderStatusUpdateSchema = z.object({

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUserPage } from "@/lib/auth-guards";
-import { RETURN_WINDOW_DAYS } from "@/lib/returns";
+import { config } from "@/lib/config";
 import { getReturnOptions } from "@/services/return.service";
 import { isUploadConfigured } from "@/services/upload.service";
 import { ReturnForm } from "./return-form";
@@ -29,9 +29,9 @@ export default async function ReturnPage({ params }: { params: Promise<{ id: str
       {options.eligibility.ok ? (
         <>
           <p className="text-muted-foreground text-sm">
-            You can return eligible pieces within {RETURN_WINDOW_DAYS} days of delivery (until{" "}
-            {dateFmt.format(options.eligibility.deadline)}). Pieces must be unused, with tags and
-            certificates.
+            You can return eligible pieces within {config.returns.window_days} days of delivery
+            (until {dateFmt.format(options.eligibility.deadline)}). Pieces must be unused, with tags
+            and certificates.
           </p>
           <ReturnForm orderId={id} items={options.items} uploadEnabled={isUploadConfigured()} />
         </>

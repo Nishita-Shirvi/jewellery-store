@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildConfig, envOverrides, parseIni } from "@/lib/config";
 
@@ -48,9 +48,47 @@ describe("config.ini", () => {
     expect(() => buildConfig("[business]\nstate = Telengana\n", {})).toThrow(/\[business\] state/);
   });
 
-  it("the committed config.ini is valid", () => {
-    const c = buildConfig(readFileSync("config.ini", "utf8"), {});
+  it("the committed config/*.ini files are valid", () => {
+    const files = Object.fromEntries(
+      readdirSync("config")
+        .filter((n) => n.endsWith(".ini"))
+        .map((n) => [`config/${n}`, readFileSync(`config/${n}`, "utf8")]),
+    );
+    expect(Object.keys(files).length).toBeGreaterThanOrEqual(7);
+    const c = buildConfig(files, {});
     expect(c.invoice.prefix).toBe("INV");
     expect(c.business.state).toBe("Telangana");
+    expect(c.returns.window_days).toBe(7);
+    expect(c.pricing.strip_purities).toEqual(["K22", "K24"]);
+    expect(c.images.provider).toBe("cloudinary");
+    expect(c.features.visit_booking).toBe(true);
+  });
+
+  it("refuses a section defined in two files", () => {
+    expect(() =>
+      buildConfig(
+        { "a.ini": "[shipping]\nfee_rupees = 1\n", "b.ini": "[shipping]\nfee_rupees = 2\n" },
+        {},
+      ),
+    ).toThrow(/\[shipping\] is defined in both a.ini and b.ini/);
+  });
+
+  it("refuses misspelt sections and keys", () => {
+    expect(() => buildConfig("[shiping]\nfee_rupees = 1\n", {})).toThrow(/\[shiping\]/);
+    expect(() => buildConfig("[shipping]\nfee_rupee = 1\n", {})).toThrow(/fee_rupee is not/);
+  });
+
+  it("ignores comments after a value unless quoted", () => {
+    const c = buildConfig(
+      '[business]\nlegal_name = Acme Pvt Ltd ; registered\n[storefront]\nannouncement = "Sale; today"\n',
+      {},
+    );
+    expect(c.business.legal_name).toBe("Acme Pvt Ltd");
+    expect(c.storefront.announcement).toBe("Sale; today");
+  });
+
+  it("validates the R2 public URL and rate strip purities", () => {
+    expect(() => buildConfig("[images]\nr2_public_url = http://x.dev\n", {})).toThrow(/images/);
+    expect(() => buildConfig("[pricing]\nstrip_purities = K22,K99\n", {})).toThrow(/pricing/);
   });
 });

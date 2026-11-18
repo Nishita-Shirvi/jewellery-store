@@ -41,7 +41,10 @@ export async function createCategory(input: CategoryFormInput, adminId: string) 
 }
 
 export async function updateCategory(id: string, input: CategoryFormInput, adminId: string) {
-  const slug = input.slug ?? slugify(input.name);
+  // A blank URL name keeps the current one: renaming must not silently break /collections links.
+  const current = await db.category.findUnique({ where: { id }, select: { slug: true } });
+  if (!current) throw new AdminInputError("Category not found.");
+  const slug = input.slug ?? current.slug;
   if (await slugTaken(slug, id))
     throw new AdminInputError(`The URL name "${slug}" is already used.`);
   const result = await db.category.updateMany({
@@ -49,7 +52,7 @@ export async function updateCategory(id: string, input: CategoryFormInput, admin
     data: {
       name: input.name,
       slug,
-      description: input.description,
+      ...(input.description !== undefined ? { description: input.description } : {}),
       sortOrder: input.sortOrder,
       isActive: input.isActive,
     },

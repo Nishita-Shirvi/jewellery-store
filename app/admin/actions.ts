@@ -23,6 +23,7 @@ import { updateOrderStatus } from "@/services/admin/order-admin.service";
 import {
   AdminInputError,
   createProduct,
+  deleteProduct,
   setProductActive,
   setProductStock,
   updateProduct,
@@ -72,7 +73,11 @@ export async function saveProductAction(
   formData: FormData,
 ): Promise<AdminFormState> {
   const admin = await requireAdmin();
-  const parsed = productFormSchema.safeParse(Object.fromEntries(formData));
+  const parsed = productFormSchema.safeParse({
+    ...Object.fromEntries(formData),
+    // Checkboxes send one value each; Object.fromEntries would keep only the last.
+    occasions: formData.getAll("occasions").join(","),
+  });
   if (!parsed.success)
     return {
       error: "Please fix the highlighted fields.",
@@ -92,23 +97,47 @@ export async function saveProductAction(
           before as unknown as Record<string, unknown>,
           {
             name: parsed.data.name,
-            priceInPaise: parsed.data.price,
+            ...(parsed.data.pricingMode === "FIXED" ? { priceInPaise: parsed.data.price } : {}),
+            pricingMode: parsed.data.pricingMode,
             stock: parsed.data.stock,
             isActive: parsed.data.isActive,
             isFeatured: parsed.data.isFeatured,
+            isReturnable: parsed.data.isReturnable,
             gstRateBps: parsed.data.gstRate,
             hsnCode: parsed.data.hsnCode,
             categoryId: parsed.data.categoryId,
+            makingChargeInPaise: parsed.data.makingCharge,
+            stoneChargeInPaise: parsed.data.stoneCharge,
+            netWeightMg: parsed.data.netWeight ?? 0,
+            grossWeightMg: parsed.data.grossWeight,
+            purity: parsed.data.purity,
+            huid: parsed.data.huid,
+            images: parsed.data.images,
+            occasions: parsed.data.occasions,
+            sizes: parsed.data.sizes,
+            ...(parsed.data.slug ? { slug: parsed.data.slug } : {}),
           },
           [
             "name",
             "priceInPaise",
+            "pricingMode",
             "stock",
             "isActive",
             "isFeatured",
+            "isReturnable",
             "gstRateBps",
             "hsnCode",
             "categoryId",
+            "makingChargeInPaise",
+            "stoneChargeInPaise",
+            "netWeightMg",
+            "grossWeightMg",
+            "purity",
+            "huid",
+            "images",
+            "occasions",
+            "sizes",
+            "slug",
           ],
         );
         await audit(admin, {
@@ -136,6 +165,29 @@ export async function saveProductAction(
   redirect(`/admin/products/${savedId}?created=1`);
 }
 
+export async function deleteProductAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requireAdmin();
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return { error: "Invalid product." };
+  let name: string;
+  try {
+    ({ name } = await deleteProduct(parsed.data.id, admin.id));
+  } catch (error) {
+    return fail(error);
+  }
+  await audit(admin, {
+    action: "product.delete",
+    entityType: "product",
+    entityId: parsed.data.id,
+    summary: `Deleted ${name}`,
+  });
+  revalidatePath("/admin/products");
+  redirect("/admin/products?deleted=1");
+}
+
 export async function toggleProductActiveAction(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const parsed = idSchema.safeParse({ id: formData.get("id") });
@@ -158,10 +210,18 @@ export async function updateStockAction(formData: FormData): Promise<void> {
   const parsed = stockUpdateSchema.safeParse({
     id: formData.get("id"),
     stock: formData.get("stock"),
+    stockOriginal: formData.get("stockOriginal") ?? undefined,
   });
   if (!parsed.success) return;
   const beforeStock = (await getProductAdmin(parsed.data.id))?.stock;
-  await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+  try {
+    await setProductStock(parsed.data.id, parsed.data.stock, admin.id, parsed.data.stockOriginal);
+  } catch (error) {
+    if (!(error instanceof AdminInputError)) throw error;
+    // Nothing changed; the refreshed list shows the real stock.
+    revalidatePath("/admin/products");
+    return;
+  }
   await audit(admin, {
     action: "product.stock",
     entityType: "product",

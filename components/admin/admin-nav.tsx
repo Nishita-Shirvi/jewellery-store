@@ -10,17 +10,21 @@ const LINKS = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/returns", label: "Returns" },
   { href: "/admin/products", label: "Products" },
+  { href: "/admin/rates", label: "Gold rates" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/visits", label: "Visits" },
+  { href: "/admin/settings", label: "Settings" },
   { href: "/admin/audit", label: "Activity log" },
 ];
 
-export function AdminNav() {
+export function AdminNav({ visitsEnabled = true }: { visitsEnabled?: boolean }) {
   const pathname = usePathname();
+  const links = visitsEnabled ? LINKS : LINKS.filter((l) => l.href !== "/admin/visits");
   return (
     <nav aria-label="Admin" className="border-border flex gap-1 overflow-x-auto border-b">
-      {LINKS.map((link) => {
+      {links.map((link) => {
         const active =
           link.href === "/admin" ? pathname === "/admin" : pathname.startsWith(link.href);
         return (

@@ -19,7 +19,7 @@ export default async function OrderFailedPage({
   searchParams: Promise<{ reason?: string }>;
 }) {
   const { id } = await params;
-  const { reason } = await searchParams;
+  await searchParams; // ?reason= is only for analytics; never shown (it could be any text).
   const user = await requireUserPage(`/orders/${id}/failed`);
   const order = await getOrderForUser(user.id, id);
   if (!order) notFound();
@@ -42,7 +42,7 @@ export default async function OrderFailedPage({
       <p className="text-muted-foreground mt-2">
         {soldOut
           ? "Someone completed their purchase a moment before you. Your payment will be refunded in full."
-          : `No money was taken for order ${order.displayNumber}.${reason && reason !== "sold_out" ? ` Reason: ${reason.slice(0, 120)}` : ""}`}
+          : `No money was taken for order ${order.displayNumber}.`}
       </p>
       <div className="mt-8">
         <OrderSummaryCard order={order} />

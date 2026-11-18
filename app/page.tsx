@@ -1,10 +1,30 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BadgeCheck, PackageCheck, RotateCcw, ShieldCheck } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarDays,
+  PackageCheck,
+  RotateCcw,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { ProductImage } from "@/components/catalog/product-image";
 import { ProductGrid } from "@/components/catalog/product-grid";
 import { Button } from "@/components/ui/button";
+import { Stars } from "@/components/reviews/stars";
+import { config } from "@/lib/config";
+import { OCCASIONS, occasionLabel, occasionSlug } from "@/lib/storefront";
 import { getCategories, getFeaturedProducts } from "@/services/catalog.service";
+import { getHomeReviews } from "@/services/review.service";
+
+const OCCASION_TEXT: Record<(typeof OCCASIONS)[number], string> = {
+  BRIDAL: "Sets, chokers and mangalsutras for the big day",
+  FESTIVE: "Jhumkas, kadas and temple pieces",
+  DAILY_WEAR: "Light chains, studs and everyday rings",
+  OFFICE: "Quiet, polished pieces for work",
+  GIFTING: "For birthdays, anniversaries and new arrivals",
+  PARTY: "Statement earrings and cocktail rings",
+};
 
 const TRUST = [
   {
@@ -19,8 +39,8 @@ const TRUST = [
   },
   {
     icon: RotateCcw,
-    title: "7-day returns",
-    text: "Changed your mind? Return eligible pieces within a week.",
+    title: "Easy returns",
+    text: "Changed your mind? Return eligible pieces after delivery.",
   },
   {
     icon: ShieldCheck,
@@ -30,7 +50,11 @@ const TRUST = [
 ];
 
 export default async function HomePage() {
-  const [categories, featured] = await Promise.all([getCategories(), getFeaturedProducts(8)]);
+  const [categories, featured, reviews] = await Promise.all([
+    getCategories(),
+    getFeaturedProducts(config.storefront.featured_count),
+    getHomeReviews(config.storefront.home_reviews),
+  ]);
 
   return (
     <div>
@@ -149,6 +173,44 @@ export default async function HomePage() {
           </Link>
         </section>
 
+        {/* Shop by occasion */}
+        <section aria-labelledby="occasion-heading" className="py-16">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="occasion-heading" className="text-3xl">
+              Shop by occasion
+            </h2>
+            {config.features.style_advisor && (
+              <Link
+                href="/style-advisor"
+                className="inline-flex items-center gap-1.5 text-sm underline underline-offset-4"
+              >
+                <Sparkles className="text-gold size-4" aria-hidden="true" /> Not sure? Try the style
+                advisor
+              </Link>
+            )}
+          </div>
+          <ul className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3">
+            {OCCASIONS.map((o) => (
+              <li key={o}>
+                <Link
+                  href={`/products?occasion=${occasionSlug(o)}`}
+                  className="group border-border hover:border-gold bg-background block h-full rounded-md border p-5 transition-colors"
+                >
+                  <span className="block text-xl" style={{ fontFamily: "var(--font-display)" }}>
+                    {occasionLabel[o]}
+                  </span>
+                  <span className="text-muted-foreground mt-1 block text-sm">
+                    {OCCASION_TEXT[o]}
+                  </span>
+                  <span className="text-primary mt-3 inline-block text-xs font-medium group-hover:underline">
+                    Explore →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {featured.length > 0 && (
           <section aria-labelledby="featured-heading" className="py-16">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -185,6 +247,47 @@ export default async function HomePage() {
           </ul>
         </div>
       </section>
+
+      {reviews.length > 0 && (
+        <section aria-labelledby="reviews-heading" className="mx-auto max-w-6xl px-4 pt-16">
+          <h2 id="reviews-heading" className="text-3xl">
+            What our customers say
+          </h2>
+          <ul className="mt-8 grid gap-5 md:grid-cols-3">
+            {reviews.map((r) => (
+              <li key={r.id} className="border-border rounded-md border p-5">
+                <Stars avgX100={r.rating * 100} />
+                <p className="mt-3 font-medium">{r.title}</p>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{r.body}</p>
+                <p className="mt-4 text-xs">
+                  {r.authorName} on{" "}
+                  <Link href={`/products/${r.product.slug}`} className="underline">
+                    {r.product.name}
+                  </Link>
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {config.features.visit_booking && (
+        <section className="mx-auto max-w-6xl px-4 pt-16">
+          <div className="bg-primary text-primary-foreground flex flex-col items-start gap-5 rounded-md p-8 md:flex-row md:items-center md:justify-between md:p-10">
+            <div>
+              <h2 className="text-3xl">See it before you buy</h2>
+              <p className="mt-2 max-w-lg text-sm text-[#ead9dd]">
+                Book a time at our showroom to try pieces on and get sized — no obligation.
+              </p>
+            </div>
+            <Button asChild size="lg" className="text-primary bg-[#fbf7f4] hover:bg-white">
+              <Link href="/visit">
+                <CalendarDays aria-hidden="true" /> Book a visit
+              </Link>
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Diamonds band */}
       <section className="mx-auto max-w-6xl px-4 py-16">

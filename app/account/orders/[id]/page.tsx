@@ -195,12 +195,12 @@ export default async function AccountOrderPage({
 
       <ul className="divide-border border-border divide-y rounded-md border text-sm">
         {order.items.map((item) => (
-          <li key={item.slug} className="flex justify-between gap-4 p-4">
+          <li key={`${item.slug}:${item.size}`} className="flex justify-between gap-4 p-4">
             <span>
               <Link href={`/products/${item.slug}`} className="hover:underline">
                 {item.name}
-              </Link>{" "}
-              × {item.quantity}
+              </Link>
+              {item.size ? ` (size ${item.size})` : ""} × {item.quantity}
               {(order.status === "DELIVERED" || order.status === "RETURN_REQUESTED") && (
                 <Link
                   href={`/products/${item.slug}#reviews`}

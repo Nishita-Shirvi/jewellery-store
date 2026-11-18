@@ -45,31 +45,38 @@ Every feature follows the same shape. Learn it once, reuse it everywhere.
 
 ## Where shared stuff lives
 
-| Need                        | Use                                                        |
-| --------------------------- | ---------------------------------------------------------- |
-| Database client             | `import { db } from "@/lib/db"`                            |
-| Secret / URL                | `import { env } from "@/lib/env"`                          |
-| Business setting            | `import { config } from "@/lib/config"`                    |
-| Store/legal details         | `getBusiness()` from `lib/business.ts`                     |
-| Logging                     | `import { logger } from "@/lib/logger"`                    |
-| Money formatting / maths    | `lib/money.ts`, `lib/format.ts` (`formatINR`)              |
-| Order status rules / labels | `lib/order-status.ts`                                      |
-| Rate limiting               | `rateLimit(key, limit, windowMs)` from `lib/rate-limit.ts` |
-| Razorpay / Shiprocket HTTP  | `lib/payments/razorpay.ts`, `lib/shipping/shiprocket.ts`   |
+| Need                                      | Use                                                                                              |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Database client                           | `import { db } from "@/lib/db"`                                                                  |
+| Secret / URL                              | `import { env } from "@/lib/env"`                                                                |
+| Business setting                          | `import { config } from "@/lib/config"` (reads `config/*.ini`, server only)                      |
+| Store/legal details                       | `getBusiness()` from `lib/business.ts`                                                           |
+| Showroom details (admin-editable)         | `getStorefrontSettings()` from `services/storefront.service.ts`                                  |
+| Today's metal rates                       | `getCurrentRates()` from `services/metal-rate.service.ts`; price maths in `lib/metal-pricing.ts` |
+| Occasions, sizes, budgets, WhatsApp links | `lib/storefront.ts` (safe in client components)                                                  |
+| Is this image/video link ours?            | `isAllowedImageUrl()` / `isAllowedVideoUrl()` from `lib/media.ts`                                |
+| Upload a photo                            | `uploadImage()` from `services/upload.service.ts` (Cloudinary or R2, per `[images] provider`)    |
+| Safe "return to" path after login         | `safeRedirectPath()` from `lib/safe-redirect.ts`                                                 |
+| Logging                                   | `import { logger } from "@/lib/logger"`                                                          |
+| Money formatting / maths                  | `lib/money.ts`, `lib/format.ts` (`formatINR`)                                                    |
+| Order status rules / labels               | `lib/order-status.ts`                                                                            |
+| Rate limiting                             | `rateLimit(key, limit, windowMs)` from `lib/rate-limit.ts`                                       |
+| Razorpay / Shiprocket HTTP                | `lib/payments/razorpay.ts`, `lib/shipping/shiprocket.ts`                                         |
 
 ## Caching (why a change sometimes "doesn't show")
 
 - Catalog reads (`services/catalog.service.ts`) use `unstable_cache` with tag `CATALOG_TAG`, 5-minute lifetime. Admin product edits and stock changes call `revalidateTag`/`revalidatePath` so the shop updates right away.
-- If you change product data **directly in the database** (Prisma Studio), the shop may show old data for up to 5 minutes.
+- Metal rates (`RATES_TAG`, 10 minutes) and showroom settings (`STOREFRONT_TAG`, 1 hour) are cached the same way and refreshed the moment an admin saves them. Saving rates that change any price also refreshes `CATALOG_TAG`.
+- If you change product data, rates or settings **directly in the database** (Prisma Studio), the shop may show old data until the cache lifetime ends.
 - `sitemap.xml` is regenerated hourly.
 
 ## Tests map
 
-| Command            | Runs                                                                                                    | Needs                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `npm test`         | `tests/*.test.ts` — pure logic, mocked DB                                                               | nothing                          |
-| `npm run test:db`  | `tests/db/*.test.ts` — concurrency, invoices, coupons, search on real Postgres                          | `DATABASE_URL` (a throwaway DB!) |
-| `npm run test:e2e` | `tests/e2e/` — browser: browse → cart → checkout → pay (fake Razorpay in `tests/e2e/mock-services.mjs`) | a built app + DB                 |
-| `npm run verify`   | lint + typecheck + unit tests                                                                           | nothing                          |
+| Command            | Runs                                                                                                                                           | Needs                            |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `npm test`         | `tests/*.test.ts` — pure logic, mocked DB                                                                                                      | nothing                          |
+| `npm run test:db`  | `tests/db/*.test.ts` — concurrency, invoices (+ placeholder guard), coupons, search, payment/refund races, rates/visits/sizes on real Postgres | `DATABASE_URL` (a throwaway DB!) |
+| `npm run test:e2e` | `tests/e2e/` — browser: browse → cart → checkout → pay (fake Razorpay in `tests/e2e/mock-services.mjs`)                                        | a built app + DB                 |
+| `npm run verify`   | lint + typecheck + unit tests                                                                                                                  | nothing                          |
 
-CI (`.github/workflows/ci.yml`) runs all of them on every push to `main`.
+CI (`.github/workflows/ci.yml`) runs all of them on every push to `main`, plus a check that `prisma/migrations` matches `schema.prisma` (`prisma migrate diff --exit-code`).

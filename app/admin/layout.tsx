@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AdminNav } from "@/components/admin/admin-nav";
+import { config } from "@/lib/config";
 import { requireAdminPage } from "@/lib/auth-guards";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
@@ -9,7 +10,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   await requireAdminPage();
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <AdminNav />
+      <AdminNav visitsEnabled={config.features.visit_booking} />
       <div className="mt-8">{children}</div>
     </div>
   );

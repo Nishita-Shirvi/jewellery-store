@@ -2,7 +2,7 @@
  * Pure cart maths (no database, no cookies) so it can be unit-tested.
  * Prices ALWAYS come from the database rows passed in — never from the browser.
  */
-import { MAX_QTY_PER_ITEM, type CartLine } from "@/lib/validation/cart";
+import { MAX_QTY_PER_ITEM, lineKey, type CartLine } from "@/lib/validation/cart";
 import type { CartItemView, CartView } from "@/types/cart";
 
 export interface PricedProduct {
@@ -14,6 +14,8 @@ export interface PricedProduct {
   stock: number;
   isAvailable: boolean; // product and its category are active
   materialSummary: string;
+  /** Sizes the customer must choose from; empty = no size. */
+  sizes: string[];
 }
 
 /** Most a customer may hold of one product right now. */
@@ -21,15 +23,22 @@ export function maxAllowed(stock: number): number {
   return Math.max(0, Math.min(stock, MAX_QTY_PER_ITEM));
 }
 
-/** Combines duplicate lines (e.g. guest cart + saved cart) by adding quantities. */
+/** Combines duplicate lines (same product and size, e.g. guest cart + saved cart) by adding quantities. */
 export function mergeLines(...lists: CartLine[][]): CartLine[] {
-  const totals = new Map<string, number>();
+  const totals = new Map<string, CartLine>();
   for (const list of lists) {
     for (const line of list) {
-      totals.set(line.productId, (totals.get(line.productId) ?? 0) + line.quantity);
+      const key = lineKey(line);
+      const existing = totals.get(key);
+      totals.set(key, { ...line, quantity: (existing?.quantity ?? 0) + line.quantity });
     }
   }
-  return [...totals].map(([productId, quantity]) => ({ productId, quantity }));
+  return [...totals.values()];
+}
+
+/** True when `size` is a valid choice for the product ("" for products without sizes). */
+export function isValidSize(product: Pick<PricedProduct, "sizes">, size: string): boolean {
+  return product.sizes.length === 0 ? size === "" : product.sizes.includes(size);
 }
 
 /**
@@ -38,16 +47,20 @@ export function mergeLines(...lists: CartLine[][]): CartLine[] {
  */
 export function priceCart(lines: CartLine[], products: Map<string, PricedProduct>): CartView {
   const items: CartItemView[] = [];
+  // Sizes of one piece share its stock: earlier lines use it up first.
+  const used = new Map<string, number>();
 
   for (const line of lines) {
     const product = products.get(line.productId);
     if (!product) continue; // deleted product: silently dropped
 
-    const limit = product.isAvailable ? maxAllowed(product.stock) : 0;
+    const already = used.get(product.id) ?? 0;
+    const limit = product.isAvailable ? Math.max(0, maxAllowed(product.stock) - already) : 0;
     let quantity = line.quantity;
     let issue: CartItemView["issue"] = null;
 
-    if (!product.isAvailable) {
+    if (!product.isAvailable || !isValidSize(product, line.size)) {
+      // Unknown size (e.g. the admin removed it): the customer must pick again.
       issue = "unavailable";
       quantity = 0;
     } else if (limit === 0) {
@@ -58,8 +71,10 @@ export function priceCart(lines: CartLine[], products: Map<string, PricedProduct
       quantity = limit;
     }
 
+    used.set(product.id, already + quantity);
     items.push({
       productId: product.id,
+      size: line.size,
       slug: product.slug,
       name: product.name,
       image: product.image,

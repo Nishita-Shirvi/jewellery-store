@@ -1,3 +1,4 @@
+import { config } from "@/lib/config";
 import type { Metadata } from "next";
 import { POLICY_LAST_UPDATED, getBusiness } from "@/lib/business";
 
@@ -17,8 +18,8 @@ export default function RefundPolicyPage() {
       <h2>Returns</h2>
       <ul>
         <li>
-          Returnable pieces can be returned within 7 days of delivery. Each product page says
-          whether the piece is returnable.
+          Returnable pieces can be returned within {config.returns.window_days} days of delivery.
+          Each product page says whether the piece is returnable.
         </li>
         <li>
           The piece must be unused and in its original condition and packaging, with all tags,

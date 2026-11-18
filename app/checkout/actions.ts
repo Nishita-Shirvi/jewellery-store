@@ -123,6 +123,13 @@ export async function verifyPaymentAction(input: unknown): Promise<VerifyResult>
   if (result.outcome === "paid" || result.outcome === "already_processed") {
     return { ok: true, redirectTo: `/orders/${p.orderId}/success` };
   }
+  if (result.outcome === "extra_payment_refunded") {
+    return {
+      ok: false,
+      error:
+        "This order was already cancelled, so we're refunding that payment in full. It reaches your account in 5–7 working days.",
+    };
+  }
   return { ok: false, error: "We couldn't verify the payment." };
 }
 

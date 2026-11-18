@@ -28,6 +28,12 @@ import {
 } from "@/services/inventory.service";
 import { revalidateTag } from "next/cache";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import {
+  createRefundRecord,
+  issueRefund,
+  recordExtraPaymentRefund,
+  sendUnsentRefunds,
+} from "@/services/refund.service";
 
 /** Short reference shown to customers, e.g. #K3F9Q2ZA. */
 export function displayOrderNumber(orderId: string): string {
@@ -127,6 +133,7 @@ export async function startCheckout(
           huid: true,
           hsnCode: true,
           gstRateBps: true,
+          pricingMode: true,
         },
       });
       const byId = new Map(products.map((p) => [p.id, p]));
@@ -135,7 +142,11 @@ export async function startCheckout(
       let recomputed = 0;
       for (const [index, line] of cart.items.entries()) {
         const p = byId.get(line.productId);
-        if (!p || p.stock < line.quantity)
+        // Several lines can be the same piece in different sizes: they share its stock.
+        const wanted = cart.items
+          .filter((i) => i.productId === line.productId)
+          .reduce((sum, i) => sum + i.quantity, 0);
+        if (!p || p.stock < wanted)
           throw new CheckoutConflict("Some items just sold out. Please review your cart.");
         if (p.priceInPaise !== line.unitPriceInPaise)
           throw new CheckoutConflict("A price just changed. Please review your cart.");
@@ -146,6 +157,7 @@ export async function startCheckout(
           productSlug: p.slug,
           priceInPaise: p.priceInPaise,
           quantity: line.quantity,
+          size: line.size,
           lineTotalInPaise: p.priceInPaise * line.quantity,
           hsnCode: p.hsnCode,
           gstRateBps: p.gstRateBps,
@@ -164,6 +176,8 @@ export async function startCheckout(
             gemstone: p.gemstone,
             huid: p.huid,
             materialSummary: materialSummary(p),
+            pricingMode: p.pricingMode,
+            ...(line.size ? { size: line.size } : {}),
           },
         });
       }
@@ -317,9 +331,20 @@ export async function resumePayment(
 
 export type PaymentSource = "callback" | "webhook";
 
+export type MarkPaidOutcome =
+  | "paid"
+  | "already_processed"
+  | "unknown_order"
+  | "sold_out"
+  | "amount_mismatch"
+  /** A payment for an order that is cancelled: recorded and refunded in full. */
+  | "extra_payment_refunded";
+
 /**
  * Marks an order PAID and reduces stock in ONE transaction. Idempotent: callback and webhook
  * can both arrive (in any order, even at the same time) and only the first one does anything.
+ * A captured payment that can't pay for the order (already paid by another payment, or
+ * cancelled) is recorded and refunded in full: money is never kept silently.
  */
 export async function markOrderPaid(input: {
   razorpayOrderId: string;
@@ -328,10 +353,7 @@ export async function markOrderPaid(input: {
   method?: string;
   rawPayload: Prisma.InputJsonValue;
   source: PaymentSource;
-}): Promise<{
-  outcome: "paid" | "already_processed" | "unknown_order" | "sold_out" | "amount_mismatch";
-  orderId?: string;
-}> {
+}): Promise<{ outcome: MarkPaidOutcome; orderId?: string }> {
   const payment = await db.payment.findUnique({
     where: { providerOrderId: input.razorpayOrderId },
     select: { id: true, orderId: true, amountInPaise: true },
@@ -362,10 +384,6 @@ export async function markOrderPaid(input: {
     const transitioned = await db.$transaction(async (tx) => {
       // Conditional update = row lock. A concurrent second call waits, then matches 0 rows.
       // An order closed only because its 15-minute hold expired can still be paid late.
-      const before = await tx.order.findUniqueOrThrow({
-        where: { id: payment.orderId },
-        select: { reservationState: true },
-      });
       const updated = await tx.order.updateMany({
         where: {
           id: payment.orderId,
@@ -389,11 +407,9 @@ export async function markOrderPaid(input: {
       await redeemCouponInTx(tx, paidOrder);
 
       try {
-        await convertReservation(
-          tx,
-          payment.orderId,
-          before.reservationState === "ACTIVE" ? "ACTIVE" : "RELEASED",
-        );
+        // Reads and switches reservationState itself while we hold the order row lock, so a
+        // hold released by the expiry job a moment ago is never treated as still ACTIVE.
+        await convertReservation(tx, payment.orderId);
       } catch (error) {
         if (error instanceof InsufficientStockError) throw new SoldOutAfterPayment();
         throw error;
@@ -421,10 +437,7 @@ export async function markOrderPaid(input: {
       return true;
     });
 
-    if (!transitioned) {
-      logger.info("payment.already_processed", log);
-      return { outcome: "already_processed", orderId: payment.orderId };
-    }
+    if (!transitioned) return handleNotTransitioned(payment, input, log);
     logger.info("payment.order_paid", log);
     const { countFunnel } = await import("@/services/report.service");
     await countFunnel("purchase");
@@ -453,46 +466,126 @@ export async function markOrderPaid(input: {
 
 class SoldOutAfterPayment extends Error {}
 
-/** Paid, but someone else bought the last piece first. Cancel and flag for refund (automated in Phase 11). */
+type PaymentRow = { id: string; orderId: string; amountInPaise: number };
+type CapturedPayment = {
+  razorpayPaymentId: string;
+  amountInPaise?: number;
+  method?: string;
+  rawPayload: Prisma.InputJsonValue;
+};
+
+/**
+ * The order could not move to PAID. Either this exact payment already did that (duplicate
+ * delivery: nothing to do), or it is ANOTHER payment for an order that is already paid or
+ * cancelled: record it and refund it in full (idempotent, once per Razorpay payment id).
+ */
+async function handleNotTransitioned(
+  payment: PaymentRow,
+  input: CapturedPayment,
+  log: Record<string, unknown>,
+): Promise<{ outcome: MarkPaidOutcome; orderId: string }> {
+  const [row, recorded, order] = await Promise.all([
+    db.payment.findUniqueOrThrow({
+      where: { id: payment.id },
+      select: { providerPaymentId: true },
+    }),
+    db.payment.findUnique({
+      where: { providerPaymentId: input.razorpayPaymentId },
+      select: { id: true },
+    }),
+    db.order.findUniqueOrThrow({ where: { id: payment.orderId }, select: { status: true } }),
+  ]);
+  // Paid / shipped / delivered…: the customer should see their order as paid.
+  const orderIsPaid = !["CANCELLED", "FAILED", "PENDING"].includes(order.status);
+  const paidThisOrder = row.providerPaymentId === input.razorpayPaymentId;
+
+  if (recorded) {
+    // Same payment again. Send any refund of it that a crash left unsent (claimed: never twice).
+    await sendUnsentRefunds(recorded.id);
+    logger.info("payment.already_processed", log);
+    return {
+      outcome: orderIsPaid || paidThisOrder ? "already_processed" : "extra_payment_refunded",
+      orderId: payment.orderId,
+    };
+  }
+
+  const refundId = await recordExtraPaymentRefund({
+    orderId: payment.orderId,
+    razorpayPaymentId: input.razorpayPaymentId,
+    amountInPaise: input.amountInPaise ?? payment.amountInPaise,
+    method: input.method,
+    rawPayload: input.rawPayload,
+    reason: orderIsPaid
+      ? "Extra payment for an order that was already paid — refunded in full"
+      : "Payment received for a cancelled order — refunded in full",
+  });
+  if (refundId) {
+    logger.error("payment.extra_payment_refunding", {
+      ...log,
+      orderStatus: order.status,
+      refundId,
+    });
+    await issueRefund(refundId);
+  }
+  return {
+    outcome: orderIsPaid ? "already_processed" : "extra_payment_refunded",
+    orderId: payment.orderId,
+  };
+}
+
+/**
+ * Paid, but someone else bought the last piece first (or the coupon ran out). In ONE
+ * transaction: order → REFUND_PENDING, hold released, payment recorded, refund row created.
+ * Razorpay is called after the commit; if that call is lost, the refund is sent later by the
+ * cron sweep, the admin's Retry button or a redelivered webhook (see refund.service).
+ */
 async function handleSoldOut(
-  payment: { id: string; orderId: string },
-  input: { razorpayPaymentId: string; method?: string; rawPayload: Prisma.InputJsonValue },
+  payment: PaymentRow,
+  input: CapturedPayment,
   log: Record<string, unknown>,
   reason = "Sold out after payment — refunded in full",
-) {
-  const updated = await db.$transaction(async (tx) => {
-    const result = await tx.order.updateMany({
-      where: {
-        id: payment.orderId,
-        OR: [
-          { status: { in: ["PENDING", "FAILED"] } },
-          { status: "CANCELLED", expiredAt: { not: null } },
-        ],
-      },
-      data: {
-        status: "CANCELLED",
-        expiredAt: null,
-        cancellationReason: reason,
-      },
+): Promise<{ outcome: MarkPaidOutcome; orderId: string }> {
+  let refundId: string | null;
+  try {
+    refundId = await db.$transaction(async (tx) => {
+      const result = await tx.order.updateMany({
+        where: {
+          id: payment.orderId,
+          OR: [
+            { status: { in: ["PENDING", "FAILED"] } },
+            { status: "CANCELLED", expiredAt: { not: null } },
+          ],
+        },
+        data: { status: "REFUND_PENDING", expiredAt: null, cancellationReason: reason },
+      });
+      if (result.count === 0) return null;
+      await releaseReservation(tx, payment.orderId);
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "CAPTURED",
+          providerPaymentId: input.razorpayPaymentId,
+          method: input.method,
+          rawPayload: input.rawPayload,
+        },
+      });
+      return createRefundRecord(tx, {
+        orderId: payment.orderId,
+        amountInPaise: payment.amountInPaise,
+        reason,
+      });
     });
-    await releaseReservation(tx, payment.orderId);
-    return result;
-  });
-  if (updated.count > 0) {
-    await db.payment.update({
-      where: { id: payment.id },
-      data: {
-        status: "CAPTURED",
-        providerPaymentId: input.razorpayPaymentId,
-        method: input.method,
-        rawPayload: input.rawPayload,
-      },
-    });
-    logger.error("payment.sold_out_after_payment_refunding", log);
-    const { refundSoldOutOrder } = await import("@/services/return.service");
-    await refundSoldOutOrder(payment.orderId);
+  } catch (error) {
+    if ((error as { code?: string }).code !== "P2002") throw error;
+    refundId = null; // this payment id is already recorded on another row
   }
-  return { outcome: "sold_out" as const, orderId: payment.orderId };
+  // Someone else changed the order first: handle like any payment that couldn't pay it.
+  if (!refundId) return handleNotTransitioned(payment, input, log);
+
+  logger.error("payment.sold_out_after_payment_refunding", { ...log, refundId });
+  revalidateTag(CATALOG_TAG); // the hold was released
+  await issueRefund(refundId);
+  return { outcome: "sold_out", orderId: payment.orderId };
 }
 
 /** payment.failed webhook. Never downgrades a PAID order. */
@@ -562,6 +655,7 @@ export interface OrderSummary {
   items: {
     name: string;
     slug: string;
+    size: string;
     quantity: number;
     priceInPaise: number;
     lineTotalInPaise: number;
@@ -594,6 +688,7 @@ export async function getOrderForUser(
     items: order.items.map((i) => ({
       name: i.productName,
       slug: i.productSlug,
+      size: i.size,
       quantity: i.quantity,
       priceInPaise: i.priceInPaise,
       lineTotalInPaise: i.lineTotalInPaise,

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { CalendarDays, MessageCircle } from "lucide-react";
 import { AddToCart } from "@/components/cart/add-to-cart";
 import { PincodeChecker } from "@/components/catalog/pincode-checker";
 import { WishlistButton } from "@/components/wishlist/wishlist-button";
@@ -11,11 +12,18 @@ import { publicEnv } from "@/lib/env";
 import { TrackEvent } from "@/components/analytics/track-event";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isWishlisted } from "@/services/wishlist.service";
-import { ProductImage } from "@/components/catalog/product-image";
 import { formatINR, formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
-import { getProductBySlug } from "@/services/catalog.service";
+import { config } from "@/lib/config";
+import { priceBreakup } from "@/lib/metal-pricing";
+import { formatRate } from "@/lib/gst";
+import { occasionLabel, occasionSlug, whatsappLink } from "@/lib/storefront";
+import { ProductMedia } from "@/components/catalog/product-media";
+import { Button } from "@/components/ui/button";
+import { findRenamedProductSlug, getProductBySlug } from "@/services/catalog.service";
+import { getCurrentRates } from "@/services/metal-rate.service";
+import { getStorefrontSettings } from "@/services/storefront.service";
 
 type Params = Promise<{ slug: string }>;
 
@@ -56,9 +64,32 @@ export default async function ProductPage({
     : "newest";
   const reviewPage = Math.min(Math.max(1, Number.parseInt(sp.rpage ?? "1", 10) || 1), 1000);
   const product = await getProductBySlug(slug);
-  if (!product) notFound();
-  const viewer = await getCurrentUser();
+  if (!product) {
+    // Renamed piece: send old links (and Google) to the new address.
+    const renamed = await findRenamedProductSlug(slug);
+    if (renamed) permanentRedirect(`/products/${renamed}`);
+    notFound();
+  }
+  const [viewer, rates, storefront] = await Promise.all([
+    getCurrentUser(),
+    product.pricingMode === "RATE_LINKED" ? getCurrentRates() : Promise.resolve(null),
+    getStorefrontSettings(),
+  ]);
   const saved = viewer ? await isWishlisted(viewer.id, product.id) : false;
+  const rate = rates?.[product.purity];
+  const computed = rate
+    ? priceBreakup({ ...product, ratePerGramInPaise: rate.ratePerGramInPaise })
+    : null;
+  // Only show the breakup when it adds up to the price actually charged (never two different totals).
+  const breakup = computed && computed.priceInPaise === product.priceInPaise ? computed : null;
+  const productUrl = new URL(`/products/${product.slug}`, publicEnv.NEXT_PUBLIC_APP_URL).toString();
+  const whatsapp =
+    config.features.whatsapp_button && storefront.whatsapp
+      ? whatsappLink(
+          storefront.whatsapp,
+          `Hello, I'd like to know more about ${product.name} (${productUrl})`,
+        )
+      : null;
 
   const stock = stockStatus(product.stock);
   const details: [string, string][] = [
@@ -74,7 +105,9 @@ export default async function ProductPage({
   if (product.huid) details.push(["BIS hallmark (HUID)", product.huid]);
   details.push([
     "Returns",
-    product.isReturnable ? "Returnable within 7 days of delivery" : "Not returnable",
+    product.isReturnable && config.returns.window_days > 0
+      ? `Returnable within ${config.returns.window_days} days of delivery`
+      : "Not returnable",
   ]);
 
   return (
@@ -99,25 +132,11 @@ export default async function ProductPage({
       </nav>
 
       <div className="mt-6 grid gap-10 md:grid-cols-2">
-        <div className="space-y-3">
-          <div className="border-border bg-muted overflow-hidden rounded-md border">
-            <ProductImage
-              src={product.images[0] ?? product.image}
-              alt={product.name}
-              priority
-              sizes="(min-width: 768px) 50vw, 100vw"
-            />
-          </div>
-          {product.images.length > 1 && (
-            <ul className="grid grid-cols-4 gap-2">
-              {product.images.slice(1).map((src, i) => (
-                <li key={src} className="border-border bg-muted overflow-hidden rounded border">
-                  <ProductImage src={src} alt={`${product.name}, view ${i + 2}`} sizes="12vw" />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <ProductMedia
+          name={product.name}
+          images={product.images.length ? product.images : [product.image]}
+          spinVideoUrl={product.spinVideoUrl}
+        />
 
         <div>
           <h1 className="text-3xl leading-tight md:text-4xl">{product.name}</h1>
@@ -133,19 +152,75 @@ export default async function ProductPage({
           )}
           <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
           <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
+          {breakup && rate && (
+            <details className="mt-3 text-sm">
+              <summary className="text-muted-foreground cursor-pointer text-xs underline underline-offset-4">
+                Price breakup (today&apos;s {purityLabel[product.purity]} rate{" "}
+                {formatINR(rate.ratePerGramInPaise)}/g)
+              </summary>
+              <dl className="border-border mt-2 grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 rounded-md border p-3 text-xs">
+                <dt>Metal ({formatWeight(product.netWeightMg)})</dt>
+                <dd className="text-right">{formatINR(breakup.metalValueInPaise)}</dd>
+                {breakup.makingChargeInPaise > 0 && (
+                  <>
+                    <dt>Making charge</dt>
+                    <dd className="text-right">{formatINR(breakup.makingChargeInPaise)}</dd>
+                  </>
+                )}
+                {breakup.stoneChargeInPaise > 0 && (
+                  <>
+                    <dt>Stones</dt>
+                    <dd className="text-right">{formatINR(breakup.stoneChargeInPaise)}</dd>
+                  </>
+                )}
+                <dt>GST ({formatRate(product.gstRateBps)}, incl. rounding)</dt>
+                <dd className="text-right">{formatINR(breakup.gstInPaise)}</dd>
+                <dt className="font-semibold">Total</dt>
+                <dd className="text-right font-semibold">{formatINR(breakup.priceInPaise)}</dd>
+              </dl>
+            </details>
+          )}
           <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 
           <div className="mt-6">
-            <AddToCart productId={product.id} stock={product.stock} />
+            <AddToCart productId={product.id} stock={product.stock} sizes={product.sizes} />
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap items-center gap-2">
             <WishlistButton productId={product.id} slug={product.slug} initial={saved} />
+            {whatsapp && (
+              <Button asChild variant="outline" size="sm">
+                <a href={whatsapp} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle aria-hidden="true" /> Ask on WhatsApp
+                </a>
+              </Button>
+            )}
+            {config.features.visit_booking && (
+              <Button asChild variant="outline" size="sm">
+                <Link href={`/visit?product=${product.slug}`}>
+                  <CalendarDays aria-hidden="true" /> See it in the showroom
+                </Link>
+              </Button>
+            )}
           </div>
           <div className="mt-6">
             <PincodeChecker />
           </div>
 
           <p className="mt-8 leading-relaxed">{product.description}</p>
+          {product.occasions.length > 0 && (
+            <ul className="mt-4 flex flex-wrap gap-2" aria-label="Perfect for">
+              {product.occasions.map((o) => (
+                <li key={o}>
+                  <Link
+                    href={`/products?occasion=${occasionSlug(o)}`}
+                    className="border-border hover:border-primary rounded-full border px-3 py-1 text-xs"
+                  >
+                    {occasionLabel[o]}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <h2 className="mt-8 text-sm font-semibold">Product details</h2>
           <dl className="divide-border border-border mt-3 divide-y border-y text-sm">

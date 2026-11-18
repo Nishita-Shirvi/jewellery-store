@@ -21,6 +21,7 @@ export class TooManyAttempts extends CredentialsSignin {
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_LIMIT_PER_EMAIL = 5; // per email + IP
 const LOGIN_LIMIT_PER_IP = 30; // across all emails from one IP
+const LOGIN_LIMIT_PER_ACCOUNT = 20; // one email, from any IP
 
 const providers: Provider[] = [
   Credentials({
@@ -38,7 +39,13 @@ const providers: Provider[] = [
       const emailKey = `login:${parsed.data.email}:${ip}`;
       const ipLimit = rateLimit(`login-ip:${ip}`, LOGIN_LIMIT_PER_IP, LOGIN_WINDOW_MS);
       const emailLimit = rateLimit(emailKey, LOGIN_LIMIT_PER_EMAIL, LOGIN_WINDOW_MS);
-      if (!ipLimit.ok || !emailLimit.ok) {
+      // Across all IPs: a botnet can't get 5 guesses per IP against one account.
+      const accountLimit = rateLimit(
+        `login-account:${parsed.data.email}`,
+        LOGIN_LIMIT_PER_ACCOUNT,
+        LOGIN_WINDOW_MS,
+      );
+      if (!ipLimit.ok || !emailLimit.ok || !accountLimit.ok) {
         logger.warn("auth.login_rate_limited", { ip });
         throw new TooManyAttempts();
       }

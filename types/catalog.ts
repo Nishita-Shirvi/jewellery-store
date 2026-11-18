@@ -1,7 +1,7 @@
 /** Catalogue types. These are the data contracts the final frontend design will build on. */
-import type { MetalColour, MetalType, Purity } from "@prisma/client";
+import type { MetalColour, MetalType, Occasion, PricingMode, Purity } from "@prisma/client";
 
-export type { MetalColour, MetalType, Purity };
+export type { MetalColour, MetalType, Occasion, PricingMode, Purity };
 
 /** Category as defined in the dummy catalogue (seed data). */
 export interface DummyCategory {
@@ -71,5 +71,13 @@ export interface ProductDetail extends ProductCardData {
   gemstone: string | null;
   huid: string | null;
   isReturnable: boolean;
+  pricingMode: PricingMode;
+  makingChargeInPaise: number;
+  stoneChargeInPaise: number;
+  gstRateBps: number;
+  occasions: Occasion[];
+  /** Sizes the customer must choose from; empty = one size. */
+  sizes: string[];
+  spinVideoUrl: string | null;
   category: { name: string; slug: string };
 }

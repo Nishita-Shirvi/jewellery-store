@@ -47,7 +47,7 @@ export async function notifyOrder(
       : formatINR(order.totalInPaise);
     const business = getBusiness();
     const items = order.items.map((i) => ({
-      name: i.productName,
+      name: i.size ? `${i.productName} (size ${i.size})` : i.productName,
       quantity: i.quantity,
       amount: formatINR(i.lineTotalInPaise),
     }));
@@ -92,7 +92,7 @@ export async function notifyOrder(
         subject: `Order ${n} delivered`,
         heading: "Delivered — enjoy your jewellery!",
         paragraphs: [
-          `Order ${n} has been delivered. If anything isn't right, you can request a return from your order page within 7 days.`,
+          `Order ${n} has been delivered. If anything isn't right, you can request a return from your order page within ${config.returns.window_days} days.`,
         ],
         button: { label: "View your order", url: orderUrl },
       },
@@ -155,7 +155,7 @@ export async function notifyOrder(
   }
 }
 
-/** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config.ini. */
+/** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config/features.ini. */
 async function maybeSendSms(
   address: { phone?: string } | null,
   event: OrderEvent,

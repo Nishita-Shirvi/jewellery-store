@@ -42,6 +42,10 @@ export default async function WishlistPage() {
                 <p className="text-xs text-amber-700">No longer available</p>
               ) : !item.inStock ? (
                 <p className="text-xs text-amber-700">Out of stock</p>
+              ) : item.needsSize ? (
+                <Button asChild size="sm" className="w-full">
+                  <Link href={`/products/${item.slug}`}>Choose size</Link>
+                </Button>
               ) : (
                 <form action={moveToCartAction}>
                   <input type="hidden" name="productId" value={item.productId} />

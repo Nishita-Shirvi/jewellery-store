@@ -1,5 +1,5 @@
 import "server-only";
-import { revalidateTag } from "next/cache";
+import { revalidateTag, unstable_cache } from "next/cache";
 import type { Prisma, ReviewStatus } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
@@ -104,6 +104,32 @@ export async function moderateReview(
   revalidateTag(CATALOG_TAG);
   logger.info("review.moderated", { reviewId, status, adminId });
 }
+
+/** Recent 4–5 star published reviews with real text, for the home page. */
+export const getHomeReviews = unstable_cache(
+  async (limit: number) => {
+    if (limit <= 0) return [];
+    const rows = await db.review.findMany({
+      where: { status: "APPROVED", rating: { gte: 4 }, product: { isActive: true } },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+      take: limit,
+      select: {
+        id: true,
+        rating: true,
+        title: true,
+        body: true,
+        authorName: true,
+        product: { select: { name: true, slug: true } },
+      },
+    });
+    return rows.map((r) => ({
+      ...r,
+      body: r.body.length > 220 ? `${r.body.slice(0, 217)}…` : r.body,
+    }));
+  },
+  ["reviews:home:v1"],
+  { tags: [CATALOG_TAG], revalidate: 3600 },
+);
 
 const ORDER: Record<ReviewSort, Prisma.ReviewOrderByWithRelationInput[]> = {
   newest: [{ createdAt: "desc" }, { id: "asc" }],

@@ -13,7 +13,7 @@ export function logStartupSummary() {
     nodeEnv: env.NODE_ENV,
     vercelEnv: process.env.VERCEL_ENV ?? "local",
     logLevel: config.logging.level,
-    // Env vars overriding config.ini — if you edited config.ini and nothing changed, look here.
+    // Env vars overriding config/*.ini — if you edited config/*.ini and nothing changed, look here.
     configOverriddenByEnv: envOverrides(),
     integrations: {
       razorpay: isRazorpayConfigured,
@@ -32,7 +32,7 @@ export function logStartupSummary() {
 
   if (env.NODE_ENV === "production" && getBusiness().incomplete) {
     logger.warn("app.business_details_incomplete", {
-      hint: "Fill in [business] and [grievance_officer] in config.ini before taking real orders.",
+      hint: "Fill in [business] and [grievance_officer] in config/business.ini before taking real orders.",
     });
   }
 }

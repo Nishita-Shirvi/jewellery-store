@@ -122,6 +122,17 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 - [x] Docs: architecture, configuration, logging, features, integrations, learning path
 - [x] Full test run: unit, database, build, bundle secret scan, Playwright end-to-end
 
+## Storefront release ✅ (2026-11-18)
+
+- [x] Gold/metal rates in admin, rate-linked prices repriced on save, rate bar, price breakup, stale-rate warning
+- [x] Occasions, colour/weight filters, budget chips, "Shop by occasion", style advisor
+- [x] Sizes (cart/order per size, shared stock), size guide, wishlist "Choose size"
+- [x] WhatsApp button, showroom visit booking + Admin → Visits, Admin → Settings
+- [x] 360° video, photo reorder, delete never-ordered products, old-slug redirects, stock-overwrite protection
+- [x] `config/` folder (replaces `config.ini`), Cloudflare R2 image storage
+- [x] Payment/refund hardening (extra payments refunded, atomic sold-out refund, refund claims + cron sweep, reservation race), open-redirect fix, per-account login limit
+- [x] Admin guide for the shop team (`ADMIN_GUIDE.md`)
+
 ## Week 3 — Growth and scale ⬜
 
 ### 17. Product variants
@@ -212,7 +223,7 @@ Legend: `[x]` done · `[ ]` pending · ⛔ waiting on client
 ### 30. Disaster recovery, docs, launch
 
 - [ ] Backup restore drill, kill switches
-- [ ] Architecture, onboarding, admin guide docs
+- [ ] Architecture, onboarding, admin guide docs (first admin guide: `ADMIN_GUIDE.md`, 2026-11-18)
 - [ ] Full regression + soft launch
 
 ---

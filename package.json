@@ -21,7 +21,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check:bundle": "node scripts/check-client-bundle.mjs",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "test:db": "vitest run --config vitest.db.config.ts",
     "verify": "npm run lint && npm run typecheck && npm test"
   },

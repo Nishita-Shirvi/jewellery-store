@@ -69,8 +69,20 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
   if (!order || !order.paidAt) return null;
 
   const seller = getBusiness();
+  if (seller.incomplete) {
+    // Don't burn an invoice number on an invoice showing "[GSTIN]" etc. The admin can press
+    // "Generate invoice" once the business details are filled in.
+    logger.warn("invoice.skipped_business_details_incomplete", { orderId });
+    return null;
+  }
   const address = order.addressSnapshot as AddressSnapshot;
-  const intra = isIntraState(seller.state, address.state);
+  // Use the tax split stored at checkout; the configured seller state may have changed since.
+  // Only orders without a saved split (or with 0% GST) fall back to comparing states.
+  const intra = order.items.some((i) => i.igstInPaise > 0)
+    ? false
+    : order.items.some((i) => i.cgstInPaise > 0 || i.sgstInPaise > 0)
+      ? true
+      : isIntraState(seller.state, address.state);
 
   const lines: InvoiceLine[] = order.items.map((item) => {
     // Orders from before Phase 12 have no saved tax split: work it out now with the saved rate.

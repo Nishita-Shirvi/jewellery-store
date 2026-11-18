@@ -1,11 +1,18 @@
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
 import { LOW_STOCK_THRESHOLD, getDashboardStats } from "@/services/admin/dashboard.service";
+import { config } from "@/lib/config";
+import { ratesAreStale } from "@/services/metal-rate.service";
+import { countNewVisits } from "@/services/visit.service";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const stats = await getDashboardStats();
+  const [stats, staleRates, newVisits] = await Promise.all([
+    getDashboardStats(),
+    ratesAreStale(),
+    config.features.visit_booking ? countNewVisits() : Promise.resolve(0),
+  ]);
   const cards = [
     { label: "Orders today", value: String(stats.ordersToday), href: "/admin/orders" },
     { label: "Revenue today", value: formatINR(stats.revenueTodayInPaise), href: "/admin/orders" },
@@ -24,6 +31,27 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-10">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      {(staleRates || newVisits > 0) && (
+        <ul className="space-y-2 text-sm">
+          {staleRates && (
+            <li className="rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              Metal rates are older than {config.pricing.stale_after_hours} hours, so rate-linked
+              prices may be out of date.{" "}
+              <Link href="/admin/rates" className="font-medium underline">
+                Update today&apos;s rates
+              </Link>
+            </li>
+          )}
+          {newVisits > 0 && (
+            <li className="border-border bg-muted rounded-md border p-3">
+              {newVisits} new showroom visit {newVisits === 1 ? "request" : "requests"}.{" "}
+              <Link href="/admin/visits?status=NEW" className="font-medium underline">
+                Review
+              </Link>
+            </li>
+          )}
+        </ul>
+      )}
       <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {cards.map((card) => (
           <li key={card.label}>

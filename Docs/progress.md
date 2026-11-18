@@ -2,8 +2,8 @@
 
 **Rule:** before starting any phase, add a "Before Phase X" entry at the top of the log below, describing where the project stands. After finishing the phase, update its row in the status table.
 
-**Last updated:** 2026-10-25
-**Current phase:** Week 2 complete + production hardening pass (2026-10-25: missing Phase 14–16 migration added, `config.ini`, structured logger, docs + `Docs/learning/`). Next: deploy (waits on client accounts), then Week 3, Phase 17 — Product variants.
+**Last updated:** 2026-11-18
+**Current phase:** Storefront release (2026-11-18: gold-rate pricing, occasions, sizes, WhatsApp + showroom visits, `config/` folder, Cloudflare R2, payment/refund hardening — see `CHANGELOG.md`). Next: deploy (waits on client accounts), then Week 3, Phase 17 — Product variants (sizes are already done, without per-size stock).
 
 ---
 
@@ -49,6 +49,15 @@ Status values: ⬜ Not started · 🟨 In progress · ✅ Done · ⛔ Blocked ·
 ---
 
 ## Pre-phase log (newest first)
+
+### Storefront release (2026-11-18)
+
+**Done so far:** Phases 1–16 + production hardening.
+**Added:** metal rates + rate-linked pricing (Admin → Gold rates, rate bar, price breakup, stale-rate warning); occasions, colour/weight filters, budget chips, style advisor; sizes (cart line per product + size, stock shared), size guide; WhatsApp button, `/visit` booking, Admin → Visits and Settings; 360° video, photo reorder, product delete, slug redirects; Cloudflare R2 uploads. Migration `20261118120000_storefront_rates_occasions_sizes_visits`.
+**Changed:** `config.ini` → `config/*.ini`; return window configurable; `vercel-build` migrates on production only (`RUN_MIGRATIONS=1` for previews with their own DB); production env checks; create-only seed.
+**Fixed:** open redirect, per-account login limit, failed-page text echo, extra/cancelled-order payments auto-refunded, sold-out refund made atomic, refund claim/retry + cron sweep, reservation race, cancel blocked once a shipment exists, invoices refused with placeholder business details, stock/category overwrite on edit.
+**Tests added:** `tests/storefront.test.ts`, `tests/media.test.ts`, `tests/sigv4.test.ts`, `tests/db/storefront.test.ts`, `tests/db/payment-refund.test.ts`, `tests/db/invoice-guards.test.ts`; CI checks migrations match the schema.
+**Docs:** CONFIGURATION rewritten for `config/`; FEATURES, ARCHITECTURE, INTEGRATIONS (R2), DEPLOY, GO_LIVE_CHECKLIST, `learning/` updated; new `ADMIN_GUIDE.md`.
 
 ### Production hardening pass (2026-10-25)
 

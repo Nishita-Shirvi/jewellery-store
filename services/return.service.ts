@@ -1,4 +1,5 @@
 import "server-only";
+import { config } from "@/lib/config";
 import { revalidateTag } from "next/cache";
 import type { Prisma, ReturnReason } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -29,13 +30,39 @@ async function restockItems(tx: Tx, items: { productId: string; quantity: number
 
 // ───────────────────────── Cancellations ─────────────────────────
 
-/** Can this paid order still be cancelled? (Not once it has a courier/AWB or has shipped.) */
+type ShipmentLock = {
+  awb: string | null;
+  providerShipmentId: string | null;
+  status: string;
+} | null;
+
+/**
+ * True once a courier parcel exists (Shiprocket shipment id or AWB) and wasn't cancelled at the
+ * courier: cancelling + refunding then would still let the parcel ship.
+ */
+function hasLiveShipment(shipment: ShipmentLock): boolean {
+  return Boolean(
+    shipment && (shipment.providerShipmentId || shipment.awb) && shipment.status !== "CANCELLED",
+  );
+}
+
+const shipmentLockSelect = { awb: true, providerShipmentId: true, status: true } as const;
+
+function liveShipmentError(by: "customer" | "admin", shipment: NonNullable<ShipmentLock>) {
+  return new ReturnError(
+    by === "customer"
+      ? "Your order is already packed for the courier. Please contact us to cancel."
+      : `A courier shipment already exists for this order${shipment.awb ? ` (AWB ${shipment.awb})` : ""}. Cancel it in Shiprocket first, then cancel the order here.`,
+  );
+}
+
+/** Can this paid order still be cancelled? (Not once it has a courier shipment/AWB or has shipped.) */
 export async function canCustomerCancel(orderId: string): Promise<boolean> {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    select: { status: true, shipment: { select: { awb: true } } },
+    select: { status: true, shipment: { select: shipmentLockSelect } },
   });
-  return order?.status === "PAID" && !order.shipment?.awb;
+  return order?.status === "PAID" && !hasLiveShipment(order.shipment);
 }
 
 /**
@@ -52,17 +79,13 @@ export async function cancelPaidOrder(input: {
     where: { id: input.orderId, ...(input.userId ? { userId: input.userId } : {}) },
     include: {
       items: { select: { id: true, productId: true, quantity: true } },
-      shipment: { select: { awb: true } },
+      shipment: { select: shipmentLockSelect },
     },
   });
   if (!order) throw new ReturnError("Order not found.");
   if (order.status !== "PAID")
     throw new ReturnError("Only paid orders that haven't shipped can be cancelled.");
-  if (input.by === "customer" && order.shipment?.awb) {
-    throw new ReturnError(
-      "Your order is already packed for the courier. Please contact us to cancel.",
-    );
-  }
+  if (hasLiveShipment(order.shipment)) throw liveShipmentError(input.by, order.shipment!);
 
   const refundId = await db.$transaction(async (tx) => {
     const switched = await tx.order.updateMany({
@@ -75,6 +98,13 @@ export async function cancelPaidOrder(input: {
     });
     if (switched.count === 0)
       throw new ReturnError("This order changed in the meantime. Please refresh.");
+    // Re-check under the order row lock: createShipmentForOrder saves the Shiprocket ids while
+    // holding the same lock, so a shipment created a moment ago is seen here (→ rollback).
+    const shipment = await tx.shipment.findUnique({
+      where: { orderId: order.id },
+      select: shipmentLockSelect,
+    });
+    if (hasLiveShipment(shipment)) throw liveShipmentError(input.by, shipment!);
     await restockItems(tx, order.items);
     for (const item of order.items) {
       await tx.orderItem.update({
@@ -98,29 +128,6 @@ export async function cancelPaidOrder(input: {
   });
   await issueRefund(refundId);
   await sendOrderUpdateEmail(order.id, "cancelled", { amountInPaise: order.totalInPaise });
-}
-
-/** Paid, but the piece sold out first: refund in full automatically (called from the payment flow). */
-export async function refundSoldOutOrder(orderId: string) {
-  const order = await db.order.findUnique({
-    where: { id: orderId },
-    select: { totalInPaise: true },
-  });
-  if (!order) return;
-  const refundId = await db.$transaction(async (tx) => {
-    const existing = await tx.refund.findFirst({ where: { orderId }, select: { id: true } });
-    if (existing) return null; // already refunded once
-    await tx.order.updateMany({
-      where: { id: orderId, status: "CANCELLED" },
-      data: { status: "REFUND_PENDING" },
-    });
-    return createRefundRecord(tx, {
-      orderId,
-      amountInPaise: order.totalInPaise,
-      reason: "Sold out after payment",
-    });
-  });
-  if (refundId) await issueRefund(refundId);
 }
 
 // ─────────────────────────── Returns ─────────────────────────────
@@ -150,6 +157,8 @@ async function returnContext(orderId: string, userId?: string) {
       hasOpenReturn: order.returns.some((r) => r.status === "REQUESTED"),
     },
     lines,
+    new Date(),
+    config.returns.window_days,
   );
   return { order, lines, eligibility };
 }

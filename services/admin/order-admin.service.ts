@@ -5,6 +5,8 @@ import { logger } from "@/lib/logger";
 import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { AdminInputError, ADMIN_PAGE_SIZE } from "@/services/admin/product-admin.service";
 import { releaseReservation } from "@/services/inventory.service";
+import { revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/services/catalog.service";
 
 const STATUSES: OrderStatus[] = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED", "FAILED"];
 
@@ -55,8 +57,8 @@ export async function getOrderAdmin(id: string) {
 
 /**
  * Moves an order to a new status if the transition is allowed. Uses a conditional update so
- * two admins clicking at once can't both apply a change. Cancelling a PAID order puts the
- * stock back (refunds are done in the Razorpay dashboard until Phase 11 automates them).
+ * two admins clicking at once can't both apply a change. Cancelling a PAID order refunds it in
+ * full and restocks (returns service); cancelling an unpaid one releases its stock hold.
  */
 export async function updateOrderStatus(id: string, next: OrderStatus, adminId: string) {
   const order = await db.order.findUnique({ where: { id }, select: { status: true } });
@@ -77,41 +79,22 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
     throw new AdminInputError(`Can't change an order from ${order.status} to ${next}.`);
   }
 
-  await db.$transaction(async (tx) => {
+  // (PAID → CANCELLED returned above, so a CANCELLED here is always an unpaid order.)
+  const released = await db.$transaction(async (tx) => {
     const updated = await tx.order.updateMany({
       where: { id, status: order.status },
       data: {
         status: next,
         ...(next === "DELIVERED" ? { deliveredAt: new Date() } : {}),
-        ...(next === "CANCELLED"
-          ? {
-              cancellationReason:
-                order.status === "PAID"
-                  ? "Cancelled by admin — refund the payment in the Razorpay dashboard"
-                  : "Cancelled by admin",
-            }
-          : {}),
+        ...(next === "CANCELLED" ? { cancellationReason: "Cancelled by admin" } : {}),
       },
     });
     if (updated.count === 0)
       throw new AdminInputError("The order changed in the meantime. Refresh and try again.");
-
-    if (next === "CANCELLED" && order.status !== "PAID") {
-      await releaseReservation(tx, id); // unpaid order: give held stock back
-    }
-    if (next === "CANCELLED" && order.status === "PAID") {
-      const items = await tx.orderItem.findMany({
-        where: { orderId: id },
-        select: { productId: true, quantity: true },
-      });
-      for (const item of items) {
-        await tx.product.update({
-          where: { id: item.productId },
-          data: { stock: { increment: item.quantity } },
-        });
-      }
-    }
+    // Unpaid order: give held stock back.
+    return next === "CANCELLED" ? releaseReservation(tx, id) : false;
   });
+  if (released) revalidateTag(CATALOG_TAG); // available stock changed
 
   if (next === "SHIPPED" || next === "DELIVERED") {
     const { notifyOrder } = await import("@/services/notification.service");

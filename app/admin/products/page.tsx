@@ -16,7 +16,8 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const query = adminListQuerySchema.parse(await searchParams);
+  const params = await searchParams;
+  const query = adminListQuerySchema.parse(params);
   const { items, total, pageCount } = await listProductsAdmin(query);
 
   return (
@@ -29,6 +30,15 @@ export default async function AdminProductsPage({
           <Link href="/admin/products/new">Add product</Link>
         </Button>
       </div>
+
+      {params.deleted === "1" && (
+        <p
+          role="status"
+          className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+        >
+          Product deleted.
+        </p>
+      )}
 
       <form className="mt-6 flex flex-wrap gap-2" action="/admin/products" role="search">
         <Input
@@ -48,6 +58,7 @@ export default async function AdminProductsPage({
           <option value="active">Visible</option>
           <option value="inactive">Hidden</option>
           <option value="low">Low stock</option>
+          <option value="rate">Follows metal rate</option>
         </select>
         <Button type="submit" variant="outline">
           Filter
@@ -87,10 +98,16 @@ export default async function AdminProductsPage({
                   </div>
                 </td>
                 <td className="p-3">{p.category.name}</td>
-                <td className="p-3">{formatINR(p.priceInPaise)}</td>
+                <td className="p-3">
+                  {formatINR(p.priceInPaise)}
+                  {p.pricingMode === "RATE_LINKED" && (
+                    <span className="text-muted-foreground block text-xs">Follows rate</span>
+                  )}
+                </td>
                 <td className="p-3">
                   <form action={updateStockAction} className="flex items-center gap-1">
                     <input type="hidden" name="id" value={p.id} />
+                    <input type="hidden" name="stockOriginal" value={p.stock} />
                     <Input
                       name="stock"
                       type="number"

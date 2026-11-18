@@ -6,7 +6,10 @@ import { formatRate } from "@/lib/gst";
 import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
+import { getCurrentRates } from "@/services/metal-rate.service";
 import { isUploadConfigured } from "@/services/upload.service";
+import { DeleteProductForm } from "@/components/admin/delete-product-form";
+import { db } from "@/lib/db";
 
 export default async function EditProductPage({
   params,
@@ -17,10 +20,12 @@ export default async function EditProductPage({
 }) {
   const { id } = await params;
   const { created } = await searchParams;
-  const [product, categories, placeholderImages] = await Promise.all([
+  const [product, categories, placeholderImages, rates, orderCount] = await Promise.all([
     getProductAdmin(id),
     listCategoryOptions(),
     listPlaceholderImages(),
+    getCurrentRates(),
+    db.orderItem.count({ where: { productId: id } }),
   ]);
   if (!product) notFound();
 
@@ -51,16 +56,24 @@ export default async function EditProductPage({
           categories={categories}
           placeholderImages={placeholderImages}
           uploadEnabled={isUploadConfigured()}
+          ratesAvailable={Object.keys(rates)}
           values={{
             id: product.id,
             name: product.name,
             slug: product.slug,
             description: product.description,
             categoryId: product.categoryId,
+            pricingMode: product.pricingMode,
             price: paiseToRupeesInput(product.priceInPaise),
             makingCharge: product.makingChargeInPaise
               ? paiseToRupeesInput(product.makingChargeInPaise)
               : "",
+            stoneCharge: product.stoneChargeInPaise
+              ? paiseToRupeesInput(product.stoneChargeInPaise)
+              : "",
+            occasions: product.occasions,
+            sizes: product.sizes.join(", "),
+            spinVideoUrl: product.spinVideoUrl ?? "",
             stock: String(product.stock),
             metalType: product.metalType,
             purity: product.purity,
@@ -78,6 +91,16 @@ export default async function EditProductPage({
           }}
         />
       </div>
+      {orderCount === 0 && (
+        <details className="border-border mt-10 rounded-md border p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-red-800">
+            Delete this product
+          </summary>
+          <div className="mt-4">
+            <DeleteProductForm id={product.id} name={product.name} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

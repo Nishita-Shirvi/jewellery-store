@@ -2,7 +2,7 @@ import "server-only";
 import { config } from "@/lib/config";
 import { publicEnv } from "@/lib/env";
 
-/** Business details used on legal pages and invoices. Set them in config.ini before going live. */
+/** Business details used on legal pages and invoices. Set them in config/business.ini before going live. */
 export function getBusiness() {
   const { business, grievance_officer: grievance } = config;
   return {

@@ -83,6 +83,16 @@ export const listProducts = unstable_cache(
       // In stock = more units than are held in checkouts (compares two columns).
       ...(query.inStock ? { stock: { gt: db.product.fields.reservedStock } } : {}),
       ...(query.rating ? { ratingAvgX100: { gte: query.rating * 100 } } : {}),
+      ...(query.occasion ? { occasions: { has: query.occasion } } : {}),
+      ...(query.colour ? { metalColour: query.colour } : {}),
+      ...(query.minWeight !== undefined || query.maxWeight !== undefined
+        ? {
+            netWeightMg: {
+              ...(query.minWeight !== undefined ? { gte: Math.round(query.minWeight * 1000) } : {}),
+              ...(query.maxWeight !== undefined ? { lte: Math.round(query.maxWeight * 1000) } : {}),
+            },
+          }
+        : {}),
     };
 
     const sort = query.sort ?? (scores ? "relevance" : "newest");
@@ -119,7 +129,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v2"],
+  ["catalog:list:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -160,6 +170,16 @@ export const getCategories = unstable_cache(
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
+/** The current slug of an active product that used to be at `slug` (renamed), or null. */
+export async function findRenamedProductSlug(slug: string): Promise<string | null> {
+  if (!slugSchema.safeParse(slug).success) return null;
+  const row = await db.product.findFirst({
+    where: { previousSlugs: { has: slug }, isActive: true, category: { isActive: true } },
+    select: { slug: true },
+  });
+  return row?.slug ?? null;
+}
+
 /** A single active product, or null (unknown slug, inactive product or inactive category). */
 export const getProductBySlug = unstable_cache(
   async (slug: string): Promise<ProductDetail | null> => {
@@ -175,6 +195,13 @@ export const getProductBySlug = unstable_cache(
         gemstone: true,
         huid: true,
         isReturnable: true,
+        pricingMode: true,
+        makingChargeInPaise: true,
+        stoneChargeInPaise: true,
+        gstRateBps: true,
+        occasions: true,
+        sizes: true,
+        spinVideoUrl: true,
         category: { select: { name: true, slug: true } },
       },
     });
@@ -194,9 +221,16 @@ export const getProductBySlug = unstable_cache(
       gemstone: row.gemstone,
       huid: row.huid,
       isReturnable: row.isReturnable,
+      pricingMode: row.pricingMode,
+      makingChargeInPaise: row.makingChargeInPaise,
+      stoneChargeInPaise: row.stoneChargeInPaise,
+      gstRateBps: row.gstRateBps,
+      occasions: row.occasions,
+      sizes: row.sizes,
+      spinVideoUrl: row.spinVideoUrl,
       category: row.category,
     };
   },
-  ["catalog:product"],
+  ["catalog:product:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );

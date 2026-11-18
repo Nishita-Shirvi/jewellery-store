@@ -9,9 +9,19 @@ import { MAX_QTY_PER_ITEM } from "@/lib/validation/cart";
 import { track } from "@/components/analytics/analytics";
 
 /** Quantity selector + Add to Cart. The server re-checks price and stock every time. */
-export function AddToCart({ productId, stock }: { productId: string; stock: number }) {
+export function AddToCart({
+  productId,
+  stock,
+  sizes = [],
+}: {
+  productId: string;
+  stock: number;
+  /** When not empty, the customer must choose one before adding. */
+  sizes?: string[];
+}) {
   const max = Math.max(0, Math.min(stock, MAX_QTY_PER_ITEM));
   const [quantity, setQuantity] = useState(1);
+  const [size, setSize] = useState("");
   const [pending, startTransition] = useTransition();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -25,8 +35,12 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
 
   function add() {
     setResult(null);
+    if (sizes.length > 0 && !size) {
+      setResult({ ok: false, text: "Please choose a size." });
+      return;
+    }
     startTransition(async () => {
-      const res = await addToCartAction({ productId, quantity });
+      const res = await addToCartAction({ productId, quantity, size });
       setResult(
         res.ok
           ? { ok: true, text: res.message ?? "Added to cart." }
@@ -39,6 +53,34 @@ export function AddToCart({ productId, stock }: { productId: string; stock: numb
 
   return (
     <div className="space-y-3">
+      {sizes.length > 0 && (
+        <fieldset>
+          <legend className="flex w-full items-baseline justify-between gap-3 text-sm font-medium">
+            <span>Size{size ? `: ${size}` : ""}</span>
+            <Link href="/size-guide" className="text-xs font-normal underline underline-offset-4">
+              Size guide
+            </Link>
+          </legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {sizes.map((s) => (
+              <label
+                key={s}
+                className="has-[:checked]:border-primary has-[:checked]:bg-primary has-[:checked]:text-primary-foreground border-input has-[:focus-visible]:ring-ring flex h-9 min-w-10 cursor-pointer items-center justify-center rounded-md border px-3 text-sm has-[:focus-visible]:ring-2"
+              >
+                <input
+                  type="radio"
+                  name="size"
+                  value={s}
+                  checked={size === s}
+                  onChange={() => setSize(s)}
+                  className="sr-only"
+                />
+                {s}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         <div
           className="border-input flex items-center rounded-md border"

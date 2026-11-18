@@ -2,6 +2,7 @@ import type { OrderStatus, ReturnReason } from "@prisma/client";
 
 /** Pure return/refund rules (unit-tested). Money in paise. */
 
+/** Default return window; the live value is [returns] window_days in config/shipping.ini. */
 export const RETURN_WINDOW_DAYS = 7;
 
 export const RETURN_REASON_LABEL: Record<ReturnReason, string> = {
@@ -32,6 +33,7 @@ export function returnEligibility(
   order: { status: OrderStatus; deliveredAt: Date | null; hasOpenReturn: boolean },
   lines: ReturnableLine[],
   now = new Date(),
+  windowDays = RETURN_WINDOW_DAYS,
 ): Eligibility {
   if (order.hasOpenReturn)
     return { ok: false, reason: "A return for this order is already being reviewed." };
@@ -39,9 +41,10 @@ export function returnEligibility(
     return { ok: false, reason: "Returns are possible only after delivery." };
   if (!order.deliveredAt)
     return { ok: false, reason: "Delivery date unknown — please contact us." };
-  const deadline = new Date(order.deliveredAt.getTime() + RETURN_WINDOW_DAYS * 86_400_000);
+  if (windowDays <= 0) return { ok: false, reason: "Returns are not available for this order." };
+  const deadline = new Date(order.deliveredAt.getTime() + windowDays * 86_400_000);
   if (now > deadline)
-    return { ok: false, reason: `The ${RETURN_WINDOW_DAYS}-day return window has ended.` };
+    return { ok: false, reason: `The ${windowDays}-day return window has ended.` };
   if (!lines.some((l) => l.isReturnable && l.quantity - l.returnedQuantity > 0)) {
     return { ok: false, reason: "Nothing in this order can be returned." };
   }

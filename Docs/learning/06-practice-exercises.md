@@ -4,7 +4,7 @@ Do these on a local copy with a local/throwaway database (never production). Eac
 
 ## Warm-up (settings, logs)
 
-1. **Change a business rule without code.** Set `fee_rupees = 49` in `config.ini`, restart `npm run dev`, check the cart. Then set `SHIPPING_FEE_RUPEES=0` in `.env` and confirm the env value wins.
+1. **Change a business rule without code.** Set `fee_rupees = 49` in `config/shipping.ini`, restart `npm run dev`, check the cart. Then set `SHIPPING_FEE_RUPEES=0` in `.env` and confirm the env value wins.
 2. **Break config on purpose.** Set `state = Telengana` (typo). Read the startup error. Fix it.
 3. **Debug logs.** Set `[logging] level = debug`, add `logger.debug("cart.viewed", { itemCount })` in `app/cart/page.tsx`, open `/cart`, find the line. Set the level back to `info` and see it disappear.
 4. **Errors with stacks.** Temporarily add `throw new Error("test")` as the first line inside the `try` of `checkDatabase()` in `services/health.service.ts`. Call `/api/health` → you get HTTP 503, and the terminal shows `health.db_ping_failed` with the error's message and stack (file + line). Remove the line again.
@@ -29,7 +29,7 @@ Do these on a local copy with a local/throwaway database (never production). Eac
 
 ## Make a small feature end to end
 
-14. Add a setting `[catalog] page_size = 12` to `config.ini` and use it instead of `PAGE_SIZE` in `lib/validation/catalog.ts` → **watch out**: check whether that file is imported by a browser component first (`grep -r "lib/validation/catalog" components`). If it is, you must pass the value from the server instead. This is the most common mistake with `config.ini` — it's server-only.
+14. Add a setting `[catalog] page_size = 12` to a `config/*.ini` file (e.g. `config/storefront.ini`) and use it instead of `PAGE_SIZE` in `lib/validation/catalog.ts` → **watch out**: check whether that file is imported by a browser component first (`grep -r "lib/validation/catalog" components`). If it is, you must pass the value from the server instead. This is the most common mistake with `lib/config.ts` — it's server-only.
 15. Update `Docs/CONFIGURATION.md` with your new key.
 
 If you can do 6, 8, 11 and 14 without help, you know the project well enough to fix most bugs on your own.

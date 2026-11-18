@@ -85,7 +85,8 @@ export const returnRequestSchema = z.object({
     .pipe(
       z
         .string()
-        .regex(/^https:\/\/res\.cloudinary\.com\/\S+$/)
+        // The server action also checks it belongs to our own storage (lib/media.ts).
+        .regex(/^https:\/\/\S+$/)
         .optional(),
     ),
   items: z

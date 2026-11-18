@@ -12,10 +12,11 @@ This folder is the project's memory. It tracks what we are building, where we ar
 | ------------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | `learning/`        | Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises | A feature, flow or file location changes     |
 | `ARCHITECTURE.md`  | Stack, layers, folder map, background jobs, safety properties                                               | Structure or stack changes                   |
-| `CONFIGURATION.md` | `config.ini` (settings) vs `.env` (secrets) — every key, overrides, adding a setting                        | A setting or env variable is added/removed   |
+| `CONFIGURATION.md` | `config/*.ini` (settings) vs `.env` (secrets) vs admin panel — every key, overrides, adding a setting       | A setting or env variable is added/removed   |
 | `LOGGING.md`       | Logger usage, where to read logs, built-in debugging tools                                                  | Logging changes                              |
 | `FEATURES.md`      | What each feature does for customers and admins                                                             | Feature behaviour changes                    |
-| `INTEGRATIONS.md`  | Setup steps: Razorpay, Resend, Shiprocket, Cloudinary, Google, MSG91, Sentry, GA4, cron                     | An integration is added or its setup changes |
+| `INTEGRATIONS.md`  | Setup steps: Razorpay, Resend, Shiprocket, Cloudinary / Cloudflare R2, Google, MSG91, Sentry, GA4, cron     | An integration is added or its setup changes |
+| `ADMIN_GUIDE.md`   | Plain-language, step-by-step guide for the shop team: products, gold rates, visits, orders, refunds…        | Anything in the admin panel changes          |
 
 ### Run and ship
 
@@ -69,4 +70,4 @@ When starting a new chat mid-project, paste Prompt 0, the folder tree, `prisma/s
 
 ## Current status
 
-See `checklist.md` (summary) and `progress.md` (detail). As of 2026-10-25: Phases 1–16 done and verified; production hardening pass done (missing Phase 14–16 migration added, `config.ini`, structured logger, docs + learning path). Going live waits on client accounts (`blocker.md`).
+See `checklist.md` (summary) and `progress.md` (detail). As of 2026-10-25: Phases 1–16 done and verified; production hardening pass done (missing Phase 14–16 migration added, `config.ini`, structured logger, docs + learning path). 2026-11-18: storefront release — gold-rate pricing, occasions, sizes, WhatsApp + showroom visits, `config/` folder, Cloudflare R2, payment/refund hardening, `ADMIN_GUIDE.md` (see `../CHANGELOG.md`). Going live waits on client accounts (`blocker.md`).

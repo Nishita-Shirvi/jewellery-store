@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
 import { publicEnv } from "@/lib/env";
+import { config } from "@/lib/config";
 
 export const revalidate = 3600;
 
@@ -17,6 +18,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   return [
     { url: `${base}/`, changeFrequency: "daily", priority: 1 },
     { url: `${base}/products`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${base}/size-guide`, changeFrequency: "yearly", priority: 0.3 },
+    ...(config.features.visit_booking
+      ? [{ url: `${base}/visit`, changeFrequency: "monthly" as const, priority: 0.5 }]
+      : []),
+    ...(config.features.style_advisor
+      ? [{ url: `${base}/style-advisor`, changeFrequency: "monthly" as const, priority: 0.4 }]
+      : []),
     ...categories.map((c) => ({
       url: `${base}/collections/${c.slug}`,
       lastModified: c.updatedAt,

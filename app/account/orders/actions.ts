@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth-guards";
 import { rateLimit } from "@/lib/rate-limit";
 import { orderIdSchema, returnRequestSchema } from "@/lib/validation/checkout";
+import { isAllowedImageUrl } from "@/lib/media";
 import { ReturnError, cancelPaidOrder, requestReturn } from "@/services/return.service";
 import { UploadError, uploadImage } from "@/services/upload.service";
 
@@ -36,6 +37,8 @@ export async function requestReturnAction(input: unknown): Promise<ReturnFormRes
   const parsed = returnRequestSchema.safeParse(input);
   if (!parsed.success)
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the form." };
+  if (parsed.data.photoUrl && !isAllowedImageUrl(parsed.data.photoUrl, { allowLocal: false }))
+    return { ok: false, error: "Please upload the photo with the button above." };
   try {
     await requestReturn(user.id, parsed.data.orderId, parsed.data);
   } catch (error) {

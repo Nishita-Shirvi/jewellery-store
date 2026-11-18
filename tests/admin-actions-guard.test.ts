@@ -28,7 +28,19 @@ vi.mock("@/services/admin/product-admin.service", () => ({
   updateProduct: spy("updateProduct"),
   setProductActive: spy("setProductActive"),
   setProductStock: spy("setProductStock"),
+  deleteProduct: spy("deleteProduct"),
   getProductAdmin: vi.fn(async () => null),
+}));
+vi.mock("@/services/metal-rate.service", () => ({
+  RateError: class extends Error {},
+  saveRates: spy("saveRates"),
+}));
+vi.mock("@/services/storefront.service", () => ({
+  saveStorefrontSettings: spy("saveStorefrontSettings"),
+}));
+vi.mock("@/services/visit.service", () => ({
+  VisitError: class extends Error {},
+  updateVisitStatus: spy("updateVisitStatus"),
 }));
 vi.mock("@/services/admin/category-admin.service", () => ({
   createCategory: spy("createCategory"),
@@ -64,6 +76,7 @@ vi.mock("@/services/shipment.service", () => ({
 }));
 
 const actions = await import("@/app/admin/actions");
+const storefrontActions = await import("@/app/admin/storefront-actions");
 const { ForbiddenError, UnauthorizedError } = await import("@/lib/auth-guards");
 
 function validForm() {
@@ -88,6 +101,9 @@ function validForm() {
     metalColour: "YELLOW",
     netWeight: "1",
     images: "/images/products/infinity-ring.svg",
+    K22: "7250",
+    confirmLarge: "on",
+    hours: "10 am – 7 pm",
     file: new File([new Uint8Array([1])], "a.png"),
   }))
     fd.append(k, v as string | Blob);
@@ -110,6 +126,13 @@ const calls: [string, () => Promise<unknown>][] = [
   ["saveCouponAction", () => actions.saveCouponAction({}, validForm())],
   ["toggleCouponAction", () => actions.toggleCouponAction(validForm())],
   ["moderateReviewAction", () => actions.moderateReviewAction(validForm())],
+  ["deleteProductAction", () => actions.deleteProductAction({}, validForm())],
+  ["saveRatesAction", () => storefrontActions.saveRatesAction({}, validForm())],
+  [
+    "saveStorefrontSettingsAction",
+    () => storefrontActions.saveStorefrontSettingsAction({}, validForm()),
+  ],
+  ["updateVisitStatusAction", () => storefrontActions.updateVisitStatusAction(validForm())],
 ];
 
 describe("admin actions are protected on the server", () => {
@@ -118,7 +141,9 @@ describe("admin actions are protected on the server", () => {
   });
 
   it("covers every exported admin action", () => {
-    expect(Object.keys(actions).sort()).toEqual(calls.map(([n]) => n).sort());
+    expect([...Object.keys(actions), ...Object.keys(storefrontActions)].sort()).toEqual(
+      calls.map(([n]) => n).sort(),
+    );
   });
 
   it.each(calls)("%s → 403 for a customer, nothing touched", async (_name, call) => {
