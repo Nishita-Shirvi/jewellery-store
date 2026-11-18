@@ -28,6 +28,34 @@ describe("isAllowedImageUrl", () => {
     expect(isAllowedImageUrl("/images/../secret.png")).toBe(false);
     expect(isAllowedImageUrl("/images/ring.svg", { allowLocal: false })).toBe(false);
   });
+
+  it("rejects ../ escapes out of our folder", () => {
+    expect(
+      isAllowedImageUrl(
+        "https://res.cloudinary.com/ourshop/image/upload/../../../evil/image/upload/x.jpg",
+        { allowLocal: false },
+      ),
+    ).toBe(false);
+    expect(isAllowedImageUrl("https://images.ourshop.in/a/%2e%2e/b.jpg")).toBe(false);
+  });
+
+  it("keeps old Cloudinary product photos valid when the cloud name is removed (R2 move)", () => {
+    const saved = process.env.CLOUDINARY_CLOUD_NAME;
+    delete process.env.CLOUDINARY_CLOUD_NAME;
+    try {
+      expect(isAllowedImageUrl("https://res.cloudinary.com/ourshop/image/upload/v1/a.jpg")).toBe(
+        true,
+      );
+      // Customer uploads stay strict.
+      expect(
+        isAllowedImageUrl("https://res.cloudinary.com/ourshop/image/upload/v1/a.jpg", {
+          allowLocal: false,
+        }),
+      ).toBe(false);
+    } finally {
+      process.env.CLOUDINARY_CLOUD_NAME = saved;
+    }
+  });
 });
 
 describe("isAllowedVideoUrl", () => {

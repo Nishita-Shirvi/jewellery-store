@@ -17,9 +17,9 @@ Rules:
 
 - **Never put secrets here** (API keys, passwords, database URLs). They live in `.env` / Vercel.
 - Each `[section]` lives in exactly one file. Defining it twice is an error.
-- Comments start with `;` or `#`. A ` ; comment` after a value is stripped too — wrap the value in
-  quotes to keep a `;` or `#`. An empty value means "use the default".
-- A misspelled key name is ignored (the default is used), so check the page after a change.
+- Comments go on their own line, starting with `;` or `#`. Text after a value is part of the value
+  (so `address = Shop #12, MG Road` stays whole). An empty value means "use the default".
+- A misspelled section or key name stops start-up with a clear message.
 - Any value can be overridden per environment with an env var named `SECTION_KEY` in upper
   case, e.g. `[shipping] fee_rupees` → `SHIPPING_FEE_RUPEES=0`.
 - Changes here need a redeploy. Things the shop team changes day to day (today's gold rate,

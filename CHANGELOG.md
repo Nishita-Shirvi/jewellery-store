@@ -18,7 +18,7 @@ Needs the migration `20261118120000_storefront_rates_occasions_sizes_visits` (ap
 
 ### Changed
 
-- `config.ini` split into a `config/` folder (business, shipping + returns, pricing, storefront, inventory + alerts, images, features + logging). Same section/key names and env overrides; a section defined in two files is an error; a trailing ` ; comment` after a value is stripped. Copy any values you edited in `config.ini` before deploying.
+- `config.ini` split into a `config/` folder (business, shipping + returns, pricing, storefront, inventory + alerts, images, features + logging). Same section/key names and env overrides; a section defined in two files, or an unknown section/key, is an error. Copy any values you edited in `config.ini` before deploying.
 - Return window is now `[returns] window_days` (was fixed at 7 in code); `0` turns returns off.
 - `vercel-build` runs `prisma migrate deploy` only on production deployments (or previews with `RUN_MIGRATIONS=1` and their own database) — `scripts/vercel-build.mjs`.
 - Production refuses to start without an `https://` `NEXT_PUBLIC_APP_URL`, a `CRON_SECRET`, or with a test-only `*_API_BASE` override set.

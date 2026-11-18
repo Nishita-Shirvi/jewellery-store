@@ -15,6 +15,10 @@ export default async function OrderSuccessPage({ params }: { params: Promise<{ i
   const order = await getOrderForUser(user.id, id);
   if (!order) notFound();
   if (order.status === "FAILED" || order.status === "CANCELLED") redirect(`/orders/${id}/failed`);
+  // Refunded at the moment of payment (sold out / offer limit reached): not a confirmed order.
+  if ((order.status === "REFUND_PENDING" || order.status === "REFUNDED") && !order.paidAt) {
+    redirect(`/orders/${id}/failed`);
+  }
 
   const paid = order.status !== "PENDING";
 

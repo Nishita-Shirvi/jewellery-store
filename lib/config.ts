@@ -142,9 +142,9 @@ export function parseIni(text: string, source = CONFIG_FILE): RawConfig {
     }
     const key = line.slice(0, eq).trim().toLowerCase();
     let value = line.slice(eq + 1).trim();
+    // Comments go on their own line (; or #). No inline comments: values such as
+    // "Shop #12, MG Road" must stay whole.
     if (/^(".*"|'.*')$/.test(value)) value = value.slice(1, -1);
-    // "Acme Pvt Ltd ; registered name" → "Acme Pvt Ltd" (quote the value to keep a ; or #).
-    else value = value.replace(/\s+[;#].*$/, "");
     result[section]![key] = value;
   }
   return result;

@@ -29,14 +29,15 @@ This folder is the project's memory. It tracks what we are building, where we ar
 
 ### Plan and track
 
-| File           | Purpose                                                           | Update when                                                    |
-| -------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| `checklist.md` | One-page feature checklist: done vs pending                       | A feature is finished                                          |
-| `Goal.md`      | Detailed goals for every phase, with a "Done when" test           | Tick items as they are finished and verified                   |
-| `progress.md`  | Status of all phases + a log written **before** each phase starts | Before starting a phase, and after finishing it                |
-| `blocker.md`   | Everything stopping or slowing work, who must act, and next steps | As soon as a blocker appears or is solved                      |
-| `note.md`      | Decisions, defaults, jewellery domain notes                       | Whenever a default is chosen or something is worth remembering |
-| `readme.md`    | This file                                                         | When a doc is added or removed                                 |
+| File           | Purpose                                                            | Update when                                                    |
+| -------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `checklist.md` | One-page feature checklist: done vs pending                        | A feature is finished                                          |
+| `Goal.md`      | Detailed goals for every phase, with a "Done when" test            | Tick items as they are finished and verified                   |
+| `progress.md`  | Status of all phases + a log written **before** each phase starts  | Before starting a phase, and after finishing it                |
+| `blocker.md`   | Everything stopping or slowing work, who must act, and next steps  | As soon as a blocker appears or is solved                      |
+| `BACKLOG.md`   | Known not-yet-done work (review follow-ups), with priority and fix | When an item is found, or delete it when done                  |
+| `note.md`      | Decisions, defaults, jewellery domain notes                        | Whenever a default is chosen or something is worth remembering |
+| `readme.md`    | This file                                                          | When a doc is added or removed                                 |
 
 ## The project in short
 

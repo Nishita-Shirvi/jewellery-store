@@ -149,6 +149,7 @@ beforeEach(() => {
 
 afterAll(async () => {
   const where = { order: { userId } };
+  await db.cart.deleteMany({ where: { userId } });
   await db.refund.deleteMany({ where });
   await db.payment.deleteMany({ where });
   await db.shipment.deleteMany({ where });
@@ -232,10 +233,28 @@ describe("fix 2: sold out after payment", () => {
     expect(after.refunds).toHaveLength(1);
     expect(after.refunds[0]).toMatchObject({ amountInPaise: TOTAL, status: "FAILED" });
 
-    // Redelivery: no second refund row.
+    // Redelivery (or the customer's callback): still "sold out", never "confirmed"; no second refund row.
     rzp.failCreate = false;
-    expect((await pay(o.rzpOrderId, payB)).outcome).toBe("already_processed");
+    expect((await pay(o.rzpOrderId, payB)).outcome).toBe("sold_out");
     expect(await db.refund.count({ where: { orderId: o.id } })).toBe(1);
+  });
+});
+
+describe("cart after payment", () => {
+  it("removes only the bought size; another size of the same piece stays", async () => {
+    const p = await product(5);
+    const o = await order(p.id); // the order line has no size ("")
+    const cart = await db.cart.upsert({ where: { userId }, update: {}, create: { userId } });
+    await db.cartItem.createMany({
+      data: [
+        { cartId: cart.id, productId: p.id, size: "", quantity: 1 },
+        { cartId: cart.id, productId: p.id, size: "14", quantity: 1 },
+      ],
+    });
+    expect((await pay(o.rzpOrderId, pid())).outcome).toBe("paid");
+    const left = await db.cartItem.findMany({ where: { cartId: cart.id, productId: p.id } });
+    expect(left.map((l) => l.size)).toEqual(["14"]);
+    await db.cartItem.deleteMany({ where: { cartId: cart.id } });
   });
 });
 

@@ -26,10 +26,10 @@ so a bad value can never reach customers. A short overview for whoever opens the
 ### File rules
 
 - **One topic per file.** Each `[section]` may appear in only **one** file. Defining the same section in two files stops the app: `❌ [shipping] is defined in both config/a.ini and config/b.ini. Keep it in one file.`
-- Comments start with `;` or `#` at the start of a line. A comment **after** a value (`name = Acme ; registered name`) is stripped too. To keep a `;` or `#` inside a value, wrap the value in quotes: `announcement = "Open 10 am; closed Sunday"`.
+- Comments start with `;` or `#` at the start of a line. There are no comments after a value: `address = Shop #12, MG Road` is kept whole. Optional quotes around a value are removed.
 - An **empty** value (`admin_email =`) means "use the default".
 - Section and key names are case-insensitive.
-- A **misspelled key name** is ignored silently (the default is used), so after renaming or adding a key, check the page that uses it.
+- A **misspelled section or key name** stops `npm run dev` / `npm run build` with a message naming it.
 - Never put secrets here (API keys, passwords, database URLs).
 
 ### Every file and key

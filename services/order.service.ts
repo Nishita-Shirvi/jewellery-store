@@ -398,7 +398,7 @@ export async function markOrderPaid(input: {
 
       const items = await tx.orderItem.findMany({
         where: { orderId: payment.orderId },
-        select: { productId: true, quantity: true },
+        select: { productId: true, size: true },
       });
       const paidOrder = await tx.order.findUniqueOrThrow({
         where: { id: payment.orderId },
@@ -431,8 +431,12 @@ export async function markOrderPaid(input: {
         where: { id: payment.orderId },
         select: { userId: true },
       });
+      // Match product AND size: another size of the same piece added meanwhile stays in the cart.
       await tx.cartItem.deleteMany({
-        where: { cart: { userId }, productId: { in: items.map((i) => i.productId) } },
+        where: {
+          cart: { userId },
+          OR: items.map((i) => ({ productId: i.productId, size: i.size })),
+        },
       });
       return true;
     });
@@ -493,10 +497,17 @@ async function handleNotTransitioned(
       where: { providerPaymentId: input.razorpayPaymentId },
       select: { id: true },
     }),
-    db.order.findUniqueOrThrow({ where: { id: payment.orderId }, select: { status: true } }),
+    db.order.findUniqueOrThrow({
+      where: { id: payment.orderId },
+      select: { status: true, paidAt: true },
+    }),
   ]);
+  // Refunded the moment it was paid (sold out / coupon limit): never became a real purchase.
+  const refundedAtPayment =
+    (order.status === "REFUND_PENDING" || order.status === "REFUNDED") && !order.paidAt;
   // Paid / shipped / delivered…: the customer should see their order as paid.
-  const orderIsPaid = !["CANCELLED", "FAILED", "PENDING"].includes(order.status);
+  const orderIsPaid =
+    !refundedAtPayment && !["CANCELLED", "FAILED", "PENDING"].includes(order.status);
   const paidThisOrder = row.providerPaymentId === input.razorpayPaymentId;
 
   if (recorded) {
@@ -504,7 +515,12 @@ async function handleNotTransitioned(
     await sendUnsentRefunds(recorded.id);
     logger.info("payment.already_processed", log);
     return {
-      outcome: orderIsPaid || paidThisOrder ? "already_processed" : "extra_payment_refunded",
+      outcome:
+        refundedAtPayment && paidThisOrder
+          ? "sold_out"
+          : orderIsPaid || paidThisOrder
+            ? "already_processed"
+            : "extra_payment_refunded",
       orderId: payment.orderId,
     };
   }

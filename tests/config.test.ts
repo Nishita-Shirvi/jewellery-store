@@ -78,13 +78,12 @@ describe("config.ini", () => {
     expect(() => buildConfig("[shipping]\nfee_rupee = 1\n", {})).toThrow(/fee_rupee is not/);
   });
 
-  it("ignores comments after a value unless quoted", () => {
+  it("keeps # and ; inside values (comments only on their own line)", () => {
     const c = buildConfig(
-      '[business]\nlegal_name = Acme Pvt Ltd ; registered\n[storefront]\nannouncement = "Sale; today"\n',
+      "[business]\n; a comment\naddress = Shop #12, MG Road; Hyderabad 500001\n",
       {},
     );
-    expect(c.business.legal_name).toBe("Acme Pvt Ltd");
-    expect(c.storefront.announcement).toBe("Sale; today");
+    expect(c.business.address).toBe("Shop #12, MG Road; Hyderabad 500001");
   });
 
   it("validates the R2 public URL and rate strip purities", () => {
