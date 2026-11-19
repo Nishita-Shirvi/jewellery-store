@@ -32,6 +32,17 @@ Then write the result in `Docs/BACKUPS.md`.
 
 **BL-10 · Instant cart.** The cart count updates about 0.2 seconds after a click. Making it instant is worth doing with the final header design.
 
+## Planned upgrades
+
+**BL-11 · Next.js 16, Prisma 7, ESLint 10** (added 6 Nov)
+Big version jumps that Dependabot suggested (PRs #5, #6, #8). Each needs code changes, so they were closed for now:
+
+- Prisma 7 needs a new config file and database adapter (decision D-09).
+- eslint-config-next 16 only works with Next.js 16.
+- ESLint 10 isn't supported yet by the TypeScript lint plugins.
+
+Best done together, on their own branch, with the full test run, when there's a quiet week. Dependabot is set to stop suggesting these big jumps (it still sends safe small updates).
+
 ## Small fixes found in code review
 
 **BL-1 · "Shown" counts for recommendations can be a little low.**
