@@ -70,7 +70,7 @@
     "vitest": "^3.2.7"
   },
   "engines": {
-    "node": ">=20.9.0"
+    "node": "24.x"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
