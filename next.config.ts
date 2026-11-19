@@ -1,10 +1,15 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs/config";
 
-// Validate env vars and config.ini at startup (dev, build and start). Fails fast on any mistake.
+// Validate env vars and config/*.ini at startup (dev, build and start). Fails fast on any mistake.
 import "./lib/env";
-import "./lib/config";
+import { config as appConfig } from "./lib/config";
 import { buildCsp } from "./lib/csp";
+
+/** Public host of the R2 bucket (config/images.ini), so next/image may optimise its photos. */
+const r2Host = appConfig.images.r2_public_url
+  ? new URL(appConfig.images.r2_public_url).hostname
+  : null;
 
 const isProd = process.env.NODE_ENV === "production";
 
@@ -17,6 +22,7 @@ const securityHeaders = [
       appUrl: process.env.NEXT_PUBLIC_APP_URL,
       sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
       extraConnect: process.env.RAZORPAY_API_BASE, // set only in tests (local payment stand-in)
+      imageHost: appConfig.images.r2_public_url,
     }),
   },
   { key: "X-Frame-Options", value: "DENY" }, // no clickjacking via iframes
@@ -36,8 +42,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // lib/config.ts reads config.ini at runtime; make sure Vercel ships it with every function.
-  outputFileTracingIncludes: { "/**": ["./config.ini"] },
+  // lib/config.ts reads config/*.ini at runtime; make sure Vercel ships it with every function.
+  outputFileTracingIncludes: { "/**": ["./config/*.ini"] },
   // react-pdf ships its own Node build; bundling it breaks font loading.
   serverExternalPackages: ["@react-pdf/renderer"],
   images: {
@@ -52,12 +58,13 @@ const nextConfig: NextConfig = {
           ? `/${process.env.CLOUDINARY_CLOUD_NAME}/**`
           : "/**",
       },
+      ...(r2Host ? [{ protocol: "https" as const, hostname: r2Host }] : []),
     ],
   },
   experimental: {
     serverActions: {
-      // Product photos are uploaded through a server action (max 5 MB + form overhead).
-      bodySizeLimit: "6mb",
+      // Product photos are uploaded through a server action ([images] max_upload_mb + form overhead).
+      bodySizeLimit: `${appConfig.images.max_upload_mb + 1}mb`,
     },
   },
   async headers() {

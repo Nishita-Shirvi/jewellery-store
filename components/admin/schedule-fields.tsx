@@ -21,7 +21,7 @@ function nextDay(date: string): string {
 
 /**
  * Status plus "live from / until" (India time) for banners, collections and announcements.
- * Festival buttons fill both dates in one click (from config.ini [festivals]).
+ * Festival buttons fill both dates in one click (from config/marketing.ini [festivals]).
  */
 export function ScheduleFields({
   idPrefix,

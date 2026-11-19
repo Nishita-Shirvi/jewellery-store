@@ -17,6 +17,7 @@ import { AdminInputError } from "@/services/admin/product-admin.service";
 import { CATALOG_TAG } from "@/services/catalog.service";
 import { syncProductSummaries } from "@/services/inventory.service";
 import { nudgeStockAlerts } from "@/services/marketing.service";
+import { repriceProduct } from "@/services/metal-rate.service";
 
 /**
  * Admin side of product variants (Phase 17).
@@ -179,6 +180,8 @@ export async function saveOptions(productId: string, input: OptionsInput, adminI
       });
       created++;
     }
+    // Rate-linked pieces: new sizes get today's rate × their own weight, not a copied price.
+    await repriceProduct(tx, productId);
     await syncProductSummaries(tx, [productId]);
     return { created, deactivated: toDeactivate.length, combinations: combos.length };
   });
@@ -293,6 +296,8 @@ export async function bulkUpdateVariants(
           if (from !== to) changes[`${row.sku}.${field}`] = { from, to };
         }
       }
+      // Rate-linked pieces: the typed price is replaced by today's rate × the row's weight.
+      await repriceProduct(tx, productId);
       await syncProductSummaries(tx, [productId]);
     });
   } catch (error) {

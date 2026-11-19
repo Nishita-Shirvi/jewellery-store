@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { getBusiness } from "@/lib/business";
+import { config } from "@/lib/config";
 import { getCategories } from "@/services/catalog.service";
 import { NewsletterForm } from "@/components/marketing/marketing-forms";
 import { NEWSLETTER_CONSENT_TEXT } from "@/services/marketing.service";
 
 const help = [
   { href: "/help", label: "Help centre" },
+  ...(config.features.visit_booking ? [{ href: "/visit", label: "Visit the showroom" }] : []),
+  ...(config.features.style_advisor ? [{ href: "/style-advisor", label: "Style advisor" }] : []),
+  { href: "/size-guide", label: "Size guide" },
   { href: "/shipping-policy", label: "Shipping" },
   { href: "/refund-policy", label: "Refunds and cancellations" },
   { href: "/contact", label: "Contact" },

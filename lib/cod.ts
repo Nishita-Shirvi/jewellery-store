@@ -1,6 +1,6 @@
 /**
  * Cash-on-delivery rules (Phase 18). Pure functions — no database — so every rule is unit-tested.
- * Settings come from config.ini [cod].
+ * Settings come from config/shipping.ini [cod].
  */
 
 export interface CodRules {

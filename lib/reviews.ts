@@ -17,7 +17,8 @@ export const reviewSchema = z.object({
     .min(10, { message: "Tell us a little more (at least 10 characters)" })
     .max(2000),
   images: z
-    .array(z.string().regex(/^https:\/\/res\.cloudinary\.com\/\S+$/))
+    // Server actions also check each URL belongs to our own storage (lib/media.ts).
+    .array(z.string().regex(/^https:\/\/\S+$/))
     .max(3)
     .default([]),
 });

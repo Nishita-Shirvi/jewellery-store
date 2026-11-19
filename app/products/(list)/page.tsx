@@ -5,6 +5,8 @@ import { Pagination } from "@/components/catalog/pagination";
 import { ProductGrid } from "@/components/catalog/product-grid";
 import { Button } from "@/components/ui/button";
 import { productListQuerySchema } from "@/lib/validation/catalog";
+import { occasionLabel } from "@/lib/storefront";
+import { BudgetChips } from "@/components/catalog/budget-chips";
 import { getCategories, listProducts } from "@/services/catalog.service";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -34,6 +36,10 @@ export async function generateMetadata({
       query.maxPrice ||
       query.inStock ||
       query.rating ||
+      query.occasion ||
+      query.colour ||
+      query.minWeight !== undefined ||
+      query.maxWeight !== undefined ||
       query.sort ||
       query.page > 1
         ? { index: false }
@@ -47,7 +53,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const [categories, result] = await Promise.all([getCategories(), listProducts(query)]);
   const category = categories.find((c) => c.slug === query.category);
 
-  const heading = query.q ? `Results for “${query.q}”` : (category?.name ?? "All jewellery");
+  const heading = query.q
+    ? `Results for “${query.q}”`
+    : (category?.name ??
+      (query.occasion ? `${occasionLabel(query.occasion)} jewellery` : "All jewellery"));
 
   return (
     <div>
@@ -64,6 +73,10 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
           {result.total} {result.total === 1 ? "piece" : "pieces"}
         </p>
       </PageHeader>
+
+      <div className="mx-auto max-w-6xl px-4">
+        <BudgetChips query={query} />
+      </div>
 
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-[230px_1fr]">
         <aside className="md:sticky md:top-24 md:self-start">

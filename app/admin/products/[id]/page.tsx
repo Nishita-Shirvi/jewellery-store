@@ -8,6 +8,7 @@ import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
 import { isUploadConfigured } from "@/services/upload.service";
 import { requirePermissionPage } from "@/lib/auth-guards";
+import { DeleteProductForm } from "@/components/admin/delete-product-form";
 
 export default async function EditProductPage({
   params,
@@ -67,7 +68,12 @@ export default async function EditProductPage({
             slug: product.slug,
             description: product.description,
             categoryId: product.categoryId,
+            pricingMode: product.pricingMode,
             price: paiseToRupeesInput(product.priceInPaise),
+            stoneCharge: product.stoneChargeInPaise
+              ? paiseToRupeesInput(product.stoneChargeInPaise)
+              : "",
+            spinVideoUrl: product.spinVideoUrl ?? "",
             makingCharge: product.makingChargeInPaise
               ? paiseToRupeesInput(product.makingChargeInPaise)
               : "",
@@ -91,6 +97,16 @@ export default async function EditProductPage({
           }}
         />
       </div>
+      {product.orderCount === 0 && (
+        <details className="border-border mt-10 rounded-md border p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-red-800">
+            Delete this product
+          </summary>
+          <div className="mt-4">
+            <DeleteProductForm id={product.id} name={product.name} />
+          </div>
+        </details>
+      )}
     </div>
   );
 }

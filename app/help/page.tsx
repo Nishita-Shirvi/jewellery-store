@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { config } from "@/lib/config";
 import { whatsappLink } from "@/lib/support";
+import { whatsappNumber } from "@/services/storefront.service";
 import { publishedFaqs } from "@/services/support.service";
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export default async function HelpPage({
   const faqs = await publishedFaqs(query);
   const groups = new Map<string, typeof faqs>();
   for (const f of faqs) groups.set(f.category, [...(groups.get(f.category) ?? []), f]);
-  const whatsapp = whatsappLink(config.support.whatsapp_number, "Hello, I have a question.");
+  const whatsapp = whatsappLink(await whatsappNumber(), "Hello, I have a question.");
 
   return (
     <div className="mx-auto max-w-3xl space-y-8 px-4 py-12">

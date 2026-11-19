@@ -34,7 +34,7 @@ function countError() {
  *   const log = logger.child({ module: "checkout" }); // adds fields to every line
  *   log.error("razorpay.create_failed", { orderId, error });
  *
- * - Level comes from config.ini → [logging] level (debug | info | warn | error),
+ * - Level comes from config/features.ini → [logging] level (debug | info | warn | error),
  *   overridable per environment with LOGGING_LEVEL (or LOG_LEVEL).
  * - Production: one JSON line per event (searchable in Vercel → Logs: filter by "event").
  *   Development: one readable line per event.
@@ -75,7 +75,9 @@ function sanitize(value: unknown, depth = 0): unknown {
   if (value instanceof Error) {
     return { name: value.name, message: value.message, stack: value.stack };
   }
-  if (depth > 4 || value === null || typeof value !== "object") return value;
+  if (value === null || typeof value !== "object") return value;
+  // Deeper than this we stop looking, so never print it (it could hold an unredacted secret).
+  if (depth > 4) return "[truncated]";
   if (Array.isArray(value)) return value.slice(0, 50).map((v) => sanitize(v, depth + 1));
   const out: Fields = {};
   for (const [key, v] of Object.entries(value)) {

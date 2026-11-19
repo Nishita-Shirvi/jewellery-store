@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { ADMIN_PATH_HEADER } from "@/auth.config";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { requireStaffPage } from "@/lib/auth-guards";
+import { config } from "@/lib/config";
 import { PAGE_PERMISSIONS } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Admin", robots: { index: false } };
@@ -17,7 +18,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   );
   const links = PAGE_PERMISSIONS.filter(
     (l) => l.permission === null || staff.permissions.includes(l.permission),
-  ).map(({ href, label }) => ({ href, label }));
+  )
+    // Visit requests page only while showroom booking is on (config/features.ini).
+    .filter((l) => l.href !== "/admin/visits" || config.features.visit_booking)
+    .map(({ href, label }) => ({ href, label }));
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <AdminNav links={links} />

@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { CustomerReplyForm } from "@/components/support/support-forms";
 import { requireUserPage } from "@/lib/auth-guards";
-import { config } from "@/lib/config";
 import { TICKET_STATUS_LABEL, displayTicketNumber, whatsappLink } from "@/lib/support";
+import { whatsappNumber } from "@/services/storefront.service";
 import { cn } from "@/lib/utils";
 import { displayOrderNumber } from "@/services/order.service";
 import { getTicketForUser } from "@/services/support.service";
@@ -33,10 +33,7 @@ export default async function TicketPage({
   const ticket = await getTicketForUser(user.id, id);
   if (!ticket) notFound(); // also for someone else's ticket
   const number = displayTicketNumber(ticket.id);
-  const whatsapp = whatsappLink(
-    config.support.whatsapp_number,
-    `Hello, about my request ${number}`,
-  );
+  const whatsapp = whatsappLink(await whatsappNumber(), `Hello, about my request ${number}`);
 
   return (
     <section className="max-w-2xl space-y-6">

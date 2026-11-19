@@ -30,7 +30,7 @@ export function CheckoutClient({
   shippingInPaise: number;
   storeName: string;
   paymentsEnabled: boolean;
-  /** Cash on delivery switched on in config.ini (each order is still checked on the server). */
+  /** Cash on delivery switched on in config/shipping.ini [cod] (each order is still checked on the server). */
   codEnabled?: boolean;
   /** Where to send people when no payment method is connected yet (WhatsApp link or /contact). */
   contactHref?: string;

@@ -16,10 +16,10 @@ const log = logger.child({ module: "shipping", orderId }); // fields added to ev
 log.info("shipment.created", { awb });
 ```
 
-- **Levels** — `debug < info < warn < error`. Set in `config.ini` → `[logging] level`, or temporarily with env `LOGGING_LEVEL=debug`.
+- **Levels** — `debug < info < warn < error`. Set in `config/features.ini` → `[logging] level`, or temporarily with env `LOGGING_LEVEL=debug`.
 - **Format** — Production: one JSON line per event. `npm run dev`: one readable line (`12:01:02.123 INFO  order.paid {"orderId":"…"}`).
 - **Errors** — Pass `{ error }` — the logger records `name`, `message` and `stack`.
-- **Redaction** — Keys that look secret (`password`, `token`, `secret`, `authorization`, `cookie`, `signature`, `otp`, `apiKey`…) become `[redacted]`.
+- **Redaction** — Keys that look secret (`password`, `token`, `secret`, `authorization`, `cookie`, `signature`, `otp`, `apiKey`…) become `[redacted]`. Values nested deeper than 4 levels are replaced with `[truncated]` (they aren't checked, so they're never printed).
 - **Sentry** — Every `error` line is also sent to Sentry when `SENTRY_DSN` is set (with the stack if an Error was passed).
 
 **Event names** are `area.what_happened` in snake case: `payment.order_paid`, `webhook.razorpay_received`, `cron.release_reservations`. Search the code for an event name to find exactly where it was written.

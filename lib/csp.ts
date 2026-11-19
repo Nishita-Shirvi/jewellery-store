@@ -10,6 +10,8 @@
  *  - frames: Razorpay's payment window only. Nobody may frame this site (frame-ancestors 'none').
  *  - forms: this site, plus Google's sign-in page (the Google login button posts here then
  *    redirects there; browsers apply form-action to that redirect).
+ *  - images and videos: this site, Cloudinary and the Cloudflare R2 bucket (imageHost), so the
+ *    product 360° video can play.
  *  - no plugins (object-src 'none'), no <base> tricks, workers/manifest from this site (PWA).
  */
 
@@ -20,6 +22,8 @@ export interface CspOptions {
   sentryDsn?: string;
   /** Test-only payment stand-in (RAZORPAY_API_BASE). Ignored unless it's http(s). */
   extraConnect?: string;
+  /** Public URL of the R2 image bucket (config/images.ini r2_public_url), if any. */
+  imageHost?: string;
 }
 
 function originOf(url: string | undefined): string | null {
@@ -35,6 +39,7 @@ function originOf(url: string | undefined): string | null {
 export function buildCsp(o: CspOptions): string {
   const sentry = originOf(o.sentryDsn);
   const extra = originOf(o.extraConnect);
+  const r2 = originOf(o.imageHost);
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
     "script-src": [
@@ -51,10 +56,12 @@ export function buildCsp(o: CspOptions): string {
       "blob:",
       "https://res.cloudinary.com",
       "https://placehold.co",
+      ...(r2 ? [r2] : []),
       "https://*.razorpay.com",
       "https://*.google-analytics.com",
       "https://www.googletagmanager.com",
     ],
+    "media-src": ["'self'", "https://res.cloudinary.com", ...(r2 ? [r2] : [])],
     "font-src": ["'self'", "data:"],
     "connect-src": [
       "'self'",

@@ -43,7 +43,7 @@ pg_restore --no-owner --dbname "NEW_DATABASE_DIRECT_URL" backup-2026-10-11.dump
 ## Photos, settings and secrets
 
 - **Product photos:** in Cloudinary. Cloudinary keeps them independently of Vercel; download a copy now and then (Cloudinary → Media Library → select all → Download), or use their backup add-on.
-- **Settings:** `config.ini` is in Git — every version is kept on GitHub.
+- **Settings:** the `config/` folder is in Git — every version is kept on GitHub.
 - **Environment variables (secrets):** not in Git on purpose. Keep a copy of every Production value from Vercel → Settings → Environment Variables in a password manager. **`PII_ENCRYPTION_KEY` and `AUTH_SECRET` are critical**: without `PII_ENCRYPTION_KEY` the saved addresses, phone numbers and invoice buyer details in any backup can't be read.
 - **Staff two-step sign-in:** each person keeps their own recovery codes; `npm run staff:reset-2fa` (see RUNBOOK) if someone loses theirs.
 

@@ -25,7 +25,7 @@ FAILED/CANCELLED  REFUND_PENDING ───────── refund.processed �
 - **3 · `startCheckout()`**
   - What happens: Check address belongs to user; `releaseExpiredReservations()` frees stale holds; cart must have no issues; pincode serviceable (skipped if Shiprocket off/down); coupon re-checked.
 - **4 · DB transaction**
-  - What happens: Prices and stock **re-read from the DB**; GST split computed (`lib/gst.ts`, seller state from `config.ini`); `Order` (PENDING) + `OrderItem`s with price snapshots created; `reserveLines()` holds stock for `[inventory] reservation_minutes`. If any piece is gone, the whole transaction rolls back → "Some items just sold out".
+  - What happens: Prices and stock **re-read from the DB** (a rate-linked price changed by a rate save since the cart was priced → "A price just changed"); GST split computed (`lib/gst.ts`, seller state from `config/business.ini`); `Order` (PENDING) + `OrderItem`s with price snapshots created; `reserveLines()` holds stock for `[inventory] reservation_minutes`. If any piece is gone, the whole transaction rolls back → "Some items just sold out".
 - **5 · `createRazorpayOrder()`**
   - What happens: Razorpay order created, `Payment` row stored. If Razorpay is unreachable → order FAILED, hold released, friendly error.
 - **6 · Browser**
@@ -97,11 +97,18 @@ Returns 200 even for "already processed" so Razorpay stops retrying. A 500 makes
 
 Admin cancelling a PAID order from the admin panel follows the same refund path.
 
+**Safety rules in this flow** (`services/order.service.ts`, `services/refund.service.ts`):
+
+- Sold out at payment: one transaction moves the order to REFUND_PENDING, releases the hold, records the payment and creates the refund row; Razorpay is called afterwards. A repeated webhook answers "sold out".
+- A second payment on an already paid/cancelled order is saved as its own Payment and refunded in full; it never changes the order's refunded total.
+- Each refund is claimed (`REFUND_SENDING`) before Razorpay is called, so it is sent once. The reservations job sends refunds that got stuck.
+- Cancelling is refused once a Shiprocket shipment or AWB exists — cancel the parcel first.
+
 ## 5. Returns
 
 **Files:** `app/account/orders/[id]/return/*`, `services/return.service.ts`, `lib/returns.ts`
 
-1. Customer: within `RETURN_WINDOW_DAYS` (7) of delivery, picks items + reason + optional photo → `requestReturn()` → order RETURN_REQUESTED, email.
+1. Customer: within `[returns] window_days` (`config/shipping.ini`, default 7; `0` = no returns) of delivery, picks items + reason + optional photo (must be our own upload in the returns folder, `isOwnUpload`) → `requestReturn()` → order RETURN_REQUESTED, email.
 2. Admin (`/admin/returns`): **Approve** → items marked returned, optional restock, refund for those items (partial refunds supported) → REFUND_PENDING → (webhook) → REFUNDED or back to DELIVERED if only part was returned. **Reject** → back to DELIVERED.
 
 ## 6. Shipping (Shiprocket)
@@ -118,5 +125,25 @@ Admin cancelling a PAID order from the admin panel follows the same refund path.
 
 - Tax is calculated **at checkout** and stored on each `OrderItem` (CGST+SGST for same state as `[business] state`, otherwise IGST).
 - After payment, `createInvoiceForOrder()` takes the next number from `InvoiceCounter` under a row lock (`[invoice] prefix`/financial-year/sequence) and freezes seller + buyer details in `Invoice`.
-- The PDF is rendered on demand from that frozen data — changing `config.ini` later never changes old invoices.
-- If invoice creation failed, the admin can press **Generate invoice** on the order page.
+- **Refused while business details are placeholders** (`getBusiness().incomplete`): no invoice, no number used, log `invoice.skipped_business_details_incomplete`.
+- The PDF is rendered on demand from that frozen data — changing `config/business.ini` later never changes old invoices.
+- If invoice creation failed or was skipped, the admin can press **Generate invoice** on the order page.
+
+## 8. Saving gold rates → repricing
+
+**Files:** `app/admin/storefront-actions.ts` (`saveRatesAction`), `services/metal-rate.service.ts`, `lib/metal-pricing.ts`
+
+1. Admin enters ₹ per gram for some purities (empty = keep). Needs `products.edit`.
+2. One transaction (`saveRates`): read current rates → any change above `[pricing] large_change_percent` without the tick box → `RateError` (nothing saved). A new `MetalRate` row for every rate entered (history is kept; saving the same rate records "checked today" and clears the stale warning). For purities whose rate actually changed, `repriceRateLinked` gives **every variant** of every `RATE_LINKED` product its own price from its own net weight: round to rupee((net g × rate + making + stone charge) × (1 + GST)). The product's "from" price is refreshed and a variant's "was" price that is no longer above the new price is cleared.
+3. After commit: `revalidateTag(RATES_TAG)` (+ `CATALOG_TAG` if a price changed), audit log, log `metal_rates.saved`.
+4. Customers mid-checkout hit the normal "A price just changed" check. Orders already placed keep their price.
+
+Saving a rate-linked product, its options or its variant grid calls `repriceProduct` in the same transaction, so a typed price is replaced. Saving refuses when there is no rate for the purity or a variant has no net weight.
+
+## 9. Editing a product without losing a sale
+
+**File:** `services/admin/product-admin.service.ts`
+
+- The product form and the quick stock box send the stock shown when they were opened. If a sale changed it meanwhile, the save is refused ("Stock changed while you were editing (now N)") instead of silently undoing the sale. The variant grid has no such check yet (BACKLOG BL-19).
+- A new URL name keeps the old one in `previousSlugs`; `/products/<old>` → `findRenamedProductSlug` → permanent redirect.
+- `deleteProduct` refuses products that were ever ordered; hide them instead.

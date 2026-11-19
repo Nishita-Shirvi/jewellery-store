@@ -19,30 +19,38 @@ export default async function OrderFailedPage({
   searchParams: Promise<{ reason?: string }>;
 }) {
   const { id } = await params;
-  const { reason } = await searchParams;
+  await searchParams; // ?reason= is only for analytics; never shown (it could be any text).
   const user = await requireUserPage(`/orders/${id}/failed`);
   const order = await getOrderForUser(user.id, id);
   if (!order) notFound();
+  const refundedAtPayment = ["REFUND_PENDING", "REFUNDED"].includes(order.status) && !order.paidAt;
   if (
     ["PAID", "SHIPPED", "DELIVERED", "RETURN_REQUESTED"].includes(order.status) ||
-    (!order.cancellationReason?.startsWith("Sold out") &&
-      ["REFUND_PENDING", "REFUNDED"].includes(order.status))
+    (["REFUND_PENDING", "REFUNDED"].includes(order.status) && !refundedAtPayment)
   ) {
     redirect(`/orders/${id}/success`);
   }
 
   const soldOut = Boolean(order.cancellationReason?.startsWith("Sold out after payment"));
+  // Any other refund at payment (e.g. an offer's last use was taken a moment earlier).
+  const refundedOther = refundedAtPayment && !soldOut;
   const canRetry = order.status === "PENDING" || order.status === "FAILED";
 
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
       <h1 className="text-2xl font-semibold">
-        {soldOut ? "Sorry, this piece just sold out" : "Payment not completed"}
+        {soldOut
+          ? "Sorry, this piece just sold out"
+          : refundedOther
+            ? "Sorry, we couldn't complete this order"
+            : "Payment not completed"}
       </h1>
       <p className="text-muted-foreground mt-2">
         {soldOut
           ? "Someone completed their purchase a moment before you. Your payment will be refunded in full."
-          : `No money was taken for order ${order.displayNumber}.${reason && reason !== "sold_out" ? ` Reason: ${reason.slice(0, 120)}` : ""}`}
+          : refundedOther
+            ? `Order ${order.displayNumber} couldn't be completed, so your payment will be refunded in full.`
+            : `No money was taken for order ${order.displayNumber}.`}
       </p>
       <div className="mt-8">
         <OrderSummaryCard order={order} />

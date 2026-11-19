@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma, ShipmentStatus } from "@prisma/client";
+import type { OrderStatus, Prisma, ShipmentStatus } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { env, isShiprocketConfigured } from "@/lib/env";
@@ -101,15 +101,34 @@ export async function createShipmentForOrder(orderId: string, adminId: string) {
           "COD amount doesn't match the order total. Not sent to Shiprocket.",
         );
       const created = await createShiprocketOrder(request);
-      shipment = await db.shipment.update({
-        where: { id: shipment.id },
-        data: {
-          providerOrderId: String(created.order_id),
-          providerShipmentId: String(created.shipment_id),
-          lastError: null,
-        },
+      // Save the ids under the order row lock (cancelPaidOrder re-checks the shipment under the
+      // same lock), so a cancellation and a new parcel can't both go through unnoticed.
+      const shipmentId = shipment.id;
+      const { saved, status } = await db.$transaction(async (tx) => {
+        const rows = await tx.$queryRaw<{ status: OrderStatus }[]>`
+          SELECT "status" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
+        const saved = await tx.shipment.update({
+          where: { id: shipmentId },
+          data: {
+            providerOrderId: String(created.order_id),
+            providerShipmentId: String(created.shipment_id),
+            lastError: null,
+          },
+        });
+        return { saved, status: rows[0]?.status };
       });
+      shipment = saved;
       logger.info("shipment.provider_order_created", { orderId, shipmentId: created.shipment_id });
+      if (!status || (!READY_TO_SHIP_STATUSES.includes(status) && status !== "SHIPPED")) {
+        logger.error("shipment.created_for_cancelled_order", {
+          orderId,
+          status,
+          providerOrderId: created.order_id,
+        });
+        throw new ShipmentError(
+          `This order was cancelled while the shipment was being created. Cancel Shiprocket order ${created.order_id} in the Shiprocket panel`,
+        );
+      }
     }
 
     const providerShipmentId = shipment.providerShipmentId!;

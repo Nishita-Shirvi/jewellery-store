@@ -148,7 +148,9 @@ export async function deliverOrderEmail(
         subject: `Order ${n} delivered`,
         heading: "Delivered — enjoy your jewellery!",
         paragraphs: [
-          `Order ${n} has been delivered. If anything isn't right, you can request a return from your order page within 7 days.`,
+          config.returns.window_days > 0
+            ? `Order ${n} has been delivered. If anything isn't right, you can request a return from your order page within ${config.returns.window_days} days.`
+            : `Order ${n} has been delivered. If anything isn't right, reply to this email or contact us and we'll help.`,
         ],
         button: { label: "View your order", url: orderUrl },
       },
@@ -209,7 +211,7 @@ export async function deliverOrderEmail(
   }
 }
 
-/** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config.ini. */
+/** Optional SMS through MSG91 (DLT-approved template). Off unless [features] sms = true in config/features.ini. */
 export async function deliverOrderSms(orderId: string, event: OrderEvent) {
   if (!config.features.sms || !env.MSG91_AUTH_KEY || !env.MSG91_ORDER_FLOW_ID) return;
   if (!SMS_EVENTS.includes(event)) return;

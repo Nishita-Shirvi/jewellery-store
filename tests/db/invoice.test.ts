@@ -1,6 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// Invoices are refused while config/business.ini still has [placeholders]: use complete details.
+vi.mock("@/lib/business", () => ({
+  getBusiness: () => ({
+    legalName: "Test Jewellers Pvt Ltd",
+    address: "1 Test Road, Hyderabad, Telangana 500001",
+    email: "billing@test-jewellers.in",
+    phone: "+91 90000 00000",
+    gstin: "36AAAAA0000A1Z5",
+    state: "Telangana",
+    incomplete: false,
+  }),
+}));
 
 const { db } = await import("@/lib/db");
 const { createInvoiceForOrder } = await import("@/services/invoice.service");

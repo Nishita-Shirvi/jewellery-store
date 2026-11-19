@@ -2,7 +2,7 @@ import { z } from "zod";
 
 /**
  * Typed, validated environment variables: secrets and per-environment URLs only.
- * Business rules and store details (shipping fee, GSTIN, log level, …) live in config.ini → lib/config.ts.
+ * Business rules and store details (shipping fee, GSTIN, log level, …) live in config/*.ini → lib/config.ts.
  *
  * This file is imported by next.config.ts, so `npm run dev` / `npm run build`
  * stop immediately with a clear message if a variable is missing or invalid.
@@ -51,7 +51,13 @@ const serverSchema = z.object({
   /** Only for automated tests; leave unset in real use. */
   CLOUDINARY_API_BASE: z.url().default("https://api.cloudinary.com"),
 
-  /** Optional SMS (MSG91). Off unless [features] sms = true in config.ini and the keys are set. */
+  // Product image uploads (Cloudflare R2) — used when [images] provider = r2 in config/images.ini.
+  R2_ACCOUNT_ID: z.string().min(1).optional(),
+  R2_ACCESS_KEY_ID: z.string().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+  R2_BUCKET: z.string().min(1).optional(),
+
+  /** Optional SMS (MSG91). Off unless [features] sms = true in config/features.ini and the keys are set. */
   MSG91_AUTH_KEY: z.string().min(10).optional(),
   MSG91_ORDER_FLOW_ID: z.string().min(5).optional(),
   /** DLT-approved MSG91 flow for one-time codes (variable: otp). Needed for cash on delivery. */
@@ -105,6 +111,33 @@ function formatIssues(error: z.ZodError): string {
     .join("\n");
 }
 
+/**
+ * Extra checks for the real production deployment (VERCEL_ENV=production) only: values that
+ * are fine in development but would silently break or endanger the live shop.
+ */
+export function productionProblems(
+  env: Partial<z.infer<typeof serverSchema>>,
+  raw: Record<string, string | undefined>,
+): string[] {
+  if (raw.VERCEL_ENV !== "production") return [];
+  const problems: string[] = [];
+  const appUrl = raw.NEXT_PUBLIC_APP_URL ?? "";
+  if (!/^https:\/\//.test(appUrl) || /localhost|127\.0\.0\.1/.test(appUrl)) {
+    problems.push("NEXT_PUBLIC_APP_URL must be the live https:// address (emails link to it).");
+  }
+  if (!env.CRON_SECRET) problems.push("CRON_SECRET must be set (stock holds and refunds sweep).");
+  const defaults: [keyof z.infer<typeof serverSchema>, string][] = [
+    ["RAZORPAY_API_BASE", "https://api.razorpay.com"],
+    ["CLOUDINARY_API_BASE", "https://api.cloudinary.com"],
+    ["SHIPROCKET_API_BASE", "https://apiv2.shiprocket.in"],
+  ];
+  for (const [name, expected] of defaults) {
+    if (env[name] && env[name] !== expected)
+      problems.push(`${name} is a test-only override; remove it.`);
+  }
+  return problems;
+}
+
 function loadServerEnv(): z.infer<typeof serverSchema> {
   // Server variables are never available in the browser bundle.
   if (typeof window !== "undefined") {
@@ -121,6 +154,12 @@ function loadServerEnv(): z.infer<typeof serverSchema> {
     throw new Error(
       `\n❌ Invalid or missing environment variables:\n${formatIssues(parsed.error)}\n` +
         `Copy .env.example to .env and fill in the values.\n`,
+    );
+  }
+  const problems = productionProblems(parsed.data, process.env);
+  if (problems.length) {
+    throw new Error(
+      `\n❌ Unsafe production settings:\n${problems.map((p) => `  - ${p}`).join("\n")}\n`,
     );
   }
   return parsed.data;

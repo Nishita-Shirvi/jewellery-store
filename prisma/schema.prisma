@@ -179,6 +179,8 @@ model User {
   cart              Cart?
   addresses         Address[]
   orders            Order[]
+  metalRates        MetalRate[]
+  visitRequests     VisitRequest[]
   otpChallenges     OtpChallenge[]
   referralsMade     Referral[]           @relation("ReferralReferrer")
   referredBy        Referral?            @relation("ReferralReferred")
@@ -321,6 +323,17 @@ model Product {
   /// Lower-case labels for rule-based collections, e.g. "bridal", "daily-wear", "festive", "gift".
   tags                  String[]    @default([])
 
+  /// FIXED: prices are typed by the admin. RATE_LINKED: every variant's price is recalculated from
+  /// the latest MetalRate for its purity and its own net weight (lib/metal-pricing.ts) whenever the
+  /// rates or the product change.
+  pricingMode        PricingMode @default(FIXED)
+  /// Stones/enamel value added to rate-linked prices (fixed amount per piece).
+  stoneChargeInPaise Int         @default(0)
+  /// Optional turntable / 360° video (our Cloudinary/R2 https URL or a /videos/... path).
+  spinVideoUrl       String?
+  /// Earlier slugs, so old links and Google results redirect instead of 404ing.
+  previousSlugs      String[]    @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -335,12 +348,15 @@ model Product {
   boughtWith    ProductPair[]       @relation("pairProduct")
   boughtWithOf  ProductPair[]       @relation("pairRelated")
   trend         ProductTrend?
+  visitRequests VisitRequest[]
 
   @@index([categoryId])
   @@index([isActive, isFeatured])
   @@index([isActive, createdAt])
   @@index([isActive, priceInPaise])
   @@index([isActive, ratingAvgX100])
+  @@index([isActive, netWeightMg])
+  @@index([pricingMode, purity])
   @@index([searchText(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([tags], type: Gin)
 }
@@ -765,6 +781,7 @@ model Refund {
   returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: Restrict)
   payment       Payment        @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
+  @@index([paymentId])
   @@index([orderId])
   @@index([status])
 }
@@ -1422,4 +1439,54 @@ model WebhookEndpoint {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum PricingMode {
+  FIXED
+  RATE_LINKED
+}
+
+/// Metal rate per gram, entered by an admin. The newest row per purity is the current rate;
+/// older rows are kept as history.
+model MetalRate {
+  id                 String   @id @default(cuid())
+  purity             Purity
+  ratePerGramInPaise Int
+  setById            String?
+  createdAt          DateTime @default(now())
+
+  setBy User? @relation(fields: [setById], references: [id], onDelete: SetNull)
+
+  @@index([purity, createdAt])
+}
+
+enum VisitStatus {
+  NEW
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+/// Showroom visit request from the website (guest or signed in).
+model VisitRequest {
+  id            String      @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  /// Calendar day in India, stored at midnight UTC.
+  preferredDate DateTime    @db.Date
+  timeSlot      String
+  message       String?
+  productId     String?
+  userId        String?
+  status        VisitStatus @default(NEW)
+  adminNote     String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status, preferredDate])
+  @@index([createdAt])
 }

@@ -1,6 +1,6 @@
 # Runbook — what to do when an alert arrives
 
-Every alert email links here. Each section says **what it means**, **what to check first**, and **how to fix it**. Alerts email once when they start, remind every `[alerts] repeat_hours` (default 6) while they last, and send a **Resolved** email when they clear. Live status: **Admin → System**. Thresholds: `config.ini` → `[alerts]` (0 switches an alert off).
+Every alert email links here. Each section says **what it means**, **what to check first**, and **how to fix it**. Alerts email once when they start, remind every `[alerts] repeat_hours` (default 6) while they last, and send a **Resolved** email when they clear. Live status: **Admin → System**. Thresholds: `config/inventory.ini` → `[alerts]` (0 switches an alert off).
 
 Useful everywhere:
 
@@ -44,7 +44,7 @@ Useful everywhere:
 
 - Email jobs: check `RESEND_API_KEY` and the domain's DNS (Resend dashboard → Domains). Then **Retry**.
 - `shipment.create`: Shiprocket credentials, pickup location name, or the pincode isn't serviceable; create the shipment by hand in Shiprocket if needed, then retry or leave it.
-- `invoice.create`: usually a missing business detail in `config.ini` `[business]`; fix, deploy, retry.
+- `invoice.create`: usually a missing business detail in `config/business.ini` `[business]`; fix, deploy, retry.
 - Anything else: retry once; if it fails again, send the error and `jobId` to the developer.
 
 The alert clears 24 hours after the last failure (retried jobs that succeed no longer count).

@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { canAdminTransition as canTransition } from "@/lib/order-status";
 import { AdminInputError, ADMIN_PAGE_SIZE } from "@/services/admin/product-admin.service";
-import { releaseReservation, restockLines } from "@/services/inventory.service";
+import { releaseReservation } from "@/services/inventory.service";
+import { revalidateTag } from "next/cache";
+import { CATALOG_TAG } from "@/services/catalog.service";
 
 const STATUSES: OrderStatus[] = [
   "PENDING",
@@ -86,36 +88,22 @@ export async function updateOrderStatus(id: string, next: OrderStatus, adminId: 
     throw new AdminInputError(`Can't change an order from ${order.status} to ${next}.`);
   }
 
-  await db.$transaction(async (tx) => {
+  // (PAID/CONFIRMED → CANCELLED returned above, so a CANCELLED here is always an unpaid order.)
+  const released = await db.$transaction(async (tx) => {
     const updated = await tx.order.updateMany({
       where: { id, status: order.status },
       data: {
         status: next,
         ...(next === "DELIVERED" ? { deliveredAt: new Date() } : {}),
-        ...(next === "CANCELLED"
-          ? {
-              cancellationReason:
-                order.status === "PAID"
-                  ? "Cancelled by admin — refund the payment in the Razorpay dashboard"
-                  : "Cancelled by admin",
-            }
-          : {}),
+        ...(next === "CANCELLED" ? { cancellationReason: "Cancelled by admin" } : {}),
       },
     });
     if (updated.count === 0)
       throw new AdminInputError("The order changed in the meantime. Refresh and try again.");
-
-    if (next === "CANCELLED" && order.status !== "PAID") {
-      await releaseReservation(tx, id); // unpaid order: give held stock back
-    }
-    if (next === "CANCELLED" && order.status === "PAID") {
-      const items = await tx.orderItem.findMany({
-        where: { orderId: id },
-        select: { productId: true, variantId: true, quantity: true },
-      });
-      await restockLines(tx, items);
-    }
+    // Unpaid order: give held stock back.
+    return next === "CANCELLED" ? releaseReservation(tx, id) : false;
   });
+  if (released) revalidateTag(CATALOG_TAG); // available stock changed
 
   if (next === "SHIPPED" || next === "DELIVERED") {
     const { notifyOrder } = await import("@/services/notification.service");

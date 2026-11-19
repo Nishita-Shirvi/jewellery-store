@@ -11,7 +11,7 @@ You don't need to read every file. The code is organised so that once you know t
 - **02 · [02-feature-map.md](02-feature-map.md)**
   - What you get from it: **Feature → files** lookup table. Your main tool when a bug comes in
 - **03 · [03-critical-flows.md](03-critical-flows.md)**
-  - What you get from it: Step-by-step: checkout & payment, webhooks, stock holds, cancel/refund, returns, shipping, invoices
+  - What you get from it: Step-by-step: checkout & payment, webhooks, stock holds, cancel/refund, returns, shipping, invoices, gold-rate repricing, product edits
 - **04 · [04-data-model.md](04-data-model.md)**
   - What you get from it: The tables, how they connect, statuses, money/weight rules
 - **05 · [05-debugging-playbook.md](05-debugging-playbook.md)**
@@ -19,7 +19,7 @@ You don't need to read every file. The code is organised so that once you know t
 - **06 · [06-practice-exercises.md](06-practice-exercises.md)**
   - What you get from it: Hands-on tasks that prove you understand each area
 
-Reference docs one level up: `../ARCHITECTURE.md`, `../CONFIGURATION.md`, `../LOGGING.md`, `../DEPLOY.md`.
+Reference docs one level up: `../ARCHITECTURE.md`, `../CONFIGURATION.md`, `../LOGGING.md`, `../DEPLOY.md`, and `../ADMIN_GUIDE.md` (what the shop team sees and does).
 
 ## Suggested plan (about 5 short sessions)
 
@@ -49,10 +49,10 @@ If you only ever read ten files, read these — together they hold almost all th
 4. `services/inventory.service.ts` — stock holds (no overselling)
 5. `app/api/webhooks/razorpay/route.ts` — Razorpay server-to-server events
 6. `services/refund.service.ts` + `services/return.service.ts` — money going back
-7. `services/pricing.ts` + `lib/gst.ts` + `lib/coupons.ts` — how totals and tax are computed
+7. `services/pricing.ts` + `lib/gst.ts` + `lib/coupons.ts` + `lib/metal-pricing.ts` / `services/metal-rate.service.ts` — how prices, totals and tax are computed
 8. `services/shipment.service.ts` — Shiprocket + tracking
 9. `lib/auth-guards.ts` + `middleware.ts` + `auth.ts` — who may do what
-10. `lib/config.ts` + `lib/env.ts` + `lib/logger.ts` — settings and logs
+10. `lib/config.ts` (+ `config/*.ini`) + `lib/env.ts` + `lib/logger.ts` — settings and logs
 
 ## Habits that make bugs easy
 

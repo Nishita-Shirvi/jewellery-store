@@ -4,32 +4,59 @@ When a bug comes in, find the feature here and open the files left to right: **U
 
 ## Shop (customer-facing)
 
-- **Home page**
-  - UI (components / page): `app/page.tsx`
+- **Home page (featured, occasion tiles, reviews, visit band)**
+  - UI (components / page): `app/page.tsx` (built-in home, used when no Admin → Content home sections are live)
   - Entry point: page
-  - Service: `catalog.service.ts` (`getFeaturedProducts`, `getCategories`)
-  - Helpers: `components/catalog/product-image.tsx`
-  - Tables: Product, Category
+  - Service: `catalog.service.ts` (`getFeaturedProducts`, `getCategories`), `review.service.ts` (`getHomeReviews`)
+  - Helpers: `components/catalog/product-image.tsx`, `lib/storefront.ts` (`OCCASIONS`), `config/storefront.ini`
+  - Tables: Product, Category, Review
   - Tests: e2e
-- **Product listing, filters, sort**
-  - UI (components / page): `app/products/(list)/page.tsx`, `components/catalog/catalog-filters.tsx`, `product-grid.tsx`, `pagination.tsx`
-  - Entry point: page (URL query params)
+- **Rate strip above the header**
+  - UI (components / page): `components/layout/rate-strip.tsx` (in `site-header.tsx`; the scheduled announcement bar from Admin → Content shows above it)
+  - Service: `metal-rate.service.ts` (`getCurrentRates`)
+  - Helpers: `config/pricing.ini` `[pricing] strip_purities`, `config/storefront.ini` `[storefront] announcement`
+  - Tables: MetalRate
+- **Product listing, filters, sort, budget chips**
+  - UI (components / page): `app/products/(list)/page.tsx`, `components/catalog/catalog-filters.tsx`, `budget-chips.tsx`, `product-grid.tsx`, `pagination.tsx`
+  - Entry point: page (URL query params, incl. `occasion`, `colour`, `minWeight`, `maxWeight`)
   - Service: `catalog.service.ts` (`listProducts`), `search.service.ts`
-  - Helpers: `lib/validation/catalog.ts`, `lib/catalog-url.ts`
+  - Helpers: `lib/validation/catalog.ts`, `lib/catalog-url.ts`, `lib/storefront.ts` (`BUDGETS`, `OCCASIONS` — occasions are product tags)
   - Tables: Product
-  - Tests: `tests/db/search.test.ts`
+  - Tests: `tests/db/search.test.ts`, `tests/storefront.test.ts`
+- **Style advisor**
+  - UI (components / page): `app/style-advisor/page.tsx`
+  - Entry point: page (GET form → `redirect()` to `/products?…`; works without JavaScript)
+  - Service: `catalog.service.ts` (`getCategories`)
+  - Helpers: `lib/storefront.ts`, `lib/catalog-url.ts`
+  - Tests: `tests/storefront.test.ts`
+- **Size guide**
+  - UI (components / page): `app/size-guide/page.tsx` (linked from products with options and the footer)
+  - Helpers: `lib/storefront.ts` (`RING_SIZES`, `BANGLE_SIZES`)
+- **Showroom visit booking**
+  - UI (components / page): `app/visit/page.tsx`, `components/storefront/visit-form.tsx`
+  - Entry point: `app/visit/actions.ts` → `requestVisitAction`
+  - Service: `visit.service.ts` (`createVisitRequest`), `email.service.ts`
+  - Helpers: `lib/validation/storefront.ts`, `lib/rate-limit.ts`
+  - Tables: VisitRequest
+  - Tests: `tests/db/storefront.test.ts`
+- **Contact page, WhatsApp buttons**
+  - UI (components / page): `app/(legal)/contact/page.tsx`, product page, visit page, help centre, checkout, support tickets
+  - Service: `storefront.service.ts` (`getStorefrontSettings`)
+  - Helpers: `lib/support.ts` (`whatsappLink`, `whatsappDigits`; Admin → Showroom number, else `[support] whatsapp_number`)
+  - Tables: AppSetting `storefront`
+  - Tests: `tests/storefront.test.ts`, `tests/support.test.ts`
 - **Category landing pages**
   - UI (components / page): `app/collections/[slug]/page.tsx`
   - Entry point: page
   - Service: `catalog.service.ts`
   - Tables: Category, Product
-- **Product page**
-  - UI (components / page): `app/products/[slug]/page.tsx`, `components/catalog/product-image.tsx`
+- **Product page (gallery + 360° video, price breakup, occasion chips, old-link redirect)**
+  - UI (components / page): `app/products/[slug]/page.tsx`, `components/catalog/product-media.tsx`, `variant-purchase.tsx`
   - Entry point: page
-  - Service: `catalog.service.ts` (`getProductBySlug`)
-  - Helpers: `lib/jewellery.ts` (metal/purity labels)
-  - Tables: Product
-  - Tests: e2e
+  - Service: `catalog.service.ts` (`getProductBySlug`, `findRenamedProductSlug`), `metal-rate.service.ts`
+  - Helpers: `lib/jewellery.ts` (metal/purity labels), `lib/metal-pricing.ts` (`priceBreakup`), `lib/media.ts`
+  - Tables: Product, ProductVariant, MetalRate
+  - Tests: e2e, `tests/pricing.test.ts`
 - **Search box + autocomplete**
   - UI (components / page): `components/layout/search-form.tsx`
   - Entry point: `app/api/search/suggest/route.ts`
@@ -92,19 +119,19 @@ When a bug comes in, find the feature here and open the files left to right: **U
 - **Shipping fee**
   - UI (components / page): shown in cart/checkout summary
   - Service: `pricing.ts`
-  - Helpers: `lib/shipping-fee.ts`, `lib/shipping-config.ts`, `config.ini [shipping]`
+  - Helpers: `lib/shipping-fee.ts`, `lib/shipping-config.ts`, `config/shipping.ini [shipping]`
   - Tests: `tests/shipping.test.ts`
 - **GST on prices**
   - UI (components / page): checkout summary, invoice
   - Service: `order.service.ts` (at checkout)
-  - Helpers: `lib/gst.ts`, `config.ini [business] state`
+  - Helpers: `lib/gst.ts`, `config/business.ini [business] state`
   - Tables: OrderItem tax fields
   - Tests: `tests/gst.test.ts`
 - **Login / register / Google**
   - UI (components / page): `app/(auth)/*`, `components/auth/*`
   - Entry point: `app/(auth)/actions.ts`, `app/api/auth/[...nextauth]/route.ts`
   - Service: `auth.service.ts`
-  - Helpers: `auth.ts`, `auth.config.ts`, `lib/validation/auth.ts`, `lib/rate-limit.ts`
+  - Helpers: `auth.ts` (limits per email+IP, per IP and per account), `auth.config.ts`, `lib/validation/auth.ts`, `lib/rate-limit.ts`, `lib/safe-redirect.ts`
   - Tables: User, Account, Session
 - **Route protection**
   - Entry point: `middleware.ts`
@@ -113,7 +140,8 @@ When a bug comes in, find the feature here and open the files left to right: **U
 - **Legal pages**
   - UI (components / page): `app/(legal)/*`
   - Entry point: page
-  - Helpers: `lib/business.ts`, `config.ini [business]`
+  - Service: `storefront.service.ts` (contact page)
+  - Helpers: `lib/business.ts`, `config/business.ini`, `config/shipping.ini [returns]`
 - **Cookie banner + analytics**
   - UI (components / page): `components/analytics/*`
   - Entry point: `app/api/funnel/route.ts`
@@ -140,7 +168,7 @@ When a bug comes in, find the feature here and open the files left to right: **U
 - **Request a return**
   - UI: `app/account/orders/[id]/return/*`
   - Entry point: `requestReturnAction`, `uploadReturnPhotoAction`
-  - Service: `return.service.ts` (`requestReturn`)
+  - Service: `return.service.ts` (`requestReturn`; window from `[returns] window_days`)
   - Tables: ReturnRequest, ReturnItem
   - Tests: `tests/returns.test.ts`
 - **Download invoice**
@@ -148,7 +176,7 @@ When a bug comes in, find the feature here and open the files left to right: **U
   - Entry point: `app/api/invoices/[orderId]/route.ts`
   - Service: `invoice.service.ts` (`getInvoiceForViewer`)
   - Tables: Invoice
-  - Tests: `tests/db/invoice.test.ts`
+  - Tests: `tests/db/invoice.test.ts`, `tests/db/invoice-guards.test.ts`
 - **Addresses**
   - UI: `app/account/addresses/page.tsx`, `components/account/address-editor.tsx`
   - Entry point: `app/account/actions.ts`
@@ -157,17 +185,32 @@ When a bug comes in, find the feature here and open the files left to right: **U
 
 ## Admin panel (`/admin`)
 
-All admin server actions are in **`app/admin/actions.ts`** and each one calls `requireAdmin()` first.
+Admin server actions are in **`app/admin/actions.ts`** (rates, showroom settings and visits in `app/admin/storefront-actions.ts`) and each one checks the staff member's permission first (`requirePermission`).
 
-- **Dashboard (today's orders, revenue, low stock)**
+- **Dashboard (today's orders, revenue, low stock, stale-rate and new-visit warnings)**
   - Page: `app/admin/page.tsx`
-  - Service: `admin/dashboard.service.ts`
-  - Tables: Order, Product
-- **Products: list, create, edit, activate, stock, photos**
-  - Page: `app/admin/products/*`, `components/admin/product-form.tsx`
-  - Action(s): `saveProductAction`, `toggleProductActiveAction`, `updateStockAction`, `uploadImageAction`
-  - Service: `admin/product-admin.service.ts`, `upload.service.ts`
-  - Tables: Product, AuditLog
+  - Service: `admin/dashboard.service.ts`, `metal-rate.service.ts` (`ratesAreStale`), `visit.service.ts` (`countNewVisits`)
+  - Tables: Order, Product, MetalRate, VisitRequest
+- **Products: list, create, edit, activate, stock, photos (upload/reorder), pricing mode, 360° video, delete**
+  - Page: `app/admin/products/*`, `components/admin/product-form.tsx`, `delete-product-form.tsx`, variants at `app/admin/products/[id]/variants` (`components/admin/variant-forms.tsx`)
+  - Action(s): `saveProductAction`, `toggleProductActiveAction`, `updateStockAction`, `uploadImageAction`, `deleteProductAction`
+  - Service: `admin/product-admin.service.ts` (stock-changed check, `deleteProduct`, old slugs kept), `metal-rate.service.ts` (`repriceProduct` for rate-linked pieces), `upload.service.ts`
+  - Tables: Product, ProductVariant, AuditLog
+- **Gold / metal rates**
+  - Page: `app/admin/rates/page.tsx`, `components/admin/rates-form.tsx` (view `products.view`, save `products.edit`)
+  - Action(s): `saveRatesAction`
+  - Service: `metal-rate.service.ts` (`saveRates` → `repriceRateLinked`)
+  - Tables: MetalRate, Product, ProductVariant, AuditLog
+- **Showroom settings**
+  - Page: `app/admin/settings/page.tsx` (Admin → Showroom, `content.manage`), `components/admin/storefront-settings-form.tsx`
+  - Action(s): `saveStorefrontSettingsAction`
+  - Service: `storefront.service.ts`
+  - Tables: AppSetting `storefront`
+- **Visit requests**
+  - Page: `app/admin/visits/page.tsx` (`support.manage`)
+  - Action(s): `updateVisitStatusAction`
+  - Service: `visit.service.ts`
+  - Tables: VisitRequest
 - **Categories**
   - Page: `app/admin/categories/page.tsx`, `components/admin/category-form.tsx`
   - Action(s): `saveCategoryAction`, `deleteCategoryAction`
@@ -243,14 +286,20 @@ All admin server actions are in **`app/admin/actions.ts`** and each one calls `r
 - **Startup summary log**
   - Entry point: `instrumentation.ts`
   - Service: `lib/startup.ts`
+- **Image upload (Cloudinary / R2)**
+  - Entry point: `uploadImageAction`, `uploadReturnPhotoAction`, review photo upload
+  - Service: `upload.service.ts` (`isOwnUpload` for customer photos), `lib/storage/sigv4.ts`, `lib/media.ts`
+  - Tests: `tests/sigv4.test.ts`, `tests/media.test.ts`
 - **Settings**
-  - Service: `lib/config.ts` (`config.ini`), `lib/env.ts` (`.env`)
+  - Service: `lib/config.ts` (`config/*.ini`), `lib/env.ts` (`.env`, `productionProblems`), `storefront.service.ts` (admin-editable)
   - Tests: `tests/config.test.ts`
 - **Logging**
   - Service: `lib/logger.ts`
   - Tests: `tests/logger.test.ts`
 - **Database setup / demo data**
-  - Entry point: `npm run db:migrate`, `npm run db:seed`
+  - Entry point: `npm run db:migrate`, `npm run db:seed` (create-only, refuses production)
   - Service: `prisma/schema.prisma`, `prisma/migrations/`, `prisma/seed.ts`
   - Tables: all
-  - Tests: CI
+  - Tests: CI (incl. "Migrations match schema.prisma")
+- **Production build**
+  - Entry point: `scripts/vercel-build.mjs` (migrates on production only)

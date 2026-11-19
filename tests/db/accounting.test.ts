@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type * as BusinessModule from "@/lib/business";
 import type { ReconIssue, ReconSummary } from "@/services/recon.service";
 import type * as JobsModule from "@/services/jobs.service";
 
@@ -9,6 +10,11 @@ import type * as JobsModule from "@/services/jobs.service";
  */
 
 vi.mock("server-only", () => ({}));
+// Invoices are refused while config/business.ini still has [placeholders]: treat them as filled in.
+vi.mock("@/lib/business", async (orig) => {
+  const real = await orig<typeof BusinessModule>();
+  return { ...real, getBusiness: () => ({ ...real.getBusiness(), incomplete: false }) };
+});
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
   revalidatePath: vi.fn(),
@@ -199,6 +205,74 @@ describe("GST reports", () => {
     expect(line).toBeTruthy();
     // half the invoice refunded → half its tax (7.50 + 7.50)
     expect(line.slice(5)).toEqual(["500.00", "7.50", "7.50", "0.00"]);
+  });
+
+  it("refunds of duplicate payments and of never-paid (sold-out) orders are not credit notes or sales refunds", async () => {
+    const month = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 7);
+    const report = await import("@/services/report.service");
+    const gstBefore = await gst.gstSummary(month);
+    const salesBefore = await report.salesReport(1);
+
+    // 1. A duplicate capture on an invoiced, paid order, refunded in full.
+    const paid = await invoicedOrder("Telangana", 50_000);
+    const extra = await db.payment.create({
+      data: {
+        orderId: paid.id,
+        providerOrderId: `extra:pay_${RUN}dup`,
+        providerPaymentId: `pay_${RUN}dup`,
+        status: "REFUNDED",
+        amountInPaise: 50_000,
+      },
+    });
+    await db.refund.create({
+      data: {
+        orderId: paid.id,
+        paymentId: extra.id,
+        reason: "extra payment",
+        amountInPaise: 50_000,
+        status: "PROCESSED",
+        processedAt: new Date(),
+        razorpayRefundId: `rfnd_${RUN}dup`,
+      },
+    });
+    // 2. Sold out at payment: the order was never paid (no invoice), the payment refunded.
+    const soldOut = await db.order.create({
+      data: {
+        userId,
+        status: "REFUNDED",
+        subtotalInPaise: 70_000,
+        totalInPaise: 70_000,
+        addressSnapshot: {},
+      },
+    });
+    const soldPay = await db.payment.create({
+      data: {
+        orderId: soldOut.id,
+        providerOrderId: `order_${RUN}sold`,
+        providerPaymentId: `pay_${RUN}sold`,
+        status: "REFUNDED",
+        amountInPaise: 70_000,
+      },
+    });
+    await db.refund.create({
+      data: {
+        orderId: soldOut.id,
+        paymentId: soldPay.id,
+        reason: "sold out",
+        amountInPaise: 70_000,
+        status: "PROCESSED",
+        processedAt: new Date(),
+        razorpayRefundId: `rfnd_${RUN}sold`,
+      },
+    });
+
+    const gstAfter = await gst.gstSummary(month);
+    expect(gstAfter.refunds).toBe(gstBefore.refunds);
+    expect(gstAfter.refundedInPaise).toBe(gstBefore.refundedInPaise);
+    const cn = parseCsv(await gst.gstReportCsv("credit-notes", month));
+    expect(cn.some((r) => r.includes("500.00") && r.includes(paid.id))).toBe(false);
+    const salesAfter = await report.salesReport(1);
+    expect(salesAfter.totals.refundedInPaise).toBe(salesBefore.totals.refundedInPaise);
   });
 });
 

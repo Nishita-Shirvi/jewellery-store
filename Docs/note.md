@@ -364,7 +364,7 @@ An online jewellery store (gold, silver, diamond and fashion jewellery) for the 
   - Default chosen: Ran: the new 18-check suite, Playwright, all unit and DB tests. Admin-action files changed (audit calls), so the admin, coupon, refund, invoice and review browser suites should be re-run at the start of Phase 17
   - Can change?: Next phase
 - **D-115 · Settings split**
-  - Default chosen: Non-secret settings (business details, GSTIN/state, invoice prefix, shipping fee, stock hold minutes, low-stock threshold, alert email, SMS flag, log level) moved from env vars to a committed `config.ini`, validated by `lib/config.ts`. Secrets stay in `.env`. Env var `SECTION_KEY` overrides any key; old env names still honoured. See `CONFIGURATION.md`.
+  - Default chosen: Non-secret settings (business details, GSTIN/state, invoice prefix, shipping fee, stock hold minutes, low-stock threshold, alert email, SMS flag, log level) moved from env vars to a committed `config.ini` (now the `config/` folder, D-189), validated by `lib/config.ts`. Secrets stay in `.env`. Env var `SECTION_KEY` overrides any key; old env names still honoured. See `CONFIGURATION.md`.
 - **D-116 · Logger**
   - Default chosen: `lib/logger.ts`: debug/info/warn/error levels from config, JSON in production / readable in dev, secret-looking keys redacted, Errors logged with stack, `child()` for bound fields. `console.*` banned by ESLint in server code. Unexpected API errors return an `errorId` that appears in the log.
 - **D-117 · Startup summary**
@@ -462,11 +462,11 @@ An online jewellery store (gold, silver, diamond and fashion jewellery) for the 
 - **D-163 · Sale prices**
   - Default chosen: Per-size "was" price (must be higher than the price). The product card uses the was-price of the size giving the "from" price, so price and badge always describe the same piece. % off is rounded down on the server (never overstated); under 1% shows no badge. Checkout always charges the real price — the was-price is display only.
 - **D-164 · Editable pages**
-  - Default chosen: /pages/<address> with a draft and a published version: customers see the published text until "Publish". Simple formatting (headings, bold, italic, lists, quotes, links) rendered by our own small renderer that builds React elements — HTML typed in is shown as text, and links only go to site paths or https. Legal pages stay in code (they read config.ini).
+  - Default chosen: /pages/<address> with a draft and a published version: customers see the published text until "Publish". Simple formatting (headings, bold, italic, lists, quotes, links) rendered by our own small renderer that builds React elements — HTML typed in is shown as text, and links only go to site paths or https. Legal pages stay in code (they read `config/business.ini`).
 - **D-165 · Preview links**
   - Default chosen: Drafts and scheduled items get a preview link signed with AUTH_SECRET for that one item, valid 48 hours, not indexed by search engines. The homepage preview shows drafts and scheduled sections too.
 - **D-166 · Festival dates**
-  - Default chosen: config.ini [festivals] gives one-click date ranges in the schedule pickers (Dhanteras, Diwali, wedding season, Akshaya Tritiya). They follow the lunar calendar and must be checked every year; Akshaya Tritiya is left empty until confirmed.
+  - Default chosen: config/marketing.ini [festivals] gives one-click date ranges in the schedule pickers (Dhanteras, Diwali, wedding season, Akshaya Tritiya). They follow the lunar calendar and must be checked every year; Akshaya Tritiya is left empty until confirmed.
 - **D-167 · Content permission**
   - Default chosen: content.manage (homepage, announcements, collections, pages) for Owner, Manager and Catalog editor. Sale prices are part of products.edit (variants page).
 - **D-168 · Bought together / trending**
@@ -480,7 +480,7 @@ An online jewellery store (gold, silver, diamond and fashion jewellery) for the 
 - **D-172 · Correlation ids**
   - Default chosen: Every log line written while handling an API route, a payment server action or a background job carries `requestId` (Vercel's x-vercel-id when present, else a random id; anything that isn't id-shaped is ignored) and, for jobs, `jobId`/`jobType`. API responses return it as `x-request-id`. Other server actions rely on Vercel attaching its own request id to each log line.
 - **D-173 · Business alerts**
-  - Default chosen: Six checks (payments failing, no orders, failed background jobs, webhook problems, best-sellers out of stock, error spike) in services/monitor.service.ts, thresholds in config.ini [alerts]. Run on every cron tick; payments also the moment a payment fails (a simulated outage alerted 8 ms after the 5th failure). AlertState + conditional updates: one email when an alert starts even if checks run at once, a reminder every repeat_hours, and a Resolved email. Notifications are jobs (retried if email fails).
+  - Default chosen: Six checks (payments failing, no orders, failed background jobs, webhook problems, best-sellers out of stock, error spike) in services/monitor.service.ts, thresholds in config/inventory.ini [alerts]. Run on every cron tick; payments also the moment a payment fails (a simulated outage alerted 8 ms after the 5th failure). AlertState + conditional updates: one email when an alert starts even if checks run at once, a reminder every repeat_hours, and a Resolved email. Notifications are jobs (retried if email fails).
 - **D-174 · Alert recipients**
   - Default chosen: [alerts] admin_email; otherwise staff whose roles include system.view (Owners, Managers) — not every staff account. Optional chat message via ALERT_WEBHOOK_URL (Slack / Google Chat / Discord incoming webhook).
 - **D-175 · Counters**
@@ -498,9 +498,41 @@ An online jewellery store (gold, silver, diamond and fashion jewellery) for the 
 - **D-181 · Delete my account**
   - Default chosen: Account → Privacy, type DELETE + password. Refused for staff and while an order is CONFIRMED/PAID/SHIPPED/RETURN_REQUESTED/REFUND_PENDING. Deletes addresses, wishlist, cart, reminders, codes, reset links, back-in-stock requests, newsletter entry, support tickets, Google link; reviews stay as "Former customer". Orders and invoices kept (tax law), with their encrypted address. The user row stays anonymised (deleted+<id>@deleted.invalid), passwordChangedAt set so every session ends; the email can be used again.
 - **D-182 · Retention**
-  - Default chosen: Daily clean-up (cron, once per ~20 h) per config.ini [privacy]: OTPs 2 d, reset links 7 d, cart reminder records 180 d, back-in-stock requests 365 d, unconfirmed newsletter sign-ups 30 d, webhook events 90 d, staff activity log 730 d. Orders, invoices, payments, refunds never deleted. The privacy policy shows these numbers from config.
+  - Default chosen: Daily clean-up (cron, once per ~20 h) per config/customer.ini [privacy]: OTPs 2 d, reset links 7 d, cart reminder records 180 d, back-in-stock requests 365 d, unconfirmed newsletter sign-ups 30 d, webhook events 90 d, staff activity log 730 d. Orders, invoices, payments, refunds never deleted. The privacy policy shows these numbers from config.
 - **D-183 · Product page disclosures**
   - Default chosen: Consumer Protection (E-Commerce) Rules 2020 / Legal Metrology: "Sold by" (legal name, address, GSTIN), grievance officer, returns and delivery policy links, price inclusive of taxes, country of origin (new product field, default India), BIS HUID when set.
+
+- **D-184 · Gold-rate pricing**
+  - Default chosen: Products are FIXED or RATE_LINKED. For rate-linked products **every variant** is priced from its own net weight: (net g × rate per gram for the purity + making + stone charge) × (1 + GST), rounded to the rupee (`lib/metal-pricing.ts`). The price is **stored** on each variant and recalculated when rates are saved (one transaction, which also refreshes the product's "from" price and clears a "was" price that is no longer above the new price) and when a rate-linked product, its options or its variant grid are saved — not computed per page view, so cart, checkout, filters and reports read one column and checkout's price-changed check protects buyers. Rates are entered per gram; a change above `[pricing] large_change_percent` (15%) needs a tick box. `MetalRate` rows are history (never edited); the newest per purity is current. The price breakup is shown only for single-variant pieces and only when it adds up exactly to the stored price.
+  - Can change?: Yes — which pieces are rate-linked; who updates rates daily
+- **D-185 · Sizes are variants**
+  - Default chosen: The storefront branch's own size list (`Product.sizes`, `CartItem.size`, stock shared by all sizes) was dropped when it was merged with Phase 17: each size is a variant with its own SKU, stock, price and weight. `/size-guide` (ring and bangle tables) is kept and linked from products with options.
+  - Can change?: —
+- **D-186 · Occasions are tags**
+  - Default chosen: No separate occasion field: occasions are product tags (`bridal`, `festive`, `daily-wear`, `office-wear`, `gift`, `party`; `OCCASIONS` in `lib/storefront.ts`), the same tags the starter occasion collections use. They drive the Occasion filter, home tiles, style advisor and product-page chips. Adding one is a code change to `OCCASIONS`, no migration.
+  - Can change?: Yes — list of occasions
+- **D-187 · Showroom settings in the database**
+  - Default chosen: Address, hours, phone, WhatsApp and map link change often and are edited by the shop team, so they live in `AppSetting "storefront"` (Admin → Showroom, `content.manage`), not in `config/`. Legal/GST details stay in `config/business.ini` (they need a deploy and a CA's eye). One WhatsApp number for every button: Admin → Showroom, else `[support] whatsapp_number`.
+  - Can change?: —
+- **D-188 · Visit booking**
+  - Default chosen: Simple request form (no calendar or slot capacity): a date within a fixed window, fixed time slots, email alert to the shop; the shop confirms by phone/WhatsApp. No customer email (no DLT/SMS needed). Rate-limited per IP + honeypot. Admin → Visits needs `support.manage`.
+  - Can change?: Yes — slots and opening days
+- **D-189 · Config folder**
+  - Default chosen: `config.ini` split into `config/*.ini`, one topic per file (nine files); a section may live in only one file and an unknown section or key stops start-up. Comments only on their own line, so values like `Shop #12` stay whole. Same keys and env overrides as before.
+  - Can change?: —
+- **D-190 · Image storage**
+  - Default chosen: `[images] provider = cloudinary | r2 | none`. R2 uploads are server-side PUTs signed with our own SigV4 (`lib/storage/sigv4.ts`) — no AWS SDK, no CORS. Saved links are accepted only from our own Cloudinary cloud / R2 public URL (`lib/media.ts`); customer photos must be our own upload in the right folder.
+  - Can change?: —
+- **D-191 · Migrations on Vercel**
+  - Default chosen: `scripts/vercel-build.mjs` runs `prisma migrate deploy` only when `VERCEL_ENV=production` (or `RUN_MIGRATIONS=1` on a preview with its own DB), so an unmerged branch never migrates a shared database. CI checks that migrations match `schema.prisma`.
+  - Can change?: —
+
+- **D-192 · Payment and refund safety** (2026-11-19)
+  - Default chosen: payments that can't be kept are refunded inside the same transaction that records them; each refund is claimed before Razorpay is called; the reservations job sends stuck refunds; cancelling is refused once a courier parcel exists.
+  - Can change?: Only with care — these protect real money.
+- **D-193 · Invoices wait for real business details** (2026-11-19)
+  - Default chosen: no invoice number is used while config/business.ini has `[placeholders]`; the invoice job finishes quietly and the admin generates the invoice later.
+  - Can change?: Yes, but invoice numbers must stay gap-free.
 
 Add a new row whenever a default is chosen during a phase.
 

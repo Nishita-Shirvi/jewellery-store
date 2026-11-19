@@ -12,7 +12,7 @@ You'll need: business PAN, bank account, GSTIN, and the website with its policy 
 
 **B-04 · Business details 🔴**
 Legal name, registered address and state, GSTIN, phone, support email, grievance officer.
-Where: `config.ini`, sections `[business]` and `[grievance_officer]`. The pages already show them.
+Where: `config/business.ini`, sections `[business]` and `[grievance_officer]`. The pages already show them. Until they're filled in, **no invoices are issued**.
 
 **B-05 · Shiprocket (delivery) 🔴**
 Create the account and do KYC, add a pickup address, and check which couriers accept jewellery and up to what value.
@@ -20,11 +20,11 @@ Then add an API user (Settings → API) and send us its email and password.
 Until then, the owner adds tracking by hand on each order.
 
 **B-10 · Accounts for going live 🔴**
-Required: GitHub and Vercel. Recommended: Sentry (errors), Cloudinary (photos), Resend (emails). Neon is done ✅.
+Required: GitHub and Vercel. Recommended: Sentry (errors), Cloudinary or Cloudflare R2 (photos), Resend (emails). Neon is done ✅.
 Steps: `Docs/DEPLOY.md`.
 
 **B-03 · Pricing model 🟠**
-Fixed price per product (used now), or a price from the daily gold/silver rate. Weight and making charge are already stored, so we can switch later.
+Both are supported since 19 Nov: each product is **fixed price** or **follows today's metal rate** (Admin → Gold rates). The client decides which pieces use which, and who updates the rates every morning.
 
 **B-07 · Domain and email setup 🟠**
 The shop's domain name, plus email DNS records (SPF, DKIM, DMARC) so emails don't land in spam.

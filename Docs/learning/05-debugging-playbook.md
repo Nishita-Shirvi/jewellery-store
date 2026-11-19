@@ -7,9 +7,21 @@ First, always: **(1)** check the `app.start` log line (what's switched on), **(2
 - **`❌ Invalid or missing environment variables`**
   - Cause: `.env` / Vercel env missing or wrong
   - Fix: Message names the variable. Compare with `.env.example`. On Vercel: set it, then **Redeploy**.
-- **`❌ Invalid settings in config.ini`**
-  - Cause: Typo in `config.ini` (or an env override)
+- **`❌ Invalid settings in config/*.ini`**
+  - Cause: Bad value, or an unknown section or key, in a `config/*.ini` file (or an env override)
   - Fix: Message names `[section] key`. See `../CONFIGURATION.md`.
+- **Same `[section]` in two config files**
+  - Cause: A section was copied into a second `config/*.ini` file
+  - Fix: The message names both files. Keep the section in one file.
+- **Changed a `config/*.ini` value, nothing happened**
+  - Cause: An env override (`SECTION_KEY`) wins, or no restart/redeploy; a comment after the value on the same line became part of the value
+  - Fix: `app.start` → `configOverriddenByEnv`; move comments to their own line.
+- **`❌ Unsafe production settings`**
+  - Cause: Production only (`VERCEL_ENV=production`)
+  - Fix: `NEXT_PUBLIC_APP_URL` must be the live `https://` address, `CRON_SECRET` set, no `*_API_BASE` test overrides.
+- **Build log: `Skipping prisma migrate deploy`**
+  - Cause: The build isn't a production one
+  - Fix: Expected on previews. For a preview with its own database set `RUN_MIGRATIONS=1`.
 - **`The table "public.Review" does not exist` (or any table/column)**
   - Cause: Migrations not applied to that DB
   - Fix: `npm run db:deploy` (production) / `npm run db:migrate` (local). Check `prisma/migrations` is committed.
@@ -32,8 +44,21 @@ First, always: **(1)** check the `app.start` log line (what's switched on), **(2
   - Where to look: `Payment.amountInPaise` vs `Order.totalInPaise`
   - Likely cause: Order total changed after the Razorpay order was created — investigate before touching data.
 - **`payment.sold_out_after_payment_refunding`**
-  - Where to look: Order cancelled + Refund row
-  - Likely cause: Expected: customer paid after their hold expired and the piece was sold. Refund goes out automatically.
+  - Where to look: Order + its Refund row
+  - Likely cause: Expected: customer paid after their hold expired and the piece was sold. Refund goes out automatically — do **not** also refund it in the Razorpay dashboard.
+
+- **Refund stuck in "sending"**
+  - Where to look: Refund row (`status`, `updatedAt`), logs `refund.*`
+  - Likely cause: the app stopped mid-send. The reservations job resends it within minutes; the admin Retry button appears after 10 minutes. Don't also refund in the Razorpay dashboard.
+
+- **"Can't cancel: a shipment exists"**
+  - Where to look: the order's Shipment (Shiprocket id / AWB)
+  - Likely cause: expected. Cancel the shipment in Shiprocket first; its webhook marks it cancelled, then cancel the order.
+
+- **No invoice for a paid order**
+  - Where to look: logs `invoice.skipped_business_details_incomplete`
+  - Likely cause: config/business.ini still has `[placeholders]`. Fill them in, redeploy, then press "Generate invoice".
+
 - **Paid twice for one cart**
   - Where to look: `Order.checkoutKey`, logs `payment.duplicate_payment_id`
   - Likely cause: Should be blocked; if it happened, refund one in Razorpay and file a bug with both payment ids.
@@ -52,22 +77,38 @@ First, always: **(1)** check the `app.start` log line (what's switched on), **(2
 - **Admin changed stock but shop shows old value**
   - Where to look: Cache (`CATALOG_TAG`)
   - Likely cause / fix: Changes made via admin revalidate instantly; changes made directly in DB show after ≤5 min.
+- **"Stock changed while you were editing"**
+  - Where to look: Product edit form or quick stock box
+  - Likely cause / fix: Someone bought (or another admin edited) since the form was opened. Reload and re-enter. (The variant grid doesn't check this yet — BACKLOG BL-19.)
+
+## Gold rates and prices
+
+- **Rate-linked price didn't change after saving rates** — The product's `pricingMode` must be RATE_LINKED and its `purity` must match the rate saved; each variant needs a net weight. Log `metal_rates.saved` shows `repriced`.
+- **"No 22K rate yet…" when saving a product** — No `MetalRate` row for that purity: Admin → Gold rates first, or use a fixed price.
+- **Typed price replaced on save** — By design for rate-linked products: saving the product, its options or its variants works the price out again.
+- **Price breakup missing on the product page** — Shown only for single-variant rate-linked pieces, and only when it adds up exactly to the stored price.
+- **Dashboard "Metal rates are older than … hours"** — A purity used by rate-linked products has no rate, or its newest rate is older than `[pricing] stale_after_hours`. Saving the same rate again clears it.
+- **Rate strip shows only the message** — `[features] rate_strip`, `[pricing] strip_purities`, and a rate saved for at least one of those purities.
 
 ## Emails, SMS, images, shipping, login
 
 - **No emails arrive** — `app.start` → `email: false` → set `RESEND_API_KEY`. Log `email.skipped_no_api_key` means it was only logged. Resend test domain only delivers to the account owner's address — verify your domain (`DEPLOY.md`).
 - **No SMS** — Needs `[features] sms = true` **and** `MSG91_*` keys **and** a DLT template.
-- **Admin can't upload photos** — `app.start` → `imageUploads: false` → `CLOUDINARY_*`. Max 5 MB, JPG/PNG/WebP.
+- **Admin can't upload photos** — `config/images.ini` → `provider` and its keys (`CLOUDINARY_*`, or `R2_*` + `r2_public_url`). Log `upload.failed` has the provider's error. Max `[images] max_upload_mb` (5 MB), JPG/PNG/WebP.
+- **"Images must be uploaded files or /images/... paths" on save** — The link isn't from **our** Cloudinary cloud or R2 address (`lib/media.ts`). After switching to R2, keep `CLOUDINARY_CLOUD_NAME` set so old Cloudinary photos stay valid.
+- **WhatsApp buttons / visit page missing** — `[features] whatsapp_button` + a number in Admin → Showroom (or `[support] whatsapp_number`); `[features] visit_booking`.
+- **No visit alert email** — Logs `visit.requested` then `visit.alert_failed`; recipients = `[alerts] admin_email` or all admins. The request is saved anyway (Admin → Visits).
+- **Invoice not created** — Log `invoice.skipped_business_details_incomplete`: `config/business.ini` still has `[placeholders]`. Fill in, deploy, press **Generate invoice**.
 - **"Create shipment" fails** — `Shipment.lastError` on the order; logs `shipment.`. Pickup location name must match Shiprocket exactly (`SHIPROCKET_PICKUP_LOCATION`). Press again — it resumes.
 - **Tracking never updates** — Shiprocket webhook URL + token; logs `webhook.courier_bad_token`.
-- **"Too many login attempts"** — In-memory limit: 5 per email+IP / 15 min. Wait, or restart (dev).
+- **"Too many login attempts"** — In-memory limits per 15 min: per email+IP, per IP, and per account from any IP (`auth.ts`). Wait, or restart (dev).
 - **Google button missing** — `AUTH_GOOGLE_ID/SECRET` not set — expected.
 - **Admin gets "forbidden"** — `User.role` must be ADMIN in the DB **and** the user must log out/in to refresh the cookie.
 
 ## Money / tax looks wrong
 
-- **Wrong shipping fee** — `config.ini [shipping]` (or `SHIPPING_FEE_RUPEES` override). Free threshold uses the subtotal **before** coupon. Logic: `lib/shipping-fee.ts`.
-- **IGST instead of CGST+SGST (or reverse)** — `config.ini [business] state` vs the customer's address state — must be the exact official name. `lib/gst.ts` → `isIntraState`.
+- **Wrong shipping fee** — `config/shipping.ini [shipping]` (or `SHIPPING_FEE_RUPEES` override). Free threshold uses the subtotal **before** coupon. Logic: `lib/shipping-fee.ts`.
+- **IGST instead of CGST+SGST (or reverse)** — `config/business.ini [business] state` vs the customer's address state — must be the exact official name. `lib/gst.ts` → `isIntraState`.
 - **Coupon rejected** — Message tells which rule; rules in `lib/coupons.ts`, limits in `services/coupon.service.ts`.
 - **Old invoice shows old business name** — By design: invoices are frozen at payment time.
 

@@ -35,9 +35,9 @@ export default async function AdminMarketingPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Marketing</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Last {s.days} days. Settings are in <code>config.ini</code> → <code>[marketing]</code>.
-          Every marketing email has an unsubscribe link, and unsubscribed people get no newsletter
-          or cart reminders.
+          Last {s.days} days. Settings are in <code>config/marketing.ini</code> →{" "}
+          <code>[marketing]</code>. Every marketing email has an unsubscribe link, and unsubscribed
+          people get no newsletter or cart reminders.
         </p>
       </div>
 

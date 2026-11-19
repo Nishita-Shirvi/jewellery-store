@@ -123,7 +123,7 @@ describe("stock reservations (real database, real concurrency)", () => {
     const p = await product(2);
     const o = await order(p, 2, new Date(Date.now() + 60_000));
     await db.$transaction((tx) => reserveLines(tx, [line(p, 2)]));
-    await db.$transaction((tx) => convertReservation(tx, o.id, "ACTIVE"));
+    await db.$transaction((tx) => convertReservation(tx, o.id));
     expect(await stockOf(p.id)).toEqual({ stock: 0, reservedStock: 0 });
     expect((await db.order.findUniqueOrThrow({ where: { id: o.id } })).reservationState).toBe(
       "CONVERTED",
@@ -163,9 +163,9 @@ describe("stock reservations (real database, real concurrency)", () => {
     await releaseExpiredReservations();
     // someone else now holds the only piece
     await db.$transaction((tx) => reserveLines(tx, [line(p, 1)]));
-    await expect(
-      db.$transaction((tx) => convertReservation(tx, o.id, "RELEASED")),
-    ).rejects.toBeInstanceOf(InsufficientStockError);
+    await expect(db.$transaction((tx) => convertReservation(tx, o.id))).rejects.toBeInstanceOf(
+      InsufficientStockError,
+    );
     expect(await stockOf(p.id)).toEqual({ stock: 1, reservedStock: 1 });
   });
 });

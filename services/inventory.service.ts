@@ -134,16 +134,29 @@ const lineSelect = { productId: true, variantId: true, quantity: true } as const
 /**
  * On PAID: turns the hold into a real stock decrease (stock −q, reserved −q).
  * If the hold had already expired, takes from available stock instead — or throws if it's gone.
+ *
+ * The hold is switched to CONVERTED FIRST with a conditional update (ACTIVE → CONVERTED, else
+ * RELEASED/NONE → CONVERTED). That locks the order row, so the state acted on is the real one
+ * even if the expiry job released the hold a moment ago: a stale "ACTIVE" read can never consume
+ * another buyer's hold.
  */
-export async function convertReservation(
-  tx: Tx,
-  orderId: string,
-  state: "ACTIVE" | "RELEASED" | "NONE",
-): Promise<void> {
+export async function convertReservation(tx: Tx, orderId: string): Promise<void> {
+  const converted = { reservationState: "CONVERTED" as const, reservedUntil: null };
+  const fromHold = await tx.order.updateMany({
+    where: { id: orderId, reservationState: "ACTIVE" },
+    data: converted,
+  });
+  if (fromHold.count === 0) {
+    const fromAvailable = await tx.order.updateMany({
+      where: { id: orderId, reservationState: { in: ["RELEASED", "NONE"] } },
+      data: converted,
+    });
+    if (fromAvailable.count === 0) throw new Error(`Order ${orderId} stock was already taken`);
+  }
   const lines = await tx.orderItem.findMany({ where: { orderId }, select: lineSelect });
   for (const line of lockOrder(lines)) {
     const updated =
-      state === "ACTIVE"
+      fromHold.count > 0
         ? await tx.$executeRaw`
             UPDATE "ProductVariant"
                SET "stock" = "stock" - ${line.quantity},
@@ -160,10 +173,6 @@ export async function convertReservation(
     tx,
     lines.map((l) => l.productId),
   );
-  await tx.order.update({
-    where: { id: orderId },
-    data: { reservationState: "CONVERTED", reservedUntil: null },
-  });
 }
 
 /**

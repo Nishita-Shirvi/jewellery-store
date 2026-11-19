@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as BusinessModule from "@/lib/business";
 
 /**
  * Phase 18 — cash on delivery against a real PostgreSQL database.
@@ -19,6 +20,11 @@ delete process.env.SHIPROCKET_EMAIL;
 delete process.env.SHIPROCKET_PASSWORD;
 
 vi.mock("server-only", () => ({}));
+// Invoices are refused while config/business.ini still has [placeholders]: treat them as filled in.
+vi.mock("@/lib/business", async (orig) => {
+  const real = await orig<typeof BusinessModule>();
+  return { ...real, getBusiness: () => ({ ...real.getBusiness(), incomplete: false }) };
+});
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
   revalidatePath: vi.fn(),

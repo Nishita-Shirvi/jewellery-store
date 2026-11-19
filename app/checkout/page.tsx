@@ -12,6 +12,7 @@ import { shippingFeeFor } from "@/lib/shipping-fee";
 import { config } from "@/lib/config";
 import { otpAvailable } from "@/services/otp.service";
 import { whatsappLink } from "@/lib/support";
+import { whatsappNumber } from "@/services/storefront.service";
 import { getSwitches, SWITCHES } from "@/services/switches.service";
 import { PageHeader } from "@/components/layout/page-header";
 import { TrustNotes } from "@/components/layout/trust-notes";
@@ -72,8 +73,7 @@ export default async function CheckoutPage() {
           // Cash on delivery needs its SMS code service in production (Phase 18).
           codEnabled={config.cod.enabled && otpAvailable() && !switches.cod.off}
           contactHref={
-            whatsappLink(config.support.whatsapp_number, "Hello, I'd like to place an order.") ??
-            "/contact"
+            whatsappLink(await whatsappNumber(), "Hello, I'd like to place an order.") ?? "/contact"
           }
           paymentsEnabled={isRazorpayConfigured}
         />
@@ -118,7 +118,11 @@ export default async function CheckoutPage() {
             <Link href="/cart" className="mt-4 inline-block text-sm underline underline-offset-4">
               Edit cart
             </Link>
-            <TrustNotes compact className="border-border mt-5 border-t pt-5" />
+            <TrustNotes
+              compact
+              className="border-border mt-5 border-t pt-5"
+              returnDays={config.returns.window_days}
+            />
           </div>
         </aside>
       </div>

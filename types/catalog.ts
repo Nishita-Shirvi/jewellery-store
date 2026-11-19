@@ -1,7 +1,7 @@
 /** Catalogue types. These are the data contracts the final frontend design will build on. */
-import type { MetalColour, MetalType, Purity } from "@prisma/client";
+import type { MetalColour, MetalType, PricingMode, Purity } from "@prisma/client";
 
-export type { MetalColour, MetalType, Purity };
+export type { MetalColour, MetalType, PricingMode, Purity };
 
 /** Category as defined in the dummy catalogue (seed data). */
 export interface DummyCategory {
@@ -102,6 +102,13 @@ export interface ProductDetail extends ProductCardData {
   huid: string | null;
   countryOfOrigin: string;
   isReturnable: boolean;
+  pricingMode: PricingMode;
+  makingChargeInPaise: number;
+  stoneChargeInPaise: number;
+  gstRateBps: number;
+  /** The product's tags that are occasions (lib/storefront.ts OCCASIONS). */
+  occasions: string[];
+  spinVideoUrl: string | null;
   category: { name: string; slug: string };
   /** Empty for products without options (they have a single base variant). */
   options: OptionView[];

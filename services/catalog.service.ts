@@ -7,6 +7,7 @@ import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
 import { variantJewellery } from "@/lib/variants";
 import { percentOff } from "@/lib/merch";
+import { occasionFromSlug } from "@/lib/storefront";
 import { PAGE_SIZE, slugSchema, type ProductListQuery } from "@/lib/validation/catalog";
 import type {
   CategorySummary,
@@ -93,6 +94,17 @@ export const listProducts = unstable_cache(
       // In stock = more units than are held in checkouts (compares two columns).
       ...(query.inStock ? { stock: { gt: db.product.fields.reservedStock } } : {}),
       ...(query.rating ? { ratingAvgX100: { gte: query.rating * 100 } } : {}),
+      ...(query.occasion ? { tags: { has: query.occasion } } : {}),
+      ...(query.colour ? { metalColour: query.colour } : {}),
+      // Weight filter uses the product's main net weight (sizes of one piece weigh about the same).
+      ...(query.minWeight !== undefined || query.maxWeight !== undefined
+        ? {
+            netWeightMg: {
+              ...(query.minWeight !== undefined ? { gte: Math.round(query.minWeight * 1000) } : {}),
+              ...(query.maxWeight !== undefined ? { lte: Math.round(query.maxWeight * 1000) } : {}),
+            },
+          }
+        : {}),
     };
 
     const sort = query.sort ?? (scores ? "relevance" : "newest");
@@ -129,7 +141,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v3"],
+  ["catalog:list:v4"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -170,6 +182,16 @@ export const getCategories = unstable_cache(
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
+/** The current slug of an active product that used to be at `slug` (renamed), or null. */
+export async function findRenamedProductSlug(slug: string): Promise<string | null> {
+  if (!slugSchema.safeParse(slug).success) return null;
+  const row = await db.product.findFirst({
+    where: { previousSlugs: { has: slug }, isActive: true, category: { isActive: true } },
+    select: { slug: true },
+  });
+  return row?.slug ?? null;
+}
+
 /** A single active product, or null (unknown slug, inactive product or inactive category). */
 export const getProductBySlug = unstable_cache(
   async (slug: string): Promise<ProductDetail | null> => {
@@ -186,6 +208,12 @@ export const getProductBySlug = unstable_cache(
         huid: true,
         countryOfOrigin: true,
         isReturnable: true,
+        pricingMode: true,
+        makingChargeInPaise: true,
+        stoneChargeInPaise: true,
+        gstRateBps: true,
+        tags: true,
+        spinVideoUrl: true,
         category: { select: { name: true, slug: true } },
         options: {
           orderBy: { position: "asc" },
@@ -233,6 +261,12 @@ export const getProductBySlug = unstable_cache(
       huid: row.huid,
       countryOfOrigin: row.countryOfOrigin,
       isReturnable: row.isReturnable,
+      pricingMode: row.pricingMode,
+      makingChargeInPaise: row.makingChargeInPaise,
+      stoneChargeInPaise: row.stoneChargeInPaise,
+      gstRateBps: row.gstRateBps,
+      occasions: row.tags.filter((t) => occasionFromSlug(t) !== undefined),
+      spinVideoUrl: row.spinVideoUrl,
       category: row.category,
       options: row.options.filter((o) => o.values.length > 0),
       variants: row.variants.map((v) => ({
@@ -250,6 +284,6 @@ export const getProductBySlug = unstable_cache(
       })),
     };
   },
-  ["catalog:product:v3"],
+  ["catalog:product:v4"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );

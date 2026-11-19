@@ -3,6 +3,7 @@ import { config } from "@/lib/config";
 import { db } from "@/lib/db";
 import { PAID_STATUSES } from "@/lib/order-status";
 import { dayRange, istDay, istMidnight, istWeekStart } from "@/lib/report/dates";
+import { salesRefundWhere } from "@/services/refund.service";
 
 export const FUNNEL_EVENTS = ["view_item", "add_to_cart", "begin_checkout", "purchase"] as const;
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
@@ -42,7 +43,8 @@ export async function salesReport(days = 30) {
       },
     }),
     db.refund.findMany({
-      where: { status: "PROCESSED", processedAt: { gte: since } },
+      // Only refunds of real sales: not duplicate payments, not never-paid (sold-out) orders.
+      where: { ...salesRefundWhere, processedAt: { gte: since } },
       select: { amountInPaise: true, processedAt: true },
     }),
     db.orderItem.groupBy({

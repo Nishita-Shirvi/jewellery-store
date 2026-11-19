@@ -13,8 +13,13 @@ export interface ProductFormValues {
   slug: string;
   description: string;
   categoryId: string;
+  /** FIXED (typed price) or RATE_LINKED (today's metal rate × weight + making + stones + GST). */
+  pricingMode: "FIXED" | "RATE_LINKED";
   price: string;
   makingCharge: string;
+  stoneCharge: string;
+  /** Optional 360° / turntable video link. */
+  spinVideoUrl: string;
   stock: string;
   metalType: string;
   purity: string;
@@ -94,6 +99,14 @@ export function ProductForm({
     startSubmit(() => formAction(data));
   };
   const [images, setImages] = useState<string[]>(values.images);
+  const [pricingMode, setPricingMode] = useState(values.pricingMode);
+  const rateLinked = pricingMode === "RATE_LINKED";
+  const move = (from: number, to: number) => {
+    if (to < 0 || to >= images.length) return;
+    const next = [...images];
+    [next[from], next[to]] = [next[to]!, next[from]!];
+    setImages(next);
+  };
   const [uploading, startUpload] = useTransition();
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -114,6 +127,10 @@ export function ProductForm({
   return (
     <form onSubmit={submitWithoutReset} className="space-y-8" noValidate aria-label="Product">
       {values.id && <input type="hidden" name="id" value={values.id} />}
+      {/* Stock when the form opened: the save refuses if a sale changed it meanwhile. */}
+      {values.id && !values.hasOptions && (
+        <input type="hidden" name="stockOriginal" value={values.stock} />
+      )}
       <input type="hidden" name="images" value={images.join("\n")} />
 
       {(state.error || state.message) && (
@@ -176,8 +193,14 @@ export function ProductForm({
           inputMode="decimal"
           defaultValue={values.price}
           errors={e.price}
-          readOnly={values.hasOptions}
-          hint={values.hasOptions ? "Lowest variant price — edit on the Variants page" : undefined}
+          readOnly={values.hasOptions || rateLinked}
+          hint={
+            rateLinked
+              ? "Worked out from today's rate when you save."
+              : values.hasOptions
+                ? "Lowest variant price — edit on the Variants page"
+                : undefined
+          }
         />
         <FormField
           label="Making charge (₹, optional)"
@@ -186,7 +209,33 @@ export function ProductForm({
           defaultValue={values.makingCharge}
           errors={e.makingCharge}
         />
-        <div />
+        <div className="space-y-1.5">
+          <Label htmlFor="pricingMode">Pricing</Label>
+          <select
+            id="pricingMode"
+            name="pricingMode"
+            value={pricingMode}
+            onChange={(ev) => setPricingMode(ev.target.value as typeof pricingMode)}
+            className={selectClass}
+          >
+            <option value="FIXED">Fixed price</option>
+            <option value="RATE_LINKED">Follows today&apos;s metal rate</option>
+          </select>
+          <p className="text-muted-foreground text-xs">
+            {rateLinked
+              ? "Price = net weight × today's rate (Admin → Gold rates) + making + stones, plus GST. Every size is priced by its own weight."
+              : "You type the price; it never changes on its own."}
+          </p>
+        </div>
+        {rateLinked && (
+          <FormField
+            label="Stone / other charges (₹, optional)"
+            name="stoneCharge"
+            inputMode="decimal"
+            defaultValue={values.stoneCharge}
+            errors={e.stoneCharge}
+          />
+        )}
         <Select
           label="Metal"
           name="metalType"
@@ -283,7 +332,7 @@ export function ProductForm({
             name="tags"
             defaultValue={values.tags}
             errors={e.tags}
-            hint="Comma-separated, e.g. bridal, festive, gift, daily wear. Collections can pick products by tag."
+            hint="Comma-separated, e.g. bridal, festive, gift, daily wear, office wear, party. Collections, the Occasion filter and the style advisor use these."
           />
         </div>
       </section>
@@ -306,13 +355,34 @@ export function ProductForm({
                     className="aspect-square object-cover"
                   />
                 </div>
-                <button
-                  type="button"
-                  className="text-xs text-red-700 underline"
-                  onClick={() => setImages(images.filter((_, j) => j !== i))}
-                >
-                  Remove
-                </button>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    className="underline disabled:opacity-40"
+                    onClick={() => move(i, i - 1)}
+                    disabled={i === 0}
+                    aria-label={`Move image ${i + 1} left`}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    className="underline disabled:opacity-40"
+                    onClick={() => move(i, i + 1)}
+                    disabled={i === images.length - 1}
+                    aria-label={`Move image ${i + 1} right`}
+                  >
+                    →
+                  </button>
+                  <button
+                    type="button"
+                    className="text-red-700 underline"
+                    onClick={() => setImages(images.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </button>
+                </div>
+                {i === 0 && <p className="text-muted-foreground text-xs">Main photo</p>}
               </li>
             ))}
           </ul>
@@ -336,7 +406,8 @@ export function ProductForm({
             </>
           ) : (
             <p className="text-muted-foreground text-xs">
-              Uploads switch on when Cloudinary keys are added. For now, pick a placeholder:
+              Uploads switch on when Cloudinary or Cloudflare R2 is set up (config/images.ini). For
+              now, pick a placeholder:
             </p>
           )}
           <select
@@ -358,6 +429,16 @@ export function ProductForm({
             {uploadError}
           </p>
         )}
+      </section>
+
+      <section className="max-w-2xl">
+        <FormField
+          label="360° video link (optional)"
+          name="spinVideoUrl"
+          defaultValue={values.spinVideoUrl}
+          errors={e.spinVideoUrl}
+          hint="A short .mp4 or .webm turntable video uploaded to our Cloudinary or R2. Shown next to the photos."
+        />
       </section>
 
       <fieldset className="flex flex-wrap gap-6 text-sm">

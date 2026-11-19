@@ -1,8 +1,8 @@
 # Progress
 
-**Updated:** 6 Nov 2026
+**Updated:** 19 Nov 2026
 
-**Where we are:** all 30 phases are built. Phases 28, 30 and the design pages are in PR #18, waiting to be merged. After that, we wait for the client's inputs (see `blocker.md` and `BACKLOG.md`).
+**Where we are:** all 30 phases are built, plus the storefront release (gold rates, occasions, showroom visits, `config/` folder, Cloudflare R2 — see `CHANGELOG.md`, 2026-11-19). We wait for the client's inputs (see `blocker.md` and `BACKLOG.md`).
 
 **Rule:** before starting a phase, add a "Before Phase X" note to the log below. When it's finished, tick it here.
 
@@ -55,6 +55,10 @@
 - ✅ 29 · GST reports, payment and COD reconciliation, bulk product import, API and webhooks
 - ✅ 30 · Backup restore test, kill switches, launch guides
 
+**Storefront release (19 Nov)**
+
+- ✅ Gold and metal rates with rate-linked prices per size, rate strip, occasions (tags), filters, style advisor, WhatsApp, showroom visits, Admin → Showroom, size guide, 360° video, `config/` folder, Cloudflare R2
+
 **Design**
 
 - 🟨 F · Final look. All storefront pages are done; waiting for the real logo, photos and product details.
@@ -64,6 +68,15 @@ The detailed test numbers for each phase are in its pull request (and in the old
 ---
 
 ## Pre-phase log (newest first)
+
+### Storefront release — merged with Phases 17–30 (2026-11-19)
+
+**Done so far:** Phases 1–30 on main; the storefront branch (built on Phases 1–16) merged into it.
+**Added:** metal rates and rate-linked pricing (Admin → Gold rates, rate strip, price breakup, stale-rate warning); every variant of a rate-linked product priced from its own weight; occasions as product tags, colour/weight filters, budget chips, style advisor; one WhatsApp number for every button; `/visit` booking, Admin → Visits and Admin → Showroom; size guide; 360° video, photo reorder, product delete, old-link redirects; Cloudflare R2 uploads. Migration `20261119090000_storefront_rates_visits`.
+**Changed:** `config.ini` → `config/*.ini` (nine files); return window configurable; the branch's own size list dropped in favour of Phase 17 variants; `vercel-build` migrates on production only; production env checks; create-only seed.
+**Permissions:** Gold rates — view `products.view`, save `products.edit`; Showroom — `content.manage`; Visits — `support.manage`.
+**Tests added:** `tests/storefront.test.ts`, `tests/media.test.ts`, `tests/sigv4.test.ts`, `tests/db/storefront.test.ts`; CI checks migrations match the schema.
+**Open items:** BACKLOG BL-12…BL-38.
 
 ### Before Phase 28 — Accessibility and UX polish (2026-11-05)
 
@@ -96,7 +109,7 @@ The detailed test numbers for each phase are in its pull request (and in the old
 
 **Done so far:** Phases 1–26; PR #12 (Phases 24–26) open, CI green, code-review fixes applied, Docs/BACKLOG.md started.
 **Not finished / carried over:** BL-1…BL-3 in Docs/BACKLOG.md (non-breaking).
-**Open blockers:** B-04 (business and grievance details in config.ini — shown on product pages and policies), B-09 (lawyer/CA review of the policy wording).
+**Open blockers:** B-04 (business and grievance details in config/business.ini — shown on product pages and policies), B-09 (lawyer/CA review of the policy wording).
 **Plan for this phase:** consents with a log; download my data; delete my account (orders kept); scheduled clean-up; seller / grievance / country of origin on product pages; addresses and phone numbers encrypted; policy text matching the system.
 **Risks:** making existing addresses unreadable (key handling); deleting tax records; consents that don't change anything; marketing to people who never opted in.
 **Git:** branch `week4-part2` from aac4ddd.
@@ -178,7 +191,7 @@ The detailed test numbers for each phase are in its pull request (and in the old
 **Done so far:** Phases 1–17 (variants committed as 9f463ae).
 **Not finished / carried over:** None from Phase 17.
 **Open blockers:** B-08 (MSG91 + DLT) for live SMS codes — built against a stand-in; COD stays hidden in production until the keys exist. B-05 (Shiprocket COD + remittance account). B-09 (CA: cash/PAN rules, COD fee tax).
-**Plan for this phase:** CONFIRMED status + paymentMethod COD; rules in config.ini [cod]; SMS one-time code; one-transaction order placement; Shiprocket COD shipments; RTO restock + refusal count; cash recorded after delivery; manual refunds for COD; invoices, emails, reports, admin pages.
+**Plan for this phase:** CONFIRMED status + paymentMethod COD; rules in config/shipping.ini [cod]; SMS one-time code; one-transaction order placement; Shiprocket COD shipments; RTO restock + refusal count; cash recorded after delivery; manual refunds for COD; invoices, emails, reports, admin pages.
 **Risks:** Codes reused/guessed; double clicks; stock or refusals counted twice from repeated webhooks; cash recorded twice; COD refunds accidentally sent to Razorpay; every place that assumed "PAID = ready to ship".
 **Git:** after 9f463ae on `week3-growth`.
 
@@ -195,7 +208,7 @@ The detailed test numbers for each phase are in its pull request (and in the old
 
 **Done so far:** Phases 1–16.
 **Found:** Phase 14–16 schema changes had no committed migration — a fresh production deploy would have crashed on reviews/search/audit. Fixed with an idempotent migration (D-118).
-**Changed:** `config.ini` + `lib/config.ts` for non-secret settings (D-115); logger with levels/redaction/stacks (D-116); `app.start` summary (D-117); `npm run verify`; `.nvmrc`; Sentry config deprecations fixed; GO_LIVE_CHECKLIST double-refund step corrected.
+**Changed:** `config.ini` (now the `config/` folder) + `lib/config.ts` for non-secret settings (D-115); logger with levels/redaction/stacks (D-116); `app.start` summary (D-117); `npm run verify`; `.nvmrc`; Sentry config deprecations fixed; GO_LIVE_CHECKLIST double-refund step corrected.
 **Verified:** lint, typecheck, 164 unit tests, 25 DB tests on PostgreSQL 16, production build, client-bundle secret scan, 3 Playwright E2E (browse → cart → checkout → pay).
 **Docs:** ARCHITECTURE, CONFIGURATION, LOGGING, FEATURES, INTEGRATIONS, `learning/` (6 guides); README rewritten.
 

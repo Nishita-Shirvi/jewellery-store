@@ -33,6 +33,7 @@ import { updateOrderStatus } from "@/services/admin/order-admin.service";
 import {
   AdminInputError,
   createProduct,
+  deleteProduct,
   setProductActive,
   setProductStock,
   updateProduct,
@@ -167,23 +168,53 @@ export async function saveProductAction(
           before as unknown as Record<string, unknown>,
           {
             name: parsed.data.name,
-            priceInPaise: parsed.data.price,
-            stock: parsed.data.stock,
+            ...(parsed.data.pricingMode === "FIXED" ? { priceInPaise: parsed.data.price } : {}),
+            pricingMode: parsed.data.pricingMode,
+            // Stock is written only when the admin changed it (and never for pieces with
+            // variants), so only then is it a change worth logging.
+            ...(!before.hasOptions &&
+            (parsed.data.stockOriginal === undefined ||
+              parsed.data.stock !== parsed.data.stockOriginal)
+              ? { stock: parsed.data.stock }
+              : {}),
             isActive: parsed.data.isActive,
             isFeatured: parsed.data.isFeatured,
+            isReturnable: parsed.data.isReturnable,
             gstRateBps: parsed.data.gstRate,
             hsnCode: parsed.data.hsnCode,
             categoryId: parsed.data.categoryId,
+            makingChargeInPaise: parsed.data.makingCharge,
+            stoneChargeInPaise: parsed.data.stoneCharge,
+            netWeightMg: parsed.data.netWeight ?? 0,
+            grossWeightMg: parsed.data.grossWeight,
+            purity: parsed.data.purity,
+            huid: parsed.data.huid,
+            images: parsed.data.images,
+            tags: parsed.data.tags,
+            spinVideoUrl: parsed.data.spinVideoUrl,
+            ...(parsed.data.slug ? { slug: parsed.data.slug } : {}),
           },
           [
             "name",
             "priceInPaise",
+            "pricingMode",
             "stock",
             "isActive",
             "isFeatured",
+            "isReturnable",
             "gstRateBps",
             "hsnCode",
             "categoryId",
+            "makingChargeInPaise",
+            "stoneChargeInPaise",
+            "netWeightMg",
+            "grossWeightMg",
+            "purity",
+            "huid",
+            "images",
+            "tags",
+            "spinVideoUrl",
+            "slug",
           ],
         );
         await audit(admin, {
@@ -211,6 +242,29 @@ export async function saveProductAction(
   redirect(`/admin/products/${savedId}?created=1`);
 }
 
+export async function deleteProductAction(
+  _prev: AdminFormState,
+  formData: FormData,
+): Promise<AdminFormState> {
+  const admin = await requirePermission("products.edit");
+  const parsed = idSchema.safeParse({ id: formData.get("id") });
+  if (!parsed.success) return { error: "Invalid product." };
+  let name: string;
+  try {
+    ({ name } = await deleteProduct(parsed.data.id, admin.id));
+  } catch (error) {
+    return fail(error);
+  }
+  await audit(admin, {
+    action: "product.delete",
+    entityType: "product",
+    entityId: parsed.data.id,
+    summary: `Deleted ${name}`,
+  });
+  revalidatePath("/admin/products");
+  redirect("/admin/products?deleted=1");
+}
+
 export async function toggleProductActiveAction(formData: FormData): Promise<void> {
   const admin = await requirePermission("products.edit");
   const parsed = idSchema.safeParse({ id: formData.get("id") });
@@ -233,11 +287,12 @@ export async function updateStockAction(formData: FormData): Promise<void> {
   const parsed = stockUpdateSchema.safeParse({
     id: formData.get("id"),
     stock: formData.get("stock"),
+    stockOriginal: formData.get("stockOriginal") ?? undefined,
   });
   if (!parsed.success) return;
   const beforeStock = (await getProductAdmin(parsed.data.id))?.stock;
   try {
-    await setProductStock(parsed.data.id, parsed.data.stock, admin.id);
+    await setProductStock(parsed.data.id, parsed.data.stock, admin.id, parsed.data.stockOriginal);
   } catch (error) {
     // Refused (piece has options, or stock below units held in checkouts): nothing changed.
     if (error instanceof AdminInputError) {
@@ -506,10 +561,13 @@ export async function generateInvoiceAction(formData: FormData): Promise<void> {
       entityId: parsed.data.id,
       summary: `Invoice ${invoice.number} generated`,
     });
-  if (!invoice)
-    redirect(
-      `/admin/orders/${parsed.data.id}?error=${encodeURIComponent("Couldn't create the invoice (is the order paid?). Check the logs.")}`,
-    );
+  if (!invoice) {
+    const { getBusiness } = await import("@/lib/business");
+    const why = getBusiness().incomplete
+      ? "Couldn't create the invoice: the business details in config/business.ini are still placeholders ([GSTIN] etc.). Fill them in and redeploy, then try again."
+      : "Couldn't create the invoice (is the order paid?). Check the logs.";
+    redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(why)}`);
+  }
   revalidatePath(`/admin/orders/${parsed.data.id}`);
 }
 

@@ -42,6 +42,10 @@ vi.mock("@/services/admin/product-admin.service", () => ({
   updateProduct: spy("updateProduct"),
   setProductActive: spy("setProductActive"),
   setProductStock: spy("setProductStock"),
+  deleteProduct: vi.fn(async () => {
+    touched.push("deleteProduct");
+    return { name: "Old name" };
+  }),
   getProductAdmin: vi.fn(async () => ({
     id: "abc123",
     name: "Old name",
@@ -290,6 +294,7 @@ const NEEDS: Record<string, Permission> = {
   saveProductAction: "products.edit",
   toggleProductActiveAction: "products.edit",
   updateStockAction: "products.edit",
+  deleteProductAction: "products.edit",
   uploadImageAction: "products.edit",
   saveCategoryAction: "products.edit",
   deleteCategoryAction: "products.edit",

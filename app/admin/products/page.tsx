@@ -21,6 +21,7 @@ export default async function AdminProductsPage({
   const raw = await searchParams;
   const query = adminListQuerySchema.parse(raw);
   const stockError = raw.stockError?.slice(0, 200);
+  const deleted = raw.deleted === "1";
   const { items, total, pageCount } = await listProductsAdmin(query);
 
   return (
@@ -38,6 +39,14 @@ export default async function AdminProductsPage({
             className="w-full rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
           >
             Stock not changed: {stockError}
+          </p>
+        )}
+        {deleted && (
+          <p
+            role="status"
+            className="w-full rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
+            Product deleted.
           </p>
         )}
       </div>
@@ -60,6 +69,7 @@ export default async function AdminProductsPage({
           <option value="active">Visible</option>
           <option value="inactive">Hidden</option>
           <option value="low">Low stock</option>
+          <option value="rate">Follows metal rate</option>
         </select>
         <Button type="submit" variant="outline">
           Filter
@@ -102,6 +112,9 @@ export default async function AdminProductsPage({
                 <td className="p-3">
                   {p._count.options > 0 && <span className="text-muted-foreground">from </span>}
                   {formatINR(p.priceInPaise)}
+                  {p.pricingMode === "RATE_LINKED" && (
+                    <p className="text-muted-foreground text-xs">Follows metal rate</p>
+                  )}
                 </td>
                 <td className="p-3">
                   {p._count.options > 0 ? (
@@ -115,8 +128,15 @@ export default async function AdminProductsPage({
                       </Link>
                     </p>
                   ) : (
-                    <form action={updateStockAction} className="flex items-center gap-1">
+                    // key: a fresh form (and stock) after every save or sale.
+                    <form
+                      key={p.stock}
+                      action={updateStockAction}
+                      className="flex items-center gap-1"
+                    >
                       <input type="hidden" name="id" value={p.id} />
+                      {/* Stock shown now: the save is refused if a sale changes it first. */}
+                      <input type="hidden" name="stockOriginal" value={p.stock} />
                       <Input
                         name="stock"
                         type="number"

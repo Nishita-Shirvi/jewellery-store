@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as BusinessModule from "@/lib/business";
 
 /**
  * Phase 19 "done when": checkout doesn't depend on email/PDF/Shiprocket, a forced failure retries
@@ -9,6 +10,11 @@ process.env.RESEND_API_KEY = "re_test_key_for_jobs_flow";
 process.env.EMAIL_FROM = "Store <orders@example.com>";
 
 vi.mock("server-only", () => ({}));
+// Invoices are refused while config/business.ini still has [placeholders]: treat them as filled in.
+vi.mock("@/lib/business", async (orig) => {
+  const real = await orig<typeof BusinessModule>();
+  return { ...real, getBusiness: () => ({ ...real.getBusiness(), incomplete: false }) };
+});
 vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
   revalidatePath: vi.fn(),

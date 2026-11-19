@@ -18,7 +18,7 @@ Week 3 (Phases 17–23) is built and tested on branch `week3-growth`. **It is no
 
 - [ ] New environment variables as needed: `CRON_SECRET` (background jobs; staff two-step sign-in needs nothing new, its key comes from `AUTH_SECRET`), `MSG91_AUTH_KEY` + `MSG91_OTP_TEMPLATE_ID` (cash on delivery, B-08), `NEXT_PUBLIC_SENTRY_DSN`, `CLOUDINARY_*`, `RESEND_API_KEY`.
 - [ ] Background jobs: GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`) so `/api/cron/jobs` runs every 10 minutes for retries and reminders. Check **Admin → Background jobs** shows jobs finishing.
-- [ ] `config.ini`: `[support] notify_email` and (optional) `whatsapp_number`; `[cod]` rules if cash on delivery will be offered.
+- [ ] `config/customer.ini`: `[support] notify_email` and (optional) `whatsapp_number`; `config/shipping.ini` `[cod]` rules if cash on delivery will be offered.
 
 ## 4. After deploying
 

@@ -245,7 +245,7 @@ export async function deleteAccount(userId: string) {
 }
 
 /**
- * Daily clean-up of data no longer needed ([privacy] in config.ini). Orders, invoices, payments
+ * Daily clean-up of data no longer needed ([privacy] in config/customer.ini). Orders, invoices, payments
  * and refunds are never touched. Idempotent: running it again deletes nothing new.
  */
 export async function purgeOldData(now = new Date()) {

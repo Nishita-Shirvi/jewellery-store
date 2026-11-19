@@ -221,7 +221,7 @@ describe("stock is tracked per variant", () => {
     const [v0, v1] = p.variants as [V, V];
     const paid = await order([line(v0, 2)]);
     await db.$transaction((tx) => reserveLines(tx, [line(v0, 2)]));
-    await db.$transaction((tx) => convertReservation(tx, paid.id, "ACTIVE"));
+    await db.$transaction((tx) => convertReservation(tx, paid.id));
     expect(await variantStock(v0.id)).toEqual({ stock: 1, reservedStock: 0 });
     expect(await variantStock(v1.id)).toEqual({ stock: 3, reservedStock: 0 });
 

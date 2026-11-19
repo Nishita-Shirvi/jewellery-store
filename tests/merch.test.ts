@@ -105,7 +105,7 @@ describe("dates are India time, whatever the server's time zone", () => {
     expect(parseIstLocal("2026-02-31T10:00")).toBeUndefined();
     expect(parseIstLocal("tomorrow")).toBeUndefined();
   });
-  it("festival ranges from config.ini", () => {
+  it("festival ranges from config/marketing.ini", () => {
     expect(parseDateRange("2026-11-06..2026-11-08")).toEqual({
       from: "2026-11-06",
       to: "2026-11-08",

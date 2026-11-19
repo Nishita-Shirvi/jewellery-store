@@ -22,7 +22,10 @@ export interface AuditEntry {
     | "collection"
     | "home_section"
     | "announcement"
-    | "page";
+    | "page"
+    | "metal_rate"
+    | "settings"
+    | "visit";
   entityId: string;
   summary: string;
   changes?: Record<string, { from: unknown; to: unknown }>;

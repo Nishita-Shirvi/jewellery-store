@@ -24,6 +24,7 @@ import { RefundList } from "@/components/returns/refund-list";
 import { Input } from "@/components/ui/input";
 import { RETURN_REASON_LABEL } from "@/lib/returns";
 import { getReturnsAndRefunds } from "@/services/return.service";
+import { canRetryRefund } from "@/services/refund.service";
 import { db } from "@/lib/db";
 import { SHIPMENT_LABEL, TrackingTimeline } from "@/components/shipping/tracking-timeline";
 import { isShiprocketConfigured } from "@/lib/env";
@@ -272,17 +273,19 @@ export default async function AdminOrderPage({
                   </Button>
                 </form>
               ))}
-          {refunds
-            .filter((r) => r.status === "FAILED")
-            .map((r) => (
-              <form key={r.id} action={retryRefundAction}>
-                <input type="hidden" name="refundId" value={r.id} />
-                <input type="hidden" name="orderId" value={order.id} />
-                <Button type="submit" size="sm" variant="outline">
-                  Retry refund of {formatINR(r.amountInPaise)}
-                </Button>
-              </form>
-            ))}
+          {order.paymentMethod !== "COD" &&
+            refunds
+              // Failed, or never reached Razorpay for 10+ minutes.
+              .filter((r) => canRetryRefund(r))
+              .map((r) => (
+                <form key={r.id} action={retryRefundAction}>
+                  <input type="hidden" name="refundId" value={r.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    Retry refund of {formatINR(r.amountInPaise)}
+                  </Button>
+                </form>
+              ))}
         </section>
       )}
 

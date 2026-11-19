@@ -1,3 +1,4 @@
+import { config } from "@/lib/config";
 import type { Metadata } from "next";
 import { POLICY_LAST_UPDATED, getBusiness } from "@/lib/business";
 
@@ -16,10 +17,19 @@ export default function RefundPolicyPage() {
       </p>
       <h2>Returns</h2>
       <ul>
-        <li>
-          Returnable pieces can be returned within 7 days of delivery. Each product page says
-          whether the piece is returnable.
-        </li>
+        {config.returns.window_days > 0 ? (
+          <li>
+            Returnable pieces can be returned within {config.returns.window_days} days of delivery.
+            Each product page says whether the piece is returnable.
+          </li>
+        ) : (
+          // [returns] window_days = 0: no change-of-mind returns (wording to confirm with the owner).
+          <li>
+            We don&apos;t accept returns of pieces you&apos;ve changed your mind about. If a piece
+            arrives damaged or different from what you ordered, see &ldquo;Damaged or wrong
+            item&rdquo; below.
+          </li>
+        )}
         <li>
           The piece must be unused and in its original condition and packaging, with all tags,
           certificates and the invoice.

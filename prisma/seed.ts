@@ -3,12 +3,26 @@
  * base variant), plus one demo ring with options (3 ring sizes × 2 metal colours = 6 variants).
  * Run with: npx prisma db seed
  *
- * Safe to run more than once: everything is upserted by email/slug.
+ * Safe to run more than once: rows are only CREATED when missing (by email/slug). Existing
+ * categories, products and variants are never changed, so a re-run can't overwrite real prices,
+ * stock, images or an admin's "inactive" switch. Refuses to run against production unless
+ * SEED_ALLOW_PROD=1.
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { dummyCategories, dummyProducts } from "./seed-data/catalog";
+
+if (
+  (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") &&
+  process.env.SEED_ALLOW_PROD !== "1"
+) {
+  console.error(
+    "❌ Refusing to seed a production database (NODE_ENV/VERCEL_ENV=production). " +
+      "Set SEED_ALLOW_PROD=1 if you really mean it.",
+  );
+  process.exit(1);
+}
 
 const seedEnv = z
   .object({
@@ -56,7 +70,7 @@ async function seedCategories(): Promise<Map<string, string>> {
   for (const [index, category] of dummyCategories.entries()) {
     const row = await db.category.upsert({
       where: { slug: category.slug },
-      update: { name: category.name, image: category.image, sortOrder: index },
+      update: {}, // create-only: never overwrite an existing category
       create: { name: category.name, slug: category.slug, image: category.image, sortOrder: index },
     });
     idsBySlug.set(category.slug, row.id);
@@ -91,7 +105,15 @@ const DEMO_TAGS: Record<string, string[]> = {
 };
 
 async function seedProducts(categoryIds: Map<string, string>) {
+  const createdIds: string[] = [];
   for (const product of dummyProducts) {
+    // Create-only: an existing product (maybe edited by the admin) is left exactly as it is.
+    const exists = await db.product.findUnique({
+      where: { slug: product.slug },
+      select: { id: true },
+    });
+    if (exists) continue;
+
     const categoryId = categoryIds.get(product.categorySlug);
     if (!categoryId)
       throw new Error(`Unknown category "${product.categorySlug}" for ${product.slug}`);
@@ -114,18 +136,15 @@ async function seedProducts(categoryIds: Map<string, string>) {
 
     const saved = await db.product.upsert({
       where: { slug: product.slug },
-      update: data,
+      update: {}, // a parallel run created it first: still never overwrite
       create: { ...data, slug: product.slug },
       select: { id: true },
     });
+    createdIds.push(saved.id);
     // Phase 17: every product is sold through a variant. Products without options have one.
     await db.productVariant.upsert({
       where: { productId_optionKey: { productId: saved.id, optionKey: "" } },
-      update: {
-        priceInPaise: product.priceInPaise,
-        stock: product.stock,
-        netWeightMg: product.netWeightMg,
-      },
+      update: {},
       create: {
         productId: saved.id,
         sku: product.slug.toUpperCase(),
@@ -139,9 +158,14 @@ async function seedProducts(categoryIds: Map<string, string>) {
   for (const [slug, tags] of Object.entries(DEMO_TAGS)) {
     await db.product.updateMany({ where: { slug, tags: { isEmpty: true } }, data: { tags } });
   }
-  console.log(`✔ Products: ${dummyProducts.length}`);
-  // Build the search words for every product (same rules as services/search.service.ts; it also self-heals on first search).
-  await db.$executeRaw`UPDATE "Product" SET "searchText" = '' `;
+  console.log(
+    `✔ Products: ${createdIds.length} created, ${dummyProducts.length - createdIds.length} already there`,
+  );
+  // Empty searchText = "rebuild me" (services/search.service.ts self-heals on first search).
+  // Only for rows created here: the search words of existing products are left alone.
+  if (createdIds.length > 0) {
+    await db.$executeRaw`UPDATE "Product" SET "searchText" = '' WHERE "id" = ANY(${createdIds})`;
+  }
 }
 
 /** A ring sold in 3 sizes × 2 colours; each variant has its own SKU, price, stock and weight. */
@@ -197,8 +221,7 @@ async function seedVariantDemo(categoryIds: Map<string, string>) {
       const priceInPaise = 2850000 + si * 150000;
       await db.productVariant.upsert({
         where: { productId_optionKey: { productId: product.id, optionKey } },
-        // Re-seeding resets the demo stock, like the other dummy products.
-        update: { stock: 3, priceInPaise, isActive: true },
+        update: {}, // create-only: never reset stock, price or an admin's "inactive" switch
         create: {
           productId: product.id,
           sku: `PLAIN-GOLD-BAND-${size}-${colour.toUpperCase()}`,

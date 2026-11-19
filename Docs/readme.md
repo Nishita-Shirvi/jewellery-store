@@ -15,7 +15,7 @@ This folder is the project's memory. It tracks what we are building, where we ar
   - Purpose: Stack, layers, folder map, background jobs, safety properties
   - Update when: Structure or stack changes
 - **`CONFIGURATION.md`**
-  - Purpose: `config.ini` (settings) vs `.env` (secrets) — every key, overrides, adding a setting
+  - Purpose: `config/*.ini` (settings) vs `.env` (secrets) vs admin panel — every key, overrides, adding a setting
   - Update when: A setting or env variable is added/removed
 - **`LOGGING.md`**
   - Purpose: Logger usage, where to read logs, built-in debugging tools
@@ -24,8 +24,23 @@ This folder is the project's memory. It tracks what we are building, where we ar
   - Purpose: What each feature does for customers and admins
   - Update when: Feature behaviour changes
 - **`INTEGRATIONS.md`**
-  - Purpose: Setup steps: Razorpay, Resend, Shiprocket, Cloudinary, Google, MSG91, Sentry, GA4, cron
+  - Purpose: Setup steps: Razorpay, Resend, Shiprocket, Cloudinary / Cloudflare R2, Google, MSG91, Sentry, GA4, cron, WhatsApp
   - Update when: An integration is added or its setup changes
+- **`ONBOARDING.md`**
+  - Purpose: First day for a new developer: set-up, where things are, how to make a change
+  - Update when: Set-up or conventions change
+- **`SECURITY_REVIEW.md`**
+  - Purpose: Security review results and the checks behind them
+  - Update when: After a security review
+
+### Run the shop
+
+- **`ADMIN_GUIDE.md`**
+  - Purpose: Plain-language guide for the owner and staff: daily routine, gold rates, products, variants, occasions, visits, showroom details, orders, money and tax
+  - Update when: Anything in the admin panel changes
+- **`RUNBOOK.md`**
+  - Purpose: What each alert means, what to check first, how to fix it
+  - Update when: An alert or recovery step changes
 
 ### Run and ship
 
@@ -38,8 +53,11 @@ This folder is the project's memory. It tracks what we are building, where we ar
 - **`BACKUPS.md`**
   - Purpose: Database backups and restore steps
   - Update when: Backup setup changes
-- **`RELEASE_WEEK2.md`**
-  - Purpose: Release checklist used for the Week 2 release
+- **`LAUNCH.md`**
+  - Purpose: Soft launch, first 24 hours, rollback
+  - Update when: Before launch
+- **`RELEASE_WEEK2.md`**, **`RELEASE_WEEK3.md`**
+  - Purpose: Release checklists used for the Week 2 and Week 3 releases
   - Update when: (historical)
 
 ### Plan and track
@@ -56,6 +74,9 @@ This folder is the project's memory. It tracks what we are building, where we ar
 - **`blocker.md`**
   - Purpose: Everything stopping or slowing work, who must act, and next steps
   - Update when: As soon as a blocker appears or is solved
+- **`BACKLOG.md`**
+  - Purpose: Known work not done yet (BL-numbers), with why it matters and the fix
+  - Update when: An item is found, or delete it when done
 - **`note.md`**
   - Purpose: Decisions, defaults, jewellery domain notes
   - Update when: Whenever a default is chosen or something is worth remembering
@@ -95,4 +116,4 @@ When starting a new chat mid-project, paste Prompt 0, the folder tree, `prisma/s
 
 ## Current status
 
-See `checklist.md` (summary) and `progress.md` (detail). As of 2026-10-25: Phases 1–16 done and verified; production hardening pass done (missing Phase 14–16 migration added, `config.ini`, structured logger, docs + learning path). Going live waits on client accounts (`blocker.md`).
+See `checklist.md` (summary) and `progress.md` (detail). As of 2026-11-19: Phases 1–30 done; storefront release merged (gold-rate pricing, occasions as tags, WhatsApp + showroom visits, Admin → Showroom, `config/` folder replacing `config.ini`, Cloudflare R2 — see `../CHANGELOG.md`). Going live waits on client accounts (`blocker.md`).

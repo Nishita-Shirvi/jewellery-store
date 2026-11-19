@@ -37,7 +37,7 @@ The E2E run needs the same variables as CI: copy the `env:` block of `.github/wo
 - **Slow / retryable work** (emails, calls to other services) → a job (`enqueue` in `services/jobs.service.ts`, handler in `services/job-handlers.ts`), queued inside the same transaction as the change.
 - **Money** is integer paise, weights integer milligrams. Prices are always recalculated on the server.
 - **Personal data** (addresses, phones, invoice buyer) is encrypted with `lib/pii.ts` — use `encryptPii`/`decryptPii`, never store it in plain text.
-- Settings that the owner may change → `config.ini` (+ `lib/config.ts` schema), secrets → environment variables (+ `lib/env.ts` and `.env.example`).
+- Settings that the owner may change → the right `config/*.ini` file (+ `lib/config.ts` schema; day-to-day values such as gold rates and showroom details go in the admin instead), secrets → environment variables (+ `lib/env.ts` and `.env.example`).
 - Big or risky changes get tests that fail without the fix (we check this by mutating the code).
 
 ## Where things are

@@ -329,7 +329,7 @@ const FESTIVAL_NAMES = {
   wedding_season: "Wedding season",
 } as const;
 
-/** One-click date ranges for the schedule pickers, from config.ini [festivals]. */
+/** One-click date ranges for the schedule pickers, from config/marketing.ini [festivals]. */
 export function festivalPresets(): { name: string; from: string; to: string }[] {
   return Object.entries(FESTIVAL_NAMES).flatMap(([key, name]) => {
     const range = parseDateRange(config.festivals[key as keyof typeof FESTIVAL_NAMES] ?? "");

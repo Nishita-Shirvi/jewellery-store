@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getBusiness } from "@/lib/business";
+import { config } from "@/lib/config";
+import { whatsappLink } from "@/lib/support";
+import { getStorefrontSettings, whatsappNumber } from "@/services/storefront.service";
 
 export const metadata: Metadata = { title: "Contact us" };
 
-export default function ContactPage() {
+export default async function ContactPage() {
   const b = getBusiness();
+  const s = await getStorefrontSettings();
+  const whatsappTo = await whatsappNumber();
+  const whatsapp = whatsappLink(whatsappTo, "Hello, I have a question.");
   return (
     <>
       <h1>Contact us</h1>
@@ -17,9 +24,48 @@ export default function ContactPage() {
           </a>
         </dd>
         <dt className="text-muted-foreground">Phone</dt>
-        <dd>{b.phone}</dd>
+        <dd>{s.phone || b.phone}</dd>
+        {whatsapp && (
+          <>
+            <dt className="text-muted-foreground">WhatsApp</dt>
+            <dd>
+              <a className="underline" href={whatsapp} target="_blank" rel="noopener noreferrer">
+                {whatsappTo}
+              </a>
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">Hours</dt>
-        <dd>Monday–Saturday, 10 am – 6 pm IST</dd>
+        <dd>{s.hours || "Monday–Saturday, 10 am – 6 pm IST"}</dd>
+        {s.showroomAddress && (
+          <>
+            <dt className="text-muted-foreground">Showroom</dt>
+            <dd className="whitespace-pre-line">
+              {s.showroomAddress}
+              {s.mapUrl && (
+                <>
+                  <br />
+                  <a
+                    className="underline"
+                    href={s.mapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open in Google Maps
+                  </a>
+                </>
+              )}
+              {config.features.visit_booking && (
+                <>
+                  <br />
+                  <Link className="underline" href="/visit">
+                    Book a visit
+                  </Link>
+                </>
+              )}
+            </dd>
+          </>
+        )}
         <dt className="text-muted-foreground">Registered office</dt>
         <dd>
           {b.legalName}

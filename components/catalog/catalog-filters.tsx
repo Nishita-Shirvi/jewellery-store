@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { purityLabel } from "@/lib/jewellery";
+import { colourLabel, purityLabel } from "@/lib/jewellery";
+import { OCCASIONS } from "@/lib/storefront";
 import type { ProductListQuery } from "@/lib/validation/catalog";
 import type { CategorySummary } from "@/types/catalog";
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-const PURITIES = ["K22", "K18", "K14", "S925"] as const;
+const PURITIES = ["K24", "K22", "K18", "K14", "S925", "PT950"] as const;
+const COLOURS = ["YELLOW", "WHITE", "ROSE", "SILVER"] as const;
 
 /**
  * Plain GET form: works without JavaScript and keeps every filter in the URL,
@@ -37,6 +39,23 @@ export function CatalogFilters({
           {categories.map((c) => (
             <option key={c.slug} value={c.slug}>
               {c.name} ({c.productCount})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="filter-occasion">Occasion</Label>
+        <select
+          id="filter-occasion"
+          name="occasion"
+          defaultValue={query.occasion ?? ""}
+          className={selectClass}
+        >
+          <option value="">Any occasion</option>
+          {OCCASIONS.map((o) => (
+            <option key={o.tag} value={o.tag}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -74,6 +93,23 @@ export function CatalogFilters({
         </select>
       </div>
 
+      <div className="space-y-1.5">
+        <Label htmlFor="filter-colour">Colour</Label>
+        <select
+          id="filter-colour"
+          name="colour"
+          defaultValue={query.colour ?? ""}
+          className={selectClass}
+        >
+          <option value="">Any colour</option>
+          {COLOURS.map((c) => (
+            <option key={c} value={c}>
+              {colourLabel[c]}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <fieldset className="space-y-1.5">
         <legend className="text-sm font-medium">Price (₹)</legend>
         <div className="flex items-center gap-2">
@@ -92,6 +128,29 @@ export function CatalogFilters({
             inputMode="numeric"
             placeholder="Max"
             defaultValue={query.maxPrice ?? ""}
+            className={selectClass}
+          />
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-1.5">
+        <legend className="text-sm font-medium">Metal weight (g)</legend>
+        <div className="flex items-center gap-2">
+          <input
+            aria-label="Minimum weight in grams"
+            name="minWeight"
+            inputMode="decimal"
+            placeholder="Min"
+            defaultValue={query.minWeight ?? ""}
+            className={selectClass}
+          />
+          <span aria-hidden="true">–</span>
+          <input
+            aria-label="Maximum weight in grams"
+            name="maxWeight"
+            inputMode="decimal"
+            placeholder="Max"
+            defaultValue={query.maxWeight ?? ""}
             className={selectClass}
           />
         </div>

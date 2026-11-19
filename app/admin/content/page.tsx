@@ -439,7 +439,7 @@ export default async function AdminContentPage({
         </div>
         <p className="text-muted-foreground text-sm">
           About us, Jewellery care, Size guide… at /pages/&lt;address&gt;. The legal pages (privacy,
-          terms, returns) come from config.ini and aren&apos;t edited here.
+          terms, returns) come from config/*.ini and aren&apos;t edited here.
         </p>
         <ul className="divide-border divide-y rounded-md border">
           {pages.length === 0 && (

@@ -54,6 +54,10 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
     const p = parse(z.object({ orderId: id }), payload);
     const { createInvoiceForOrder } = await import("@/services/invoice.service");
     if (await createInvoiceForOrder(p.orderId)) return;
+    // Business details still [placeholders] (config/business.ini): nothing to retry. The admin
+    // presses "Generate invoice" once they're filled in (no number is used up meanwhile).
+    const { getBusiness } = await import("@/lib/business");
+    if (getBusiness().incomplete) return;
     const order = await db.order.findUnique({
       where: { id: p.orderId },
       select: { paidAt: true, paymentMethod: true },
@@ -183,6 +187,9 @@ const handlers: Record<JobType, (payload: Prisma.JsonValue) => Promise<void>> = 
       const { CATALOG_TAG } = await import("@/services/catalog.service");
       revalidateTag(CATALOG_TAG);
     }
+    // Also send refunds that a crash left unsent (PENDING, never reached Razorpay, 10+ min old).
+    const { sendStuckRefunds } = await import("@/services/refund.service");
+    await sendStuckRefunds();
   },
 };
 
