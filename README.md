@@ -10,7 +10,7 @@ Next.js 15 (App Router) · TypeScript · Tailwind CSS 4 · PostgreSQL + Prisma 6
 
 ## Quick start
 
-Requirements: Node.js 20.9+ (22 recommended, see `.nvmrc`) and a PostgreSQL 15+ database — a free [Neon](https://neon.tech) database or a local PostgreSQL install.
+Requirements: Node.js 24 (see `.nvmrc`; Vercel builds with Node 24 too) and a PostgreSQL 15+ database — a free [Neon](https://neon.tech) database or a local PostgreSQL install.
 
 ```bash
 npm install                 # also runs prisma generate
