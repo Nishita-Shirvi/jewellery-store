@@ -207,6 +207,17 @@ describe("fix 1: a payment that can't pay the order is refunded, exactly once", 
     expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(1);
   });
 
+  it("extra payment on an order cancelled after payment → refunded, never sent to the success page", async () => {
+    const p = await product(1);
+    const payA = pid();
+    const o = await order(p, { status: "PAID", paidWith: payA });
+    // The customer cancelled after paying: being refunded, paidAt still set.
+    await db.order.update({ where: { id: o.id }, data: { status: "REFUND_PENDING" } });
+    const result = await pay(o.rzpOrderId, pid());
+    expect(result).toEqual({ outcome: "extra_payment_refunded", orderId: o.id });
+    expect(rzp.creates).toBe(1);
+  });
+
   it("never says 'refunding in full' for a recorded payment that has no refund", async () => {
     const p = await product(1);
     const o = await order(p, { status: "CANCELLED", reservationState: "RELEASED" });

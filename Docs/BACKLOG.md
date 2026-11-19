@@ -94,7 +94,7 @@ The catalogue's net-weight filter compares the product's main weight, not each s
 Fix: filter on variant weights.
 
 **BL-21 · Old product links are looked up without a cache or index.**
-`findRenamedProductSlug` runs an uncached `previousSlugs has` query on every unknown `/products/<slug>`; bots can send many.
+`findRenamedProductSlug` runs an uncached `previousSlugs has` query on every unknown `/products/<slug>` (bots can send many), and `uniqueSlug` runs it up to 99 times per save.
 Fix: wrap it in `unstable_cache` with the catalogue tag and add a GIN index on `previousSlugs`.
 
 **BL-22 · The large-rate-change check is written twice.**
@@ -168,5 +168,25 @@ Fix: export `Sentry.captureRouterTransitionStart`.
 **BL-39 · Invoices for orders paid while business details were placeholders.**
 Until `config/business.ini` is filled in, paid orders get no invoice (no number is used up) and the admin presses "Generate invoice" on each later.
 Fix: a daily job that creates the missing invoices once the details are real — after confirming with the CA which invoice date to use for late invoices, and skipping orders refunded or cancelled meanwhile.
+
+**BL-40 · Reading current rates loads the whole rate history.**
+`readCurrentRates` uses Prisma `distinct`, which fetches every MetalRate row and de-duplicates in Node. Every save adds rows, and it runs once per product while repricing.
+Fix: one `findFirst` per purity (uses the `[purity, createdAt]` index) or a raw `DISTINCT ON`.
+
+**BL-41 · "Reprice now" count loads every rate-linked product.**
+`productsNeedingReprice` loads all rate-linked products and sizes on every rates-page view, just to count them.
+Fix: compare in SQL, or store a "repriced at" time per product and compare with the newest rate.
+
+**BL-42 · Per-account login limit can lock the owner out.**
+20 wrong passwords for an email (from any IPs) block that account for 15 minutes, including staff. Someone could keep the owner out of the admin.
+Fix: on the account limit, ask for an emailed code (or CAPTCHA) instead of refusing; log the targeted account; consider exempting staff who pass two-step sign-in.
+
+**BL-43 · Payment for an order whose hold is already "converted" errors instead of refunding.**
+`convertReservation` throws a plain error when an order that is about to be paid is already marked CONVERTED (only possible after a manual database fix). The webhook then fails and retries.
+Fix: treat it like "sold out" (record and refund) and log it for a person to check.
+
+**BL-44 · Visit requests wait for every admin email.**
+The visit form sends the alert emails one after another before answering the shopper.
+Fix: queue the alert as a background job (like order emails).
 
 When something here is fixed, delete it and mention it in `CHANGELOG.md`.

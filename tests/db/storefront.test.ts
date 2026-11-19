@@ -271,6 +271,20 @@ describe("product edits", () => {
     expect((await variantsOf(p.id))[0]!.priceInPaise).toBe(6_386_00);
   });
 
+  it("a piece with sizes can follow the rate even with no rate for the product's own purity", async () => {
+    const p = await product({ purity: "K24" }); // no K24 rate is ever saved in these tests
+    await variantAdmin.saveOptions(p.id, [{ name: "Ring size", values: ["10", "12"] }], adminId);
+    await db.productVariant.updateMany({ where: { productId: p.id }, data: { purity: "PT950" } });
+    await updateProduct(
+      p.id,
+      form(p, { pricingMode: "RATE_LINKED", price: "", purity: "K24", metalType: "GOLD" }),
+      adminId,
+    );
+    const active = (await variantsOf(p.id)).filter((v) => v.isActive);
+    // 2 g × today's PT950 rate (₹3,100) × 1.03 = ₹6,386
+    for (const v of active) expect(v.priceInPaise).toBe(6_386_00);
+  });
+
   it("deletes a never-ordered product but refuses one with orders", async () => {
     const p = await product();
     await deleteProduct(p.id, adminId);

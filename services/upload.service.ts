@@ -69,7 +69,11 @@ export function sniffImageType(bytes: Uint8Array): ImageType | null {
  * refused. The URL is normalised first, so "../" tricks can't escape the folder.
  */
 export function isOwnUpload(url: string, folder: string): boolean {
-  return isAllowedImageUrl(url, { allowLocal: false }) && url.includes(`/${folder}/`);
+  if (!isAllowedImageUrl(url, { allowLocal: false })) return false;
+  // Our uploads never have a query or fragment; the folder must be in the path itself
+  // (not hidden in "?/jewellery-store/reviews/").
+  const u = new URL(url);
+  return !u.search && !u.hash && u.pathname.includes(`/${folder}/`);
 }
 
 /** Product photos. Returns the public HTTPS URL. */

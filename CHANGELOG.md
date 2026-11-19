@@ -51,7 +51,10 @@ Needs the migration `20261119090000_storefront_rates_visits` (applied automatica
 
 - **GST and sales reports:** refunds of duplicate payments and of orders that were never paid (sold out at payment) are no longer counted as credit notes or as refunds of sales.
 - **Saving gold rates scales:** rates are saved first, then each product is repriced in its own short transaction, so any number of pieces fits the database time limit. If repricing stops half-way, the rates page shows how many products are out of date and **Reprice now** finishes it. The stale-rate warning also covers purities used only by one size.
-- **"Refunding in full" is only shown when a refund of that payment really exists.**
+- **"Refunding in full" is only shown when a refund of that payment really exists.** A second payment on an order that was cancelled or refunded after being paid is refunded and the customer is told so (never sent to the success page).
+- **Cart and checkout** show the configured return window (and no return promise when returns are off).
+- **Customer photos** must be in the right folder in the URL path itself (a folder name in the query string is refused).
+- **Rate-linked pieces with sizes** can be saved without a rate for the product's own purity (each size uses its own).
 - **Invoices with placeholder business details:** "Generate invoice" now says why it can't, and the dashboard shows a warning.
 - **Returns off (`window_days = 0`):** the delivered email and refund policy no longer say "within 0 days".
 - **Contact page** shows the WhatsApp number its link uses; WhatsApp numbers typed with a leading 0 or 00 now make a working link; the product audit log records stock only when it was really changed.

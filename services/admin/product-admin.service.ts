@@ -179,7 +179,10 @@ export async function updateProduct(id: string, input: ProductFormInput, adminId
   if (!current) throw new AdminInputError("Product not found.");
   const slug =
     input.slug && input.slug !== current.slug ? await uniqueSlug(input.slug, id) : undefined;
-  const price = await basePrice(input);
+  // With options, each variant is priced from its own weight/purity (repriceProduct below); the
+  // form's base price isn't used, so don't demand a rate for the product's own purity.
+  const withOptions = (await db.productOption.count({ where: { productId: id } })) > 0;
+  const price = withOptions ? input.price : await basePrice(input);
   try {
     const product = await db.$transaction(async (tx) => {
       const hasOptions = (await tx.productOption.count({ where: { productId: id } })) > 0;

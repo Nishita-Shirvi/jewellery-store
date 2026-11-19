@@ -787,9 +787,11 @@ async function handleNotTransitioned(
   // Refunded the moment it was paid (sold out / coupon limit): never became a real purchase.
   const refundedAtPayment =
     (order.status === "REFUND_PENDING" || order.status === "REFUNDED") && !order.paidAt;
-  // Paid / shipped / delivered…: the customer should see their order as paid.
-  const orderIsPaid =
-    !refundedAtPayment && !["CANCELLED", "FAILED", "PENDING"].includes(order.status);
+  // Paid / shipped / delivered…: the customer should see their order as paid. An order being
+  // (or already) refunded is not — even if it was paid once (cancelled after payment, returned).
+  const orderIsPaid = !["CANCELLED", "FAILED", "PENDING", "REFUND_PENDING", "REFUNDED"].includes(
+    order.status,
+  );
   const paidThisOrder = row.providerPaymentId === input.razorpayPaymentId;
 
   if (recorded) {

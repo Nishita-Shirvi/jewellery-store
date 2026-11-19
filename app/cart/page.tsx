@@ -11,6 +11,7 @@ import { amountToFreeShipping, shippingFeeFor } from "@/lib/shipping-fee";
 import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
 import { PageHeader } from "@/components/layout/page-header";
 import { FreeShippingMeter, TrustNotes } from "@/components/layout/trust-notes";
+import { config } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Your cart", robots: { index: false } };
 
@@ -158,7 +159,11 @@ export default async function CartPage() {
                 You&apos;ll be asked to log in. Your cart is kept.
               </p>
             )}
-            <TrustNotes compact className="border-border mt-5 border-t pt-5" />
+            <TrustNotes
+              compact
+              className="border-border mt-5 border-t pt-5"
+              returnDays={config.returns.window_days}
+            />
           </div>
         </aside>
       </div>

@@ -1,20 +1,32 @@
 import { BadgeCheck, RotateCcw, ShieldCheck, Truck } from "lucide-react";
-import { RETURN_WINDOW_DAYS } from "@/lib/returns";
 import { cn } from "@/lib/utils";
 
 /**
  * The four promises a jewellery buyer looks for before paying (cart, checkout). Plain text,
  * no claims beyond what the shop's settings and policies actually say.
  */
-export function TrustNotes({ className, compact }: { className?: string; compact?: boolean }) {
+export function TrustNotes({
+  className,
+  compact,
+  returnDays,
+}: {
+  className?: string;
+  compact?: boolean;
+  /** [returns] window_days from config/shipping.ini; 0 = returns off (the promise is left out). */
+  returnDays: number;
+}) {
   const items = [
     { icon: BadgeCheck, title: "BIS hallmarked", text: "Every gold piece carries its HUID." },
     { icon: Truck, title: "Insured shipping", text: "Packed tamper-proof, insured to your door." },
-    {
-      icon: RotateCcw,
-      title: `${RETURN_WINDOW_DAYS}-day returns`,
-      text: "Unworn pieces, refunded to your payment method.",
-    },
+    ...(returnDays > 0
+      ? [
+          {
+            icon: RotateCcw,
+            title: `${returnDays}-day returns`,
+            text: "Unworn pieces, refunded to your payment method.",
+          },
+        ]
+      : []),
     { icon: ShieldCheck, title: "Secure payment", text: "Cards, UPI and netbanking via Razorpay." },
   ];
   return (

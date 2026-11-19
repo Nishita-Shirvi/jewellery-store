@@ -118,7 +118,11 @@ export default async function CheckoutPage() {
             <Link href="/cart" className="mt-4 inline-block text-sm underline underline-offset-4">
               Edit cart
             </Link>
-            <TrustNotes compact className="border-border mt-5 border-t pt-5" />
+            <TrustNotes
+              compact
+              className="border-border mt-5 border-t pt-5"
+              returnDays={config.returns.window_days}
+            />
           </div>
         </aside>
       </div>

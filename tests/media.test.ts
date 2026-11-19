@@ -2,10 +2,17 @@ import { describe, expect, it, vi } from "vitest";
 
 process.env.CLOUDINARY_CLOUD_NAME = "ourshop";
 vi.mock("@/lib/config", () => ({
-  config: { images: { r2_public_url: "https://images.ourshop.in" } },
+  config: {
+    images: { r2_public_url: "https://images.ourshop.in", max_upload_mb: 5, provider: "r2" },
+    logging: { level: "info" },
+  },
 }));
 
+vi.mock("server-only", () => ({}));
+vi.mock("@/lib/env", () => ({ env: {} }));
+
 const { isAllowedImageUrl, isAllowedVideoUrl } = await import("@/lib/media");
+const { isOwnUpload } = await import("@/services/upload.service");
 
 describe("isAllowedImageUrl", () => {
   it("accepts our own storage and built-in images", () => {
@@ -67,5 +74,27 @@ describe("isAllowedVideoUrl", () => {
     expect(isAllowedVideoUrl("https://images.ourshop.in/spins/ring.webm")).toBe(true);
     expect(isAllowedVideoUrl("https://images.ourshop.in/spins/ring.mov")).toBe(false);
     expect(isAllowedVideoUrl("https://evil.example/spin.mp4")).toBe(false);
+  });
+});
+
+describe("isOwnUpload (customer review / return photos)", () => {
+  const R = "https://images.ourshop.in/jewellery-store";
+  it("accepts our upload in the right folder only", () => {
+    expect(isOwnUpload(`${R}/reviews/2026-11/abc.jpg`, "jewellery-store/reviews")).toBe(true);
+    expect(isOwnUpload(`${R}/products/2026-11/abc.jpg`, "jewellery-store/reviews")).toBe(false);
+  });
+  it("refuses the folder hidden in a query string or fragment", () => {
+    expect(
+      isOwnUpload(
+        `${R}/products/2026-11/abc.jpg?/jewellery-store/reviews/`,
+        "jewellery-store/reviews",
+      ),
+    ).toBe(false);
+    expect(
+      isOwnUpload(
+        `${R}/products/2026-11/abc.jpg#/jewellery-store/reviews/`,
+        "jewellery-store/reviews",
+      ),
+    ).toBe(false);
   });
 });
