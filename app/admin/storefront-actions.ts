@@ -11,7 +11,7 @@ import {
   visitStatusSchema,
 } from "@/lib/validation/storefront";
 import { audit } from "@/services/audit.service";
-import { RateError, saveRates } from "@/services/metal-rate.service";
+import { RateError, repriceAllRateLinked, saveRates } from "@/services/metal-rate.service";
 import { saveStorefrontSettings } from "@/services/storefront.service";
 import { VisitError, updateVisitStatus } from "@/services/visit.service";
 import type { AdminFormState } from "./actions";
@@ -56,6 +56,10 @@ export async function saveRatesAction(
     }
     revalidatePath("/admin/rates");
     revalidatePath("/", "layout");
+    if (result.failed > 0)
+      return {
+        error: `Rates saved, but ${result.failed} product(s) couldn't be repriced. Press "Reprice now" below to finish.`,
+      };
     return {
       ok: true,
       message: result.saved.length
@@ -67,6 +71,20 @@ export async function saveRatesAction(
     logger.error("admin.rates_failed", { error });
     return { error: "Something went wrong. Please try again.", values: typed(formData) };
   }
+}
+
+/** Finishes a repricing that stopped half-way (or catches up after edits). Safe to press twice. */
+export async function repriceNowAction(): Promise<void> {
+  const admin = await requirePermission("products.edit");
+  const { repriced, failed } = await repriceAllRateLinked();
+  await audit(admin, {
+    action: "metal_rate.reprice",
+    entityType: "metal_rate",
+    entityId: "all",
+    summary: `Repriced rate-linked products: ${repriced} price(s) updated${failed ? `, ${failed} product(s) failed` : ""}`,
+  });
+  revalidatePath("/admin/rates");
+  revalidatePath("/", "layout");
 }
 
 export async function saveStorefrontSettingsAction(

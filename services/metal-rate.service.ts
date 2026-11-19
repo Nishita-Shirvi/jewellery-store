@@ -12,11 +12,15 @@ import { syncProductSummaries } from "@/services/inventory.service";
 /**
  * Metal rates and rate-linked prices.
  *
- * The newest MetalRate row per purity is the current rate. Saving rates recalculates the stored
- * price of every variant of every RATE_LINKED product of that purity in the same transaction
- * (each variant by its own net weight; a variant may override the purity), then refreshes the
- * product's "from" price. The catalogue, filters, cart and checkout keep reading stored prices,
- * and checkout's existing "a price just changed" check protects anyone mid-purchase.
+ * The newest MetalRate row per purity is the current rate. Saving rates first stores the new rows
+ * (one short transaction), then reprices the rate-linked products one product per transaction:
+ * every variant by its own net weight (a variant may override the purity), then the product's
+ * "from" price. Each product transaction reads the newest rates itself, so two admins saving at
+ * once can't leave old prices behind, and any number of products fits within the database's
+ * transaction time limit. Repricing is idempotent: if it stops half-way, the rates page shows how
+ * many products are out of date and "Reprice now" finishes the job. The catalogue, filters, cart
+ * and checkout keep reading stored prices; checkout's "a price just changed" check protects anyone
+ * mid-purchase.
  */
 
 export const RATES_TAG = "metal-rates";
@@ -67,17 +71,64 @@ export async function listRateHistory(limit = 30) {
   });
 }
 
-/** Rate-linked products per purity, for the admin rates page. */
+/**
+ * Rate-linked products per purity, for the admin rates page and the stale-rate warning. A product
+ * counts for its own purity and for any purity one of its active variants overrides it with
+ * (e.g. an 18K size of a 22K ring), since both need a current rate.
+ */
 export async function rateLinkedCounts(): Promise<Partial<Record<Purity, number>>> {
-  const rows = await db.product.groupBy({
-    by: ["purity"],
+  const products = await db.product.findMany({
     where: { pricingMode: "RATE_LINKED", isActive: true },
-    _count: { id: true },
+    select: { purity: true, variants: { where: { isActive: true }, select: { purity: true } } },
   });
-  return Object.fromEntries(rows.map((r) => [r.purity, r._count.id]));
+  const counts: Partial<Record<Purity, number>> = {};
+  for (const p of products) {
+    const purities = new Set<Purity>([p.purity]);
+    for (const v of p.variants) if (v.purity) purities.add(v.purity);
+    for (const purity of purities) counts[purity] = (counts[purity] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export class RateError extends Error {}
+
+const repriceSelect = {
+  id: true,
+  purity: true,
+  makingChargeInPaise: true,
+  stoneChargeInPaise: true,
+  gstRateBps: true,
+  variants: {
+    orderBy: { id: "asc" },
+    select: {
+      id: true,
+      purity: true,
+      priceInPaise: true,
+      compareAtPriceInPaise: true,
+      netWeightMg: true,
+    },
+  },
+} satisfies Prisma.ProductSelect;
+
+type RepriceRow = Prisma.ProductGetPayload<{ select: typeof repriceSelect }>;
+
+/** Today's price for one variant, or null when it can't be worked out (no rate / no weight). */
+function expectedPrice(
+  p: RepriceRow,
+  v: RepriceRow["variants"][number],
+  rates: CurrentRates,
+): number | null {
+  const rate = rates[v.purity ?? p.purity];
+  if (!rate || v.netWeightMg <= 0) return null;
+  const price = rateLinkedPrice({
+    ratePerGramInPaise: rate.ratePerGramInPaise,
+    netWeightMg: v.netWeightMg,
+    makingChargeInPaise: p.makingChargeInPaise,
+    stoneChargeInPaise: p.stoneChargeInPaise,
+    gstRateBps: p.gstRateBps,
+  });
+  return price > 0 ? price : null;
+}
 
 /**
  * Recalculates the stored price of every variant of the given RATE_LINKED products (all of them
@@ -96,23 +147,7 @@ export async function repriceRateLinked(
       ...(opts.productIds ? { id: { in: opts.productIds } } : {}),
     },
     orderBy: { id: "asc" },
-    select: {
-      id: true,
-      purity: true,
-      makingChargeInPaise: true,
-      stoneChargeInPaise: true,
-      gstRateBps: true,
-      variants: {
-        orderBy: { id: "asc" },
-        select: {
-          id: true,
-          purity: true,
-          priceInPaise: true,
-          compareAtPriceInPaise: true,
-          netWeightMg: true,
-        },
-      },
-    },
+    select: repriceSelect,
   });
   let changed = 0;
   const touched: string[] = [];
@@ -121,16 +156,8 @@ export async function repriceRateLinked(
     for (const v of p.variants) {
       const purity = v.purity ?? p.purity;
       if (opts.purities && !opts.purities.includes(purity)) continue;
-      const rate = rates[purity];
-      if (!rate || v.netWeightMg <= 0) continue;
-      const price = rateLinkedPrice({
-        ratePerGramInPaise: rate.ratePerGramInPaise,
-        netWeightMg: v.netWeightMg,
-        makingChargeInPaise: p.makingChargeInPaise,
-        stoneChargeInPaise: p.stoneChargeInPaise,
-        gstRateBps: p.gstRateBps,
-      });
-      if (price <= 0 || price === v.priceInPaise) continue;
+      const price = expectedPrice(p, v, rates);
+      if (price === null || price === v.priceInPaise) continue;
       const staleWas = v.compareAtPriceInPaise != null && v.compareAtPriceInPaise <= price;
       await tx.productVariant.update({
         where: { id: v.id },
@@ -151,7 +178,67 @@ export async function repriceProduct(tx: Tx, productId: string): Promise<number>
 }
 
 /**
- * Saves new rates (only the purities given) and reprices rate-linked products.
+ * Reprices rate-linked products one product per transaction (each reads the newest rates itself).
+ * Limited to products that use one of `purities` (own or a variant's) when given. A product that
+ * fails is logged and skipped; the others still go through. Safe to run again at any time.
+ */
+export async function repriceAllRateLinked(
+  opts: { purities?: Purity[] } = {},
+): Promise<{ repriced: number; failed: number }> {
+  const ids = await db.product.findMany({
+    where: {
+      pricingMode: "RATE_LINKED",
+      ...(opts.purities
+        ? {
+            OR: [
+              { purity: { in: opts.purities } },
+              { variants: { some: { purity: { in: opts.purities } } } },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  let repriced = 0;
+  let failed = 0;
+  for (const { id } of ids) {
+    try {
+      repriced += await db.$transaction(async (tx) =>
+        repriceRateLinked(tx, await readCurrentRates(tx), {
+          productIds: [id],
+          purities: opts.purities,
+        }),
+      );
+    } catch (error) {
+      failed++;
+      logger.error("metal_rates.reprice_failed", { productId: id, error });
+    }
+  }
+  if (repriced) revalidateTag(CATALOG_TAG);
+  return { repriced, failed };
+}
+
+/**
+ * Rate-linked products whose stored prices don't match today's rates (a repricing that stopped
+ * half-way, or a rate saved while a product was being edited). Shown on the rates page with a
+ * "Reprice now" button.
+ */
+export async function productsNeedingReprice(): Promise<number> {
+  const [rates, products] = await Promise.all([
+    readCurrentRates(db),
+    db.product.findMany({ where: { pricingMode: "RATE_LINKED" }, select: repriceSelect }),
+  ]);
+  return products.filter((p) =>
+    p.variants.some((v) => {
+      const price = expectedPrice(p, v, rates);
+      return price !== null && price !== v.priceInPaise;
+    }),
+  ).length;
+}
+
+/**
+ * Saves new rates (only the purities given), then reprices rate-linked products.
  * Large jumps need `confirmLarge` — the classic mistake is typing the rate per 10 g.
  */
 export async function saveRates(
@@ -162,12 +249,15 @@ export async function saveRates(
   saved: Purity[];
   /** Variants whose price changed. */
   repriced: number;
+  /** Products that couldn't be repriced this time ("Reprice now" retries them). */
+  failed: number;
   changes: Record<string, { from: unknown; to: unknown }>;
 }> {
   const entries = PURITIES.flatMap((p) => (input[p] ? [[p, input[p]] as const] : []));
   if (entries.length === 0) throw new RateError("Enter at least one rate.");
 
   const limitBps = config.pricing.large_change_percent * 100;
+  // Step 1 (short transaction): check and store the rates.
   const result = await db.$transaction(async (tx) => {
     const before = await readCurrentRates(tx);
     const large = entries.filter(([p, rate]) => {
@@ -187,17 +277,17 @@ export async function saveRates(
       await tx.metalRate.create({ data: { purity, ratePerGramInPaise: rate, setById: adminId } });
       if (old !== rate) changes[purity] = { from: old, to: rate };
     }
-    const saved = entries.map(([p]) => p);
-    const changed = Object.keys(changes) as Purity[];
-    const after = await readCurrentRates(tx);
-    const repriced = changed.length ? await repriceRateLinked(tx, after, { purities: changed }) : 0;
-    return { saved, repriced, changes };
+    return { saved: entries.map(([p]) => p), changes };
   });
-
   revalidateTag(RATES_TAG);
-  if (result.repriced) revalidateTag(CATALOG_TAG);
-  logger.info("metal_rates.saved", { adminId, purities: result.saved, repriced: result.repriced });
-  return result;
+
+  // Step 2: reprice, one product per transaction.
+  const changed = Object.keys(result.changes) as Purity[];
+  const { repriced, failed } = changed.length
+    ? await repriceAllRateLinked({ purities: changed })
+    : { repriced: 0, failed: 0 };
+  logger.info("metal_rates.saved", { adminId, purities: result.saved, repriced, failed });
+  return { ...result, repriced, failed };
 }
 
 /**

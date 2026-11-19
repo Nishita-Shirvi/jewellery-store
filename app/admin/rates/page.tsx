@@ -5,7 +5,14 @@ import { formatINR } from "@/lib/format";
 import { purityLabel } from "@/lib/jewellery";
 import { PURITIES } from "@/lib/metal-pricing";
 import { paiseToRupeesInput } from "@/lib/money";
-import { getCurrentRates, listRateHistory, rateLinkedCounts } from "@/services/metal-rate.service";
+import {
+  getCurrentRates,
+  listRateHistory,
+  productsNeedingReprice,
+  rateLinkedCounts,
+} from "@/services/metal-rate.service";
+import { Button } from "@/components/ui/button";
+import { repriceNowAction } from "../storefront-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,10 +24,11 @@ const when = new Intl.DateTimeFormat("en-IN", {
 
 export default async function AdminRatesPage() {
   await requirePermissionPage("products.view", "/admin/rates");
-  const [rates, counts, history] = await Promise.all([
+  const [rates, counts, history, outOfDate] = await Promise.all([
     getCurrentRates(),
     rateLinkedCounts(),
     listRateHistory(30),
+    productsNeedingReprice(),
   ]);
   const rows = PURITIES.map((p) => ({
     purity: p,
@@ -40,6 +48,21 @@ export default async function AdminRatesPage() {
           to shoppers in the bar above the header.
         </p>
       </div>
+
+      {outOfDate > 0 && (
+        <form
+          action={repriceNowAction}
+          className="flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+        >
+          <p>
+            {outOfDate} rate-linked product{outOfDate === 1 ? "" : "s"} still show
+            {outOfDate === 1 ? "s" : ""} an old price (a repricing didn&apos;t finish).
+          </p>
+          <Button type="submit" size="sm" variant="outline">
+            Reprice now
+          </Button>
+        </form>
+      )}
 
       <RatesForm rows={rows} largePercent={config.pricing.large_change_percent} />
 

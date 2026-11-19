@@ -165,4 +165,8 @@ Fix: route tests for the Razorpay webhook, courier webhook and cron auth.
 Start-up warns that `onRouterTransitionStart` isn't exported from `instrumentation-client.ts`.
 Fix: export `Sentry.captureRouterTransitionStart`.
 
+**BL-39 · Invoices for orders paid while business details were placeholders.**
+Until `config/business.ini` is filled in, paid orders get no invoice (no number is used up) and the admin presses "Generate invoice" on each later.
+Fix: a daily job that creates the missing invoices once the details are real — after confirming with the CA which invoice date to use for late invoices, and skipping orders refunded or cancelled meanwhile.
+
 When something here is fixed, delete it and mention it in `CHANGELOG.md`.

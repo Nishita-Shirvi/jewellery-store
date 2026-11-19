@@ -49,6 +49,13 @@ Needs the migration `20261119090000_storefront_rates_visits` (applied automatica
 
 ### Money, stock and invoice safety fixes
 
+- **GST and sales reports:** refunds of duplicate payments and of orders that were never paid (sold out at payment) are no longer counted as credit notes or as refunds of sales.
+- **Saving gold rates scales:** rates are saved first, then each product is repriced in its own short transaction, so any number of pieces fits the database time limit. If repricing stops half-way, the rates page shows how many products are out of date and **Reprice now** finishes it. The stale-rate warning also covers purities used only by one size.
+- **"Refunding in full" is only shown when a refund of that payment really exists.**
+- **Invoices with placeholder business details:** "Generate invoice" now says why it can't, and the dashboard shows a warning.
+- **Returns off (`window_days = 0`):** the delivered email and refund policy no longer say "within 0 days".
+- **Contact page** shows the WhatsApp number its link uses; WhatsApp numbers typed with a leading 0 or 00 now make a working link; the product audit log records stock only when it was really changed.
+
 - **Extra payment refunded:** a second payment on an order that is already paid or cancelled is recorded on its own and refunded in full (it used to be kept silently). Checkout shows "refunding in full".
 - **Sold out at payment, in one step:** the order moves to "refund pending", the hold is released, the payment and the refund are recorded in one transaction; Razorpay is called after. A crash in between can no longer lose the money. A repeated webhook shows "sold out", never "order confirmed".
 - **Refunds are sent once:** a refund is claimed before calling Razorpay, so two retries can't both send it. A refund the bank failed is retried with a new reference. A fast webhook is never overwritten. Failed refunds count towards "already refunded".

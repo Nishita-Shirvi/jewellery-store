@@ -207,6 +207,25 @@ describe("fix 1: a payment that can't pay the order is refunded, exactly once", 
     expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(1);
   });
 
+  it("never says 'refunding in full' for a recorded payment that has no refund", async () => {
+    const p = await product(1);
+    const o = await order(p, { status: "CANCELLED", reservationState: "RELEASED" });
+    const payB = pid();
+    // Damaged data: this payment id is already stored, but nothing refunds it.
+    await db.payment.create({
+      data: {
+        orderId: o.id,
+        providerOrderId: `extra:${payB}`,
+        providerPaymentId: payB,
+        status: "CAPTURED",
+        amountInPaise: TOTAL,
+      },
+    });
+    const result = await pay(o.rzpOrderId, payB);
+    expect(result).toEqual({ outcome: "already_processed", orderId: o.id });
+    expect(rzp.creates).toBe(0);
+  });
+
   it("second payment for an order already PAID by another payment → refunded; order untouched", async () => {
     const p = await product(1);
     const payA = pid();

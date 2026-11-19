@@ -9,8 +9,14 @@ vi.mock("next/cache", () => ({
 
 const { db } = await import("@/lib/db");
 const inventory = await import("@/services/inventory.service");
-const { saveRates, rateLinkedStartPrice, RateError } =
-  await import("@/services/metal-rate.service");
+const {
+  saveRates,
+  rateLinkedStartPrice,
+  RateError,
+  repriceAllRateLinked,
+  productsNeedingReprice,
+  ratesAreStale,
+} = await import("@/services/metal-rate.service");
 const { updateProduct, deleteProduct, setProductStock, AdminInputError } =
   await import("@/services/admin/product-admin.service");
 const variantAdmin = await import("@/services/admin/variant-admin.service");
@@ -144,6 +150,73 @@ describe("metal rates", () => {
       orderBy: { createdAt: "desc" },
     });
     expect(latest.ratePerGramInPaise).toBe(3_100_00);
+  });
+
+  it("reprices hundreds of sizes one product at a time; a half-finished run is caught up by Reprice now", async () => {
+    // 100 rate-linked K14 products × 3 sizes = 300 variants (well past one 5 s transaction).
+    const made: string[] = [];
+    for (let i = 0; i < 100; i++) {
+      const n = ++seq;
+      const p = await db.product.create({
+        data: {
+          name: `${RUN} bulk ${n}`,
+          slug: `${RUN}-bulk-${n}`,
+          description: "Bulk rate-linked piece.",
+          images: ["/images/products/classic-solitaire-ring.svg"],
+          metalType: "GOLD",
+          purity: "K14",
+          metalColour: "YELLOW",
+          netWeightMg: 1000,
+          pricingMode: "RATE_LINKED",
+          priceInPaise: 1_00,
+          stock: 3,
+          categoryId,
+          variants: {
+            create: [0, 1, 2].map((k) => ({
+              sku: `${RUN}-B${n}-${k}`.toUpperCase(),
+              optionKey: `k${k}`,
+              priceInPaise: 1_00,
+              stock: 1,
+              netWeightMg: 1000 * (k + 1),
+              images: [],
+              position: k,
+            })),
+          },
+        },
+      });
+      made.push(p.id);
+      productIds.push(p.id);
+    }
+    const result = await saveRates(adminId, { K14: 4_000_00 }, true);
+    expect(result.failed).toBe(0);
+    expect(result.repriced).toBe(300);
+    const prices = await db.productVariant.findMany({
+      where: { productId: { in: made } },
+      select: { priceInPaise: true, netWeightMg: true },
+    });
+    // 1 g × ₹4,000 × 1.03 = ₹4,120; 2 g = ₹8,240; 3 g = ₹12,360
+    for (const v of prices) expect(v.priceInPaise).toBe((v.netWeightMg / 1000) * 4_120_00);
+    expect(await productsNeedingReprice()).toBe(0);
+
+    // A repricing that stopped half-way: two products still carry the old price.
+    await db.productVariant.updateMany({
+      where: { productId: { in: made.slice(0, 2) } },
+      data: { priceInPaise: 1_00 },
+    });
+    expect(await productsNeedingReprice()).toBe(2);
+    const again = await repriceAllRateLinked();
+    expect(again).toEqual({ repriced: 6, failed: 0 });
+    expect(await productsNeedingReprice()).toBe(0);
+  }, 120_000);
+
+  it("warns about a stale rate for a purity used only by one size", async () => {
+    // Every purity the bulk/other tests use has a fresh rate…
+    expect(await ratesAreStale()).toBe(false);
+    // …but an 18K size of a rate-linked piece has no K18 rate at all.
+    const p = await product({ pricingMode: "RATE_LINKED" });
+    await db.productVariant.update({ where: { id: p.variants[0]!.id }, data: { purity: "K18" } });
+    expect(await ratesAreStale()).toBe(true);
+    await db.productVariant.update({ where: { id: p.variants[0]!.id }, data: { purity: null } });
   });
 
   it("works out the starting price for a new rate-linked product", async () => {

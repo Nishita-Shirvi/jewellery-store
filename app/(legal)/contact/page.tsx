@@ -10,7 +10,8 @@ export const metadata: Metadata = { title: "Contact us" };
 export default async function ContactPage() {
   const b = getBusiness();
   const s = await getStorefrontSettings();
-  const whatsapp = whatsappLink(await whatsappNumber(), "Hello, I have a question.");
+  const whatsappTo = await whatsappNumber();
+  const whatsapp = whatsappLink(whatsappTo, "Hello, I have a question.");
   return (
     <>
       <h1>Contact us</h1>
@@ -29,7 +30,7 @@ export default async function ContactPage() {
             <dt className="text-muted-foreground">WhatsApp</dt>
             <dd>
               <a className="underline" href={whatsapp} target="_blank" rel="noopener noreferrer">
-                {s.whatsapp}
+                {whatsappTo}
               </a>
             </dd>
           </>

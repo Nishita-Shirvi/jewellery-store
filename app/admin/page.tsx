@@ -3,6 +3,7 @@ import { formatINR } from "@/lib/format";
 import { requireStaffPage } from "@/lib/auth-guards";
 import { LOW_STOCK_THRESHOLD, getDashboardStats } from "@/services/admin/dashboard.service";
 import { config } from "@/lib/config";
+import { getBusiness } from "@/lib/business";
 import type { Permission } from "@/lib/permissions";
 import { ratesAreStale } from "@/services/metal-rate.service";
 import { countNewVisits } from "@/services/visit.service";
@@ -44,6 +45,16 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-10">
       <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      {getBusiness().incomplete && can("orders.update") && (
+        <p
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+        >
+          Invoices aren&apos;t being created: the business details in config/business.ini are still
+          placeholders ([GSTIN] etc.). Fill them in and redeploy, then use &ldquo;Generate
+          invoice&rdquo; on paid orders that have none.
+        </p>
+      )}
       {(staleRates || newVisits > 0) && (
         <ul className="space-y-2 text-sm">
           {staleRates && (

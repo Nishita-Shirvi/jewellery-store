@@ -73,12 +73,16 @@ export function isOverdue(
 
 /**
  * "+91 98765 43210" → "919876543210" (digits only, as wa.me expects). A bare 10-digit number is an
- * Indian mobile, so 91 is added (wa.me needs the country code). Null if not a plausible number.
+ * Indian mobile, so 91 is added (wa.me needs the country code); so is "0" + 10 digits (the trunk
+ * prefix many people type). "00" international prefixes are dropped. Other numbers must already
+ * start with a country code (not 0). Null if not a plausible number.
  */
 export function whatsappDigits(phone: string): string | null {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 10) return `91${digits}`;
-  if (digits.length >= 11 && digits.length <= 15) return digits;
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+  if (digits.length === 10) return /^[6-9]/.test(digits) ? `91${digits}` : null;
+  if (digits.length >= 11 && digits.length <= 15 && !digits.startsWith("0")) return digits;
   return null;
 }
 

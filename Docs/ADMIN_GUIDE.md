@@ -23,13 +23,17 @@ Admin → **Gold rates**. Anyone who can see products can open it; saving needs 
 
 1. Each box shows the current rate, when it was set, and how many rate-linked pieces use it.
 2. Type today's **selling rate per gram** in rupees, e.g. `7250` for 22K. **Per gram, not per 10 grams.** Leave a box empty to keep its rate.
-3. Press **Save rates**. Every rate-linked piece (every size of it) is repriced at once and the website changes straight away.
+3. Press **Save rates**. Every rate-linked piece (every size of it) is repriced and the website changes straight away. With many pieces this takes a few seconds — wait for the green message.
+
+If the page says some products still show an old price (for example the save was interrupted), press **Reprice now**. It is safe to press more than once.
 
 If a rate moves by more than 15%, the save stops and asks you to check — this usually means the rate per 10 g was typed by mistake. If the rate really is right, tick **Yes, these rates are correct** and save again.
 
 Good to know:
 
 - Customers see the rates in the strip at the top of every page (22K and 24K by default).
+- The dashboard warns when a rate is older than 36 hours — including a purity used only by one size (e.g. an 18K size of a 22K ring).
+- If the dashboard says **Invoices aren't being created**, the business details in `config/business.ini` are still placeholders. Ask whoever looks after the code to fill them in; then press **Generate invoice** on paid orders that have none.
 - Fixed-price pieces never change. Orders already placed keep their price.
 - If a sale ("was") price is no longer above the new price, the sale price is removed.
 - If the rates are older than 36 hours, the Dashboard warns you. Saving the same rate again is fine: it records that the rate was checked today and clears the warning.

@@ -777,7 +777,7 @@ async function handleNotTransitioned(
     }),
     db.payment.findUnique({
       where: { providerPaymentId: input.razorpayPaymentId },
-      select: { id: true },
+      select: { id: true, orderId: true, _count: { select: { refunds: true } } },
     }),
     db.order.findUniqueOrThrow({
       where: { id: payment.orderId },
@@ -796,15 +796,26 @@ async function handleNotTransitioned(
     // Same payment again. Send any refund of it that a crash left unsent (claimed: never twice).
     await sendUnsentRefunds(recorded.id);
     logger.info("payment.already_processed", log);
-    return {
-      outcome:
-        refundedAtPayment && paidThisOrder
-          ? "sold_out"
-          : orderIsPaid || paidThisOrder
-            ? "already_processed"
-            : "extra_payment_refunded",
-      orderId: payment.orderId,
-    };
+    const outcome: MarkPaidOutcome =
+      refundedAtPayment && paidThisOrder
+        ? "sold_out"
+        : orderIsPaid || paidThisOrder
+          ? "already_processed"
+          : "extra_payment_refunded";
+    // Only tell the customer "refunding in full" when a refund of this payment really exists
+    // (extra-payment rows are always created with their refund; anything else needs a person).
+    if (
+      outcome === "extra_payment_refunded" &&
+      (recorded._count.refunds === 0 || recorded.orderId !== payment.orderId)
+    ) {
+      logger.error("payment.recorded_without_refund", {
+        ...log,
+        recordedOnOrder: recorded.orderId,
+        orderStatus: order.status,
+      });
+      return { outcome: "already_processed", orderId: payment.orderId };
+    }
+    return { outcome, orderId: payment.orderId };
   }
 
   const refundId = await recordExtraPaymentRefund({

@@ -36,6 +36,17 @@ const notExtraPayment: Prisma.PaymentWhereInput = {
   NOT: { providerOrderId: { startsWith: EXTRA_PAYMENT_PREFIX } },
 };
 
+/**
+ * Refunds that reduce sales and output GST: money given back on an order that was actually sold
+ * (paid). Excludes refunds of extra/duplicate payments (never part of the order's total) and
+ * refunds of orders that were never paid (e.g. sold out at payment — never counted as a sale).
+ */
+export const salesRefundWhere: Prisma.RefundWhereInput = {
+  status: "PROCESSED",
+  payment: notExtraPayment,
+  order: { paidAt: { not: null } },
+};
+
 /** Our reference sent to Razorpay: the Refund id, plus ":<attempt>" from the 2nd attempt on. */
 export function refundAttemptRef(refundId: string, attempt: number): string {
   return attempt <= 1 ? refundId : `${refundId}:${attempt}`;

@@ -84,6 +84,13 @@ describe("WhatsApp links", () => {
     expect(whatsappDigits("98765 43210")).toBe("919876543210");
     expect(whatsappDigits("+91 98765-43210")).toBe("919876543210");
     expect(whatsappDigits("123")).toBeNull();
+    // Trunk "0" and "00" international prefixes, as people often type them.
+    expect(whatsappDigits("098765 43210")).toBe("919876543210");
+    expect(whatsappDigits("0091 98765 43210")).toBe("919876543210");
+    // Never a link wa.me would reject.
+    expect(whatsappDigits("0123456789012")).toBeNull();
+    expect(whatsappDigits("1234567890")).toBeNull();
+    expect(whatsappDigits("+44 20 7946 0958")).toBe("442079460958");
     expect(whatsappLink("9876543210", "Hi & bye")).toBe(
       "https://wa.me/919876543210?text=Hi%20%26%20bye",
     );

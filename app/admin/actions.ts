@@ -170,7 +170,13 @@ export async function saveProductAction(
             name: parsed.data.name,
             ...(parsed.data.pricingMode === "FIXED" ? { priceInPaise: parsed.data.price } : {}),
             pricingMode: parsed.data.pricingMode,
-            stock: parsed.data.stock,
+            // Stock is written only when the admin changed it (and never for pieces with
+            // variants), so only then is it a change worth logging.
+            ...(!before.hasOptions &&
+            (parsed.data.stockOriginal === undefined ||
+              parsed.data.stock !== parsed.data.stockOriginal)
+              ? { stock: parsed.data.stock }
+              : {}),
             isActive: parsed.data.isActive,
             isFeatured: parsed.data.isFeatured,
             isReturnable: parsed.data.isReturnable,
@@ -555,10 +561,13 @@ export async function generateInvoiceAction(formData: FormData): Promise<void> {
       entityId: parsed.data.id,
       summary: `Invoice ${invoice.number} generated`,
     });
-  if (!invoice)
-    redirect(
-      `/admin/orders/${parsed.data.id}?error=${encodeURIComponent("Couldn't create the invoice (is the order paid?). Check the logs.")}`,
-    );
+  if (!invoice) {
+    const { getBusiness } = await import("@/lib/business");
+    const why = getBusiness().incomplete
+      ? "Couldn't create the invoice: the business details in config/business.ini are still placeholders ([GSTIN] etc.). Fill them in and redeploy, then try again."
+      : "Couldn't create the invoice (is the order paid?). Check the logs.";
+    redirect(`/admin/orders/${parsed.data.id}?error=${encodeURIComponent(why)}`);
+  }
   revalidatePath(`/admin/orders/${parsed.data.id}`);
 }
 

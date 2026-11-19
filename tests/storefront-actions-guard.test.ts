@@ -39,7 +39,16 @@ vi.mock("@/services/metal-rate.service", () => ({
   RateError: class extends Error {},
   saveRates: vi.fn(async () => {
     touched.push("saveRates");
-    return { saved: ["K22"], repriced: 0, changes: { K22: { from: null, to: 725000 } } };
+    return {
+      saved: ["K22"],
+      repriced: 0,
+      failed: 0,
+      changes: { K22: { from: null, to: 725000 } },
+    };
+  }),
+  repriceAllRateLinked: vi.fn(async () => {
+    touched.push("repriceAllRateLinked");
+    return { repriced: 0, failed: 0 };
   }),
 }));
 vi.mock("@/services/storefront.service", () => ({
@@ -66,6 +75,10 @@ const CASES: Record<string, { needs: Permission; run: () => Promise<unknown> }> 
   saveRatesAction: {
     needs: "products.edit",
     run: () => actions.saveRatesAction({}, form({ K22: "7250", confirmLarge: "on" })),
+  },
+  repriceNowAction: {
+    needs: "products.edit",
+    run: () => actions.repriceNowAction(),
   },
   saveStorefrontSettingsAction: {
     needs: "content.manage",

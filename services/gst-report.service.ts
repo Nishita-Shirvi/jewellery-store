@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { placeOfSupply } from "@/lib/india";
 import { csvRow } from "@/lib/report/csv";
 import type { InvoiceSnapshot } from "@/services/invoice.service";
+import { salesRefundWhere } from "@/services/refund.service";
 
 /**
  * GST reports for a month (Phase 29), in the shape GSTR-1 asks for (B2C sales; this store
@@ -94,7 +95,13 @@ export async function gstSummary(month: string): Promise<GstSummary> {
 async function creditNotes(month: string) {
   const { from, to } = monthRange(month);
   const refunds = await db.refund.findMany({
-    where: { status: "PROCESSED", processedAt: { gte: from, lt: to } },
+    // A credit note reverses tax on an invoice: only refunds of real sales on invoiced orders
+    // (never a duplicate payment's refund or a sold-out order that was never sold).
+    where: {
+      ...salesRefundWhere,
+      processedAt: { gte: from, lt: to },
+      order: { paidAt: { not: null }, invoice: { isNot: null } },
+    },
     orderBy: { processedAt: "asc" },
     select: {
       id: true,
