@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { AddressForm } from "./address-form";
 import { PayButton } from "./pay-button";
 import { CouponBox } from "./coupon-box";
+import { CodPanel } from "./cod-panel";
 import { formatINR } from "@/lib/format";
 
 export interface AddressOption {
@@ -21,12 +22,18 @@ export function CheckoutClient({
   shippingInPaise,
   storeName,
   paymentsEnabled,
+  codEnabled = false,
+  contactHref = "/contact",
 }: {
   addresses: AddressOption[];
   subtotalInPaise: number;
   shippingInPaise: number;
   storeName: string;
   paymentsEnabled: boolean;
+  /** Cash on delivery switched on in config/shipping.ini [cod] (each order is still checked on the server). */
+  codEnabled?: boolean;
+  /** Where to send people when no payment method is connected yet (WhatsApp link or /contact). */
+  contactHref?: string;
 }) {
   const [coupon, setCoupon] = useState<{ code: string; discountInPaise: number } | null>(null);
   const total = subtotalInPaise - (coupon?.discountInPaise ?? 0) + shippingInPaise;
@@ -34,11 +41,25 @@ export function CheckoutClient({
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(addresses[0]?.id ?? null);
   const [adding, setAdding] = useState(addresses.length === 0);
+  // Only offer what's actually connected; start on the one that is.
+  const [method, setMethod] = useState<"online" | "cod">(
+    paymentsEnabled || !codEnabled ? "online" : "cod",
+  );
+  const noPayment = !paymentsEnabled && !codEnabled;
 
   return (
-    <div className="space-y-8">
-      <section aria-labelledby="address-heading">
-        <h2 id="address-heading" className="text-lg font-medium">
+    <div className="space-y-6">
+      <section
+        aria-labelledby="address-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="address-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            1
+          </span>
           Delivery address
         </h2>
         {addresses.length > 0 && (
@@ -85,8 +106,17 @@ export function CheckoutClient({
         </div>
       </section>
 
-      <section aria-labelledby="coupon-heading">
-        <h2 id="coupon-heading" className="text-lg font-medium">
+      <section
+        aria-labelledby="coupon-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="coupon-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            2
+          </span>
           Coupon
         </h2>
         <div className="mt-3">
@@ -103,15 +133,55 @@ export function CheckoutClient({
         )}
       </section>
 
-      <section aria-labelledby="payment-heading">
-        <h2 id="payment-heading" className="text-lg font-medium">
+      <section
+        aria-labelledby="payment-heading"
+        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+      >
+        <h2 id="payment-heading" className="text-2xl">
+          <span
+            aria-hidden="true"
+            className="bg-primary text-primary-foreground mr-3 inline-flex size-7 items-center justify-center rounded-full align-middle font-sans text-sm"
+          >
+            3
+          </span>
           Payment
         </h2>
-        <p className="text-muted-foreground mt-1 text-sm">
-          UPI, cards, netbanking and wallets via Razorpay.
-        </p>
+        {codEnabled && paymentsEnabled && (
+          <fieldset className="mt-3 flex flex-wrap gap-3">
+            <legend className="sr-only">How would you like to pay?</legend>
+            {(
+              [
+                ["online", "Pay online"],
+                ["cod", "Cash on delivery"],
+              ] as const
+            ).map(([value, label]) => (
+              <label
+                key={value}
+                className="border-border has-[:checked]:border-foreground flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm"
+              >
+                <input
+                  type="radio"
+                  name="payment-method"
+                  value={value}
+                  checked={method === value}
+                  onChange={() => setMethod(value)}
+                />
+                {label}
+              </label>
+            ))}
+          </fieldset>
+        )}
+        {!noPayment && (
+          <p className="text-muted-foreground mt-2 text-sm">
+            {method === "cod"
+              ? "Pay the courier when your order arrives. We'll confirm your mobile number by SMS."
+              : "UPI, cards, netbanking, EMI and wallets via Razorpay."}
+          </p>
+        )}
         <div className="mt-4 max-w-sm">
-          {paymentsEnabled ? (
+          {method === "cod" ? (
+            <CodPanel addressId={selected} couponCode={coupon?.code} />
+          ) : paymentsEnabled ? (
             <PayButton
               label={payLabel}
               storeName={storeName}
@@ -120,9 +190,19 @@ export function CheckoutClient({
               disabled={!selected}
             />
           ) : (
-            <p className="border-border rounded-md border border-dashed p-3 text-sm">
-              Online payments aren&apos;t set up yet. Add the Razorpay keys to <code>.env</code>.
-            </p>
+            <div
+              className="border-border rounded-md border border-dashed p-4 text-sm"
+              data-testid="payments-pending"
+            >
+              <p className="font-medium">Online checkout is opening soon.</p>
+              <p className="text-muted-foreground mt-1">
+                We&apos;re finishing the payment setup. To order now, message us and we&apos;ll
+                confirm your order and the payment details personally.
+              </p>
+              <a href={contactHref} className="mt-3 inline-block underline underline-offset-4">
+                Contact us to order
+              </a>
+            </div>
           )}
           {!selected && paymentsEnabled && (
             <p className="text-muted-foreground mt-2 text-xs">

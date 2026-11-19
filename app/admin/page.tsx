@@ -1,21 +1,34 @@
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
+import { requireStaffPage } from "@/lib/auth-guards";
 import { LOW_STOCK_THRESHOLD, getDashboardStats } from "@/services/admin/dashboard.service";
 import { config } from "@/lib/config";
+import type { Permission } from "@/lib/permissions";
 import { ratesAreStale } from "@/services/metal-rate.service";
 import { countNewVisits } from "@/services/visit.service";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  const staff = await requireStaffPage("/admin");
+  const can = (p: Permission) => staff.permissions.includes(p);
   const [stats, staleRates, newVisits] = await Promise.all([
     getDashboardStats(),
-    ratesAreStale(),
-    config.features.visit_booking ? countNewVisits() : Promise.resolve(0),
+    can("products.edit") ? ratesAreStale() : Promise.resolve(false),
+    config.features.visit_booking && can("support.manage") ? countNewVisits() : Promise.resolve(0),
   ]);
   const cards = [
     { label: "Orders today", value: String(stats.ordersToday), href: "/admin/orders" },
-    { label: "Revenue today", value: formatINR(stats.revenueTodayInPaise), href: "/admin/orders" },
+    // Revenue is report data: only for staff who may see reports.
+    ...(staff.permissions.includes("reports.view")
+      ? [
+          {
+            label: "Revenue today",
+            value: formatINR(stats.revenueTodayInPaise),
+            href: "/admin/reports",
+          },
+        ]
+      : []),
     {
       label: "Waiting to ship",
       value: String(stats.awaitingShipment),

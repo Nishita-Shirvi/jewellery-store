@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { PURITIES } from "@/lib/metal-pricing";
 import { parseRupeesToPaise } from "@/lib/money";
-import { VISIT_SLOTS, whatsappDigits } from "@/lib/storefront";
+import { VISIT_SLOTS } from "@/lib/storefront";
+import { whatsappDigits } from "@/lib/support";
 
 const optionalText = (max: number) =>
   z

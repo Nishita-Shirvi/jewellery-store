@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ vars.ENABLE_CRON == 'true' }}
     steps:
-      - name: Release expired stock holds
+      - name: Run background jobs (emails, invoices, webhooks, retries) and release expired stock holds
         run: |
-          curl --fail --silent --show-error --max-time 30 \
+          curl --fail --silent --show-error --max-time 70 \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.SITE_URL }}/api/cron/release-reservations"
+            "${{ secrets.SITE_URL }}/api/cron/jobs"

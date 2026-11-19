@@ -20,6 +20,7 @@ const { createInvoiceForOrder } = await import("@/services/invoice.service");
 const RUN = `inv${Date.now().toString(36)}`;
 let userId = "";
 let productId = "";
+let variantId = "";
 let categoryId = "";
 
 async function paidOrder(state: string, priceInPaise = 195_000, shipping = 9_900) {
@@ -43,6 +44,7 @@ async function paidOrder(state: string, priceInPaise = 195_000, shipping = 9_900
       items: {
         create: {
           productId,
+          variantId,
           productName: "Evil Eye Pendant",
           productSlug: "x",
           priceInPaise,
@@ -60,23 +62,33 @@ async function paidOrder(state: string, priceInPaise = 195_000, shipping = 9_900
 beforeAll(async () => {
   categoryId = (await db.category.create({ data: { name: RUN, slug: RUN } })).id;
   userId = (await db.user.create({ data: { email: `${RUN}@example.com` } })).id;
-  productId = (
-    await db.product.create({
-      data: {
-        name: RUN,
-        slug: RUN,
-        description: "x",
-        priceInPaise: 195_000,
-        stock: 5,
-        images: ["/x.svg"],
-        categoryId,
-        metalType: "SILVER",
-        purity: "S925",
-        metalColour: "SILVER",
-        netWeightMg: 4000,
+  const created = await db.product.create({
+    data: {
+      name: RUN,
+      slug: RUN,
+      description: "x",
+      priceInPaise: 195_000,
+      stock: 5,
+      images: ["/x.svg"],
+      categoryId,
+      metalType: "SILVER",
+      purity: "S925",
+      metalColour: "SILVER",
+      netWeightMg: 4000,
+      variants: {
+        create: {
+          sku: RUN.toUpperCase(),
+          priceInPaise: 195_000,
+          stock: 5,
+          netWeightMg: 4000,
+          images: [],
+        },
       },
-    })
-  ).id;
+    },
+    include: { variants: true },
+  });
+  productId = created.id;
+  variantId = created.variants[0]!.id;
 });
 
 afterAll(async () => {

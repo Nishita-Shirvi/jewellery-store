@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { RecoveryLinks } from "@/components/layout/recovery-links";
 import { Button } from "@/components/ui/button";
 
 /** Shown when a page crashes. The error is sent to Sentry; details are never shown to customers. */
@@ -19,15 +20,25 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
-      <p className="text-muted-foreground mt-2">
-        Please try again. If it keeps happening, contact us
-        {error.digest ? ` and mention code ${error.digest}` : ""}.
+    <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+      <p className="text-muted-foreground text-sm tracking-widest uppercase">
+        Something went wrong
       </p>
-      <Button onClick={reset} variant="outline" className="mt-6">
+      <h1 className="mt-2 text-3xl">Sorry — this page didn&apos;t load</h1>
+      <p className="text-muted-foreground mt-3">
+        Please try again. If it keeps happening, contact us
+        {error.digest ? (
+          <>
+            {" "}
+            and mention the code <code className="text-foreground">{error.digest}</code>
+          </>
+        ) : null}
+        . Your cart and account are safe.
+      </p>
+      <Button onClick={reset} className="mt-6">
         Try again
       </Button>
+      <RecoveryLinks />
     </div>
   );
 }

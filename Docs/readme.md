@@ -8,36 +8,81 @@ This folder is the project's memory. It tracks what we are building, where we ar
 
 ### Understand and maintain the code
 
-| File               | Purpose                                                                                                     | Update when                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `learning/`        | Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises | A feature, flow or file location changes     |
-| `ARCHITECTURE.md`  | Stack, layers, folder map, background jobs, safety properties                                               | Structure or stack changes                   |
-| `CONFIGURATION.md` | `config/*.ini` (settings) vs `.env` (secrets) vs admin panel — every key, overrides, adding a setting       | A setting or env variable is added/removed   |
-| `LOGGING.md`       | Logger usage, where to read logs, built-in debugging tools                                                  | Logging changes                              |
-| `FEATURES.md`      | What each feature does for customers and admins                                                             | Feature behaviour changes                    |
-| `INTEGRATIONS.md`  | Setup steps: Razorpay, Resend, Shiprocket, Cloudinary / Cloudflare R2, Google, MSG91, Sentry, GA4, cron     | An integration is added or its setup changes |
-| `ADMIN_GUIDE.md`   | Plain-language, step-by-step guide for the shop team: products, gold rates, visits, orders, refunds…        | Anything in the admin panel changes          |
+- **`learning/`**
+  - Purpose: Learning path: codebase map, feature → files map, critical flows, data model, debugging playbook, exercises
+  - Update when: A feature, flow or file location changes
+- **`ARCHITECTURE.md`**
+  - Purpose: Stack, layers, folder map, background jobs, safety properties
+  - Update when: Structure or stack changes
+- **`CONFIGURATION.md`**
+  - Purpose: `config/*.ini` (settings) vs `.env` (secrets) vs admin panel — every key, overrides, adding a setting
+  - Update when: A setting or env variable is added/removed
+- **`LOGGING.md`**
+  - Purpose: Logger usage, where to read logs, built-in debugging tools
+  - Update when: Logging changes
+- **`FEATURES.md`**
+  - Purpose: What each feature does for customers and admins
+  - Update when: Feature behaviour changes
+- **`INTEGRATIONS.md`**
+  - Purpose: Setup steps: Razorpay, Resend, Shiprocket, Cloudinary / Cloudflare R2, Google, MSG91, Sentry, GA4, cron, WhatsApp
+  - Update when: An integration is added or its setup changes
+- **`ONBOARDING.md`**
+  - Purpose: First day for a new developer: set-up, where things are, how to make a change
+  - Update when: Set-up or conventions change
+- **`SECURITY_REVIEW.md`**
+  - Purpose: Security review results and the checks behind them
+  - Update when: After a security review
+
+### Run the shop
+
+- **`ADMIN_GUIDE.md`**
+  - Purpose: Plain-language guide for the owner and staff: daily routine, gold rates, products, variants, occasions, visits, showroom details, orders, money and tax
+  - Update when: Anything in the admin panel changes
+- **`RUNBOOK.md`**
+  - Purpose: What each alert means, what to check first, how to fix it
+  - Update when: An alert or recovery step changes
 
 ### Run and ship
 
-| File                   | Purpose                                                                                 | Update when          |
-| ---------------------- | --------------------------------------------------------------------------------------- | -------------------- |
-| `DEPLOY.md`            | Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email     | Hosting changes      |
-| `GO_LIVE_CHECKLIST.md` | Everything to tick before taking real orders, including switching Razorpay to live keys | Before launch        |
-| `BACKUPS.md`           | Database backups and restore steps                                                      | Backup setup changes |
-| `RELEASE_WEEK2.md`     | Release checklist used for the Week 2 release                                           | (historical)         |
+- **`DEPLOY.md`**
+  - Purpose: Step-by-step: GitHub → Vercel → Neon production → Razorpay webhook → domain → email
+  - Update when: Hosting changes
+- **`GO_LIVE_CHECKLIST.md`**
+  - Purpose: Everything to tick before taking real orders, including switching Razorpay to live keys
+  - Update when: Before launch
+- **`BACKUPS.md`**
+  - Purpose: Database backups and restore steps
+  - Update when: Backup setup changes
+- **`LAUNCH.md`**
+  - Purpose: Soft launch, first 24 hours, rollback
+  - Update when: Before launch
+- **`RELEASE_WEEK2.md`**, **`RELEASE_WEEK3.md`**
+  - Purpose: Release checklists used for the Week 2 and Week 3 releases
+  - Update when: (historical)
 
 ### Plan and track
 
-| File           | Purpose                                                            | Update when                                                    |
-| -------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| `checklist.md` | One-page feature checklist: done vs pending                        | A feature is finished                                          |
-| `Goal.md`      | Detailed goals for every phase, with a "Done when" test            | Tick items as they are finished and verified                   |
-| `progress.md`  | Status of all phases + a log written **before** each phase starts  | Before starting a phase, and after finishing it                |
-| `blocker.md`   | Everything stopping or slowing work, who must act, and next steps  | As soon as a blocker appears or is solved                      |
-| `BACKLOG.md`   | Known not-yet-done work (review follow-ups), with priority and fix | When an item is found, or delete it when done                  |
-| `note.md`      | Decisions, defaults, jewellery domain notes                        | Whenever a default is chosen or something is worth remembering |
-| `readme.md`    | This file                                                          | When a doc is added or removed                                 |
+- **`checklist.md`**
+  - Purpose: One-page feature checklist: done vs pending
+  - Update when: A feature is finished
+- **`Goal.md`**
+  - Purpose: Detailed goals for every phase, with a "Done when" test
+  - Update when: Tick items as they are finished and verified
+- **`progress.md`**
+  - Purpose: Status of all phases + a log written **before** each phase starts
+  - Update when: Before starting a phase, and after finishing it
+- **`blocker.md`**
+  - Purpose: Everything stopping or slowing work, who must act, and next steps
+  - Update when: As soon as a blocker appears or is solved
+- **`BACKLOG.md`**
+  - Purpose: Known work not done yet (BL-numbers), with why it matters and the fix
+  - Update when: An item is found, or delete it when done
+- **`note.md`**
+  - Purpose: Decisions, defaults, jewellery domain notes
+  - Update when: Whenever a default is chosen or something is worth remembering
+- **`readme.md`**
+  - Purpose: This file
+  - Update when: When a doc is added or removed
 
 ## The project in short
 
@@ -71,4 +116,4 @@ When starting a new chat mid-project, paste Prompt 0, the folder tree, `prisma/s
 
 ## Current status
 
-See `checklist.md` (summary) and `progress.md` (detail). As of 2026-10-25: Phases 1–16 done and verified; production hardening pass done (missing Phase 14–16 migration added, `config.ini`, structured logger, docs + learning path). 2026-11-18: storefront release — gold-rate pricing, occasions, sizes, WhatsApp + showroom visits, `config/` folder, Cloudflare R2, payment/refund hardening, `ADMIN_GUIDE.md` (see `../CHANGELOG.md`). Going live waits on client accounts (`blocker.md`).
+See `checklist.md` (summary) and `progress.md` (detail). As of 2026-11-19: Phases 1–30 done; storefront release merged (gold-rate pricing, occasions as tags, WhatsApp + showroom visits, Admin → Showroom, `config/` folder replacing `config.ini`, Cloudflare R2 — see `../CHANGELOG.md`). Going live waits on client accounts (`blocker.md`).

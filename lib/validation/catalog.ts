@@ -40,7 +40,7 @@ export const productListQuerySchema = z.object({
     .preprocess(single, z.coerce.number().int().min(0).max(10_000_000).optional())
     .catch(undefined),
   inStock: z.preprocess(single, z.enum(["1"]).optional()).catch(undefined),
-  /** "bridal", "daily-wear", … (URL form of the Occasion enum). */
+  /** An occasion tag: "bridal", "daily-wear", … (lib/storefront.ts OCCASIONS). */
   occasion: z
     .preprocess(single, z.string().max(20).optional())
     .transform((v) => (v ? occasionFromSlug(v) : undefined))

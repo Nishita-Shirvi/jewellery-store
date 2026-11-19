@@ -1,16 +1,18 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { RecoveryLinks } from "@/components/layout/recovery-links";
+import { getCurrentUser } from "@/lib/auth-guards";
 
-export default function ProductNotFound() {
+/** A product address that doesn't exist (any more). */
+export default async function ProductNotFound() {
+  const user = await getCurrentUser().catch(() => null);
   return (
-    <div className="mx-auto max-w-6xl px-4 py-24 text-center">
-      <h1 className="text-2xl font-semibold">Product not found</h1>
-      <p className="text-muted-foreground mt-2">
-        This piece may have sold out or been removed from the store.
+    <div className="mx-auto max-w-2xl px-4 py-24 text-center">
+      <p className="text-muted-foreground text-sm tracking-widest uppercase">Error 404</p>
+      <h1 className="mt-2 text-3xl">Product not found</h1>
+      <p className="text-muted-foreground mt-3">
+        This piece may have sold out or been removed from the store. Have a look at what&apos;s
+        available now.
       </p>
-      <Button asChild variant="outline" className="mt-6">
-        <Link href="/products">Browse all jewellery</Link>
-      </Button>
+      <RecoveryLinks signedIn={Boolean(user)} />
     </div>
   );
 }

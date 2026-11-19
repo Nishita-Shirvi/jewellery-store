@@ -5,14 +5,9 @@ import {
   rateChangeBps,
   rateLinkedPrice,
 } from "@/lib/metal-pricing";
-import {
-  occasionFromSlug,
-  occasionSlug,
-  parseSizes,
-  sizesSchema,
-  whatsappDigits,
-  whatsappLink,
-} from "@/lib/storefront";
+import { OCCASIONS, occasionFromSlug, occasionLabel } from "@/lib/storefront";
+import { STARTER_COLLECTIONS } from "@/lib/merch";
+import { whatsappDigits, whatsappLink } from "@/lib/support";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { productListQuerySchema } from "@/lib/validation/catalog";
 import { productsUrl } from "@/lib/catalog-url";
@@ -58,19 +53,13 @@ describe("rate-linked pricing", () => {
   });
 });
 
-describe("sizes", () => {
-  it("parses commas and lines, trims and removes duplicates", () => {
-    expect(parseSizes(" 10, 12\n12 ,14,, ")).toEqual(["10", "12", "14"]);
-    expect(sizesSchema.parse("2.4, 2.6")).toEqual(["2.4", "2.6"]);
-    expect(sizesSchema.safeParse("12<script>").success).toBe(false);
-  });
-});
-
 describe("occasions and catalogue URLs", () => {
-  it("round-trips occasion slugs", () => {
-    expect(occasionSlug("DAILY_WEAR")).toBe("daily-wear");
-    expect(occasionFromSlug("daily-wear")).toBe("DAILY_WEAR");
+  it("occasions are product tags, matching the starter occasion collections", () => {
+    expect(occasionFromSlug("daily-wear")).toBe("daily-wear");
     expect(occasionFromSlug("nonsense")).toBeUndefined();
+    expect(occasionLabel("gift")).toBe("Gifting");
+    const tags = new Set<string>(OCCASIONS.map((o) => o.tag));
+    for (const c of STARTER_COLLECTIONS) for (const t of c.tags) expect(tags.has(t)).toBe(true);
   });
 
   it("reads the new filters from the URL and writes them back", () => {
@@ -80,7 +69,7 @@ describe("occasions and catalogue URLs", () => {
       minWeight: "2.5",
       maxWeight: "10",
     });
-    expect(q).toMatchObject({ occasion: "BRIDAL", colour: "ROSE", minWeight: 2.5, maxWeight: 10 });
+    expect(q).toMatchObject({ occasion: "bridal", colour: "ROSE", minWeight: 2.5, maxWeight: 10 });
     expect(productsUrl(q)).toBe("/products?occasion=bridal&colour=ROSE&minWeight=2.5&maxWeight=10");
     // Bad values are ignored rather than erroring.
     expect(productListQuerySchema.parse({ occasion: "xyz", minWeight: "-1" })).toMatchObject({

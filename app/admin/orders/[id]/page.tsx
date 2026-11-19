@@ -5,8 +5,7 @@ import { ConfirmSubmit } from "@/components/admin/confirm-submit";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatINR } from "@/lib/format";
-import { ADMIN_TRANSITIONS, STATUS_LABEL } from "@/lib/order-status";
-import type { AddressSnapshot } from "@/services/address.service";
+import { ADMIN_TRANSITIONS, READY_TO_SHIP_STATUSES, STATUS_LABEL } from "@/lib/order-status";
 import { getOrderAdmin } from "@/services/admin/order-admin.service";
 import { displayOrderNumber } from "@/services/order.service";
 import {
@@ -16,15 +15,23 @@ import {
   rejectReturnAction,
   retryRefundAction,
   updateOrderStatusAction,
+  markCashReceivedAction,
+  markRefundPaidAction,
+  addManualShipmentUpdateAction,
+  saveManualTrackingAction,
 } from "../../actions";
 import { RefundList } from "@/components/returns/refund-list";
 import { Input } from "@/components/ui/input";
 import { RETURN_REASON_LABEL } from "@/lib/returns";
 import { getReturnsAndRefunds } from "@/services/return.service";
+import { canRetryRefund } from "@/services/refund.service";
 import { db } from "@/lib/db";
 import { SHIPMENT_LABEL, TrackingTimeline } from "@/components/shipping/tracking-timeline";
 import { isShiprocketConfigured } from "@/lib/env";
 import { getShipmentForOrder } from "@/services/shipment.service";
+import { lineName } from "@/lib/variants";
+import { requirePermissionPage } from "@/lib/auth-guards";
+import { openSnapshot } from "@/services/address.service";
 
 export const dynamic = "force-dynamic";
 
@@ -45,10 +52,17 @@ export default async function AdminOrderPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; shipped?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    shipped?: string;
+    shipError?: string;
+    tracking?: string;
+  }>;
 }) {
+  await requirePermissionPage("orders.view", "/admin/orders");
   const { id } = await params;
-  const { error, shipped } = await searchParams;
+  const sp = await searchParams;
+  const { error, shipped } = sp;
   const [order, shipment, { returns, refunds }] = await Promise.all([
     getOrderAdmin(id),
     getShipmentForOrder(id),
@@ -60,9 +74,9 @@ export default async function AdminOrderPage({
     select: { number: true },
   });
   const canCreateShipment =
-    order.status === "PAID" &&
+    READY_TO_SHIP_STATUSES.includes(order.status) &&
     (!shipment || !shipment.awb || shipment.status === "AWB_ASSIGNED" || !shipment.labelUrl);
-  const address = order.addressSnapshot as AddressSnapshot;
+  const address = openSnapshot(order.addressSnapshot);
   const next = ADMIN_TRANSITIONS[order.status];
 
   return (
@@ -106,7 +120,9 @@ export default async function AdminOrderPage({
                   description={
                     order.status === "PAID"
                       ? "Stock goes back and the customer is refunded in full through Razorpay automatically."
-                      : "The order will be closed. This can't be undone."
+                      : order.status === "CONFIRMED"
+                        ? "Cash on delivery: stock goes back. Nothing was paid, so there's nothing to refund."
+                        : "The order will be closed. This can't be undone."
                   }
                   confirmLabel="Cancel order"
                 />
@@ -117,6 +133,42 @@ export default async function AdminOrderPage({
               )}
             </form>
           ))}
+        </section>
+      )}
+
+      {order.paymentMethod === "COD" && (
+        <section
+          aria-labelledby="cod-heading"
+          className="border-border flex flex-wrap items-center justify-between gap-3 rounded-md border p-5 text-sm"
+        >
+          <div>
+            <h2 id="cod-heading" className="font-medium">
+              Cash on delivery · {formatINR(order.totalInPaise)}
+            </h2>
+            <p className="text-muted-foreground" data-testid="cod-state">
+              {order.paidAt
+                ? `Cash recorded ${dateFmt.format(order.paidAt)}`
+                : order.rtoAt
+                  ? "Parcel came back (refused / undeliverable) — stock restored"
+                  : order.status === "CANCELLED"
+                    ? "Cancelled — nothing to collect"
+                    : order.deliveredAt
+                      ? "Delivered — waiting for the courier's remittance"
+                      : "To collect at delivery"}
+              {order.codFeeInPaise > 0
+                ? ` · includes ${formatINR(order.codFeeInPaise)} COD fee`
+                : ""}
+            </p>
+          </div>
+          {!order.paidAt && ["DELIVERED", "RETURN_REQUESTED"].includes(order.status) && (
+            <form action={markCashReceivedAction}>
+              <input type="hidden" name="orderId" value={order.id} />
+              <input type="hidden" name="back" value="order" />
+              <Button type="submit" size="sm">
+                Mark cash received
+              </Button>
+            </form>
+          )}
         </section>
       )}
 
@@ -146,7 +198,14 @@ export default async function AdminOrderPage({
               <p className="font-medium">
                 {r.status} · {RETURN_REASON_LABEL[r.reason]}
               </p>
-              <p>{r.items.map((i) => `${i.orderItem.productName} × ${i.quantity}`).join(", ")}</p>
+              <p>
+                {r.items
+                  .map(
+                    (i) =>
+                      `${lineName(i.orderItem.productName, i.orderItem.variantLabel)} × ${i.quantity}`,
+                  )
+                  .join(", ")}
+              </p>
               {r.details && <p className="text-muted-foreground">“{r.details}”</p>}
               {r.photoUrl && (
                 <a href={r.photoUrl} target="_blank" rel="noreferrer" className="underline">
@@ -192,24 +251,41 @@ export default async function AdminOrderPage({
             </div>
           ))}
           <RefundList refunds={refunds} admin />
-          {refunds
-            .filter(
-              // Failed, or never reached Razorpay for 10+ minutes (same rule as canRetryRefund).
-              (r) =>
-                r.status === "FAILED" ||
-                (r.status === "PENDING" &&
-                  !r.razorpayRefundId &&
-                  r.updatedAt.getTime() < Date.now() - 10 * 60_000),
-            )
-            .map((r) => (
-              <form key={r.id} action={retryRefundAction}>
-                <input type="hidden" name="refundId" value={r.id} />
-                <input type="hidden" name="orderId" value={order.id} />
-                <Button type="submit" size="sm" variant="outline">
-                  Retry refund of {formatINR(r.amountInPaise)}
-                </Button>
-              </form>
-            ))}
+          {order.paymentMethod === "COD" &&
+            refunds
+              .filter((r) => r.status === "PENDING")
+              .map((r) => (
+                <form
+                  key={`manual-${r.id}`}
+                  action={markRefundPaidAction}
+                  className="flex flex-wrap items-center gap-2"
+                >
+                  <input type="hidden" name="refundId" value={r.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <Input
+                    name="reference"
+                    placeholder="Bank / UPI reference"
+                    aria-label={`Bank or UPI reference for the refund of ${formatINR(r.amountInPaise)}`}
+                    className="h-8 w-56"
+                  />
+                  <Button type="submit" size="sm" variant="outline">
+                    Mark {formatINR(r.amountInPaise)} as refunded
+                  </Button>
+                </form>
+              ))}
+          {order.paymentMethod !== "COD" &&
+            refunds
+              // Failed, or never reached Razorpay for 10+ minutes.
+              .filter((r) => canRetryRefund(r))
+              .map((r) => (
+                <form key={r.id} action={retryRefundAction}>
+                  <input type="hidden" name="refundId" value={r.id} />
+                  <input type="hidden" name="orderId" value={order.id} />
+                  <Button type="submit" size="sm" variant="outline">
+                    Retry refund of {formatINR(r.amountInPaise)}
+                  </Button>
+                </form>
+              ))}
         </section>
       )}
 
@@ -252,10 +328,10 @@ export default async function AdminOrderPage({
             </form>
           )}
         </div>
-        {!isShiprocketConfigured && order.status === "PAID" && (
+        {!isShiprocketConfigured && READY_TO_SHIP_STATUSES.includes(order.status) && (
           <p className="text-muted-foreground mt-2 text-xs">
-            Shiprocket isn&apos;t set up — add the SHIPROCKET_* keys, or ship manually and use “Mark
-            as shipped”.
+            No courier service is connected yet — ship the parcel yourself and add its tracking
+            details below; customers see each update on their order page.
           </p>
         )}
         {shipment ? (
@@ -309,6 +385,80 @@ export default async function AdminOrderPage({
           <p className="text-muted-foreground mt-2 text-sm">No shipment yet.</p>
         )}
       </section>
+
+      {(!isShiprocketConfigured || shipment?.provider === "MANUAL") &&
+        ["PAID", "CONFIRMED", "SHIPPED"].includes(order.status) && (
+          <section
+            aria-labelledby="manual-ship-heading"
+            className="border-border space-y-4 rounded-md border p-5"
+          >
+            <h2 id="manual-ship-heading" className="font-medium">
+              Manual delivery tracking
+            </h2>
+            {sp.shipError && (
+              <p role="alert" className="text-sm text-red-700">
+                {sp.shipError}
+              </p>
+            )}
+            <form
+              action={saveManualTrackingAction}
+              className="grid gap-3 sm:grid-cols-4"
+              aria-label="Tracking details"
+            >
+              <input type="hidden" name="id" value={order.id} />
+              <Input
+                name="courier"
+                aria-label="Courier"
+                placeholder="Courier (e.g. Blue Dart)"
+                defaultValue={shipment?.courier ?? ""}
+                required
+              />
+              <Input
+                name="awb"
+                aria-label="Tracking number"
+                placeholder="Tracking number"
+                defaultValue={shipment?.awb ?? ""}
+              />
+              <Input
+                name="trackingUrl"
+                aria-label="Tracking link"
+                placeholder="https://… (optional)"
+                defaultValue={shipment?.trackingUrl ?? ""}
+              />
+              <Button type="submit" size="sm">
+                {shipment ? "Save tracking" : "Save & mark shipped"}
+              </Button>
+            </form>
+            {shipment?.provider === "MANUAL" && shipment.status !== "DELIVERED" && (
+              <form
+                action={addManualShipmentUpdateAction}
+                className="grid gap-3 sm:grid-cols-4"
+                aria-label="Delivery update"
+              >
+                <input type="hidden" name="id" value={order.id} />
+                <select
+                  name="shipStatus"
+                  aria-label="Update"
+                  className="border-input bg-background h-9 rounded-md border px-2 text-sm"
+                >
+                  <option value="PICKED_UP">Picked up by the courier</option>
+                  <option value="IN_TRANSIT">In transit</option>
+                  <option value="OUT_FOR_DELIVERY">Out for delivery</option>
+                  <option value="DELIVERED">Delivered</option>
+                </select>
+                <Input name="location" aria-label="Location" placeholder="City (optional)" />
+                <Input
+                  name="note"
+                  aria-label="Note"
+                  placeholder="Note for the customer (optional)"
+                />
+                <Button type="submit" size="sm" variant="outline">
+                  Post update
+                </Button>
+              </form>
+            )}
+          </section>
+        )}
 
       <div className="grid gap-8 md:grid-cols-2">
         <section>
@@ -377,8 +527,8 @@ export default async function AdminOrderPage({
               {order.items.map((i) => (
                 <tr key={i.id}>
                   <td className="p-3">
-                    {i.productName}
-                    {i.size && <span className="font-medium"> · Size {i.size}</span>}
+                    {lineName(i.productName, i.variantLabel)}
+                    {i.sku && <span className="text-muted-foreground text-xs"> · SKU {i.sku}</span>}
                     <br />
                     <span className="text-muted-foreground text-xs">
                       {(i.productSnapshot as { materialSummary?: string }).materialSummary}

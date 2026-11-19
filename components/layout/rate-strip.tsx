@@ -12,10 +12,11 @@ const updatedFmt = new Intl.DateTimeFormat("en-IN", {
 });
 
 /**
- * The thin bar above the header: today's metal rates when there are any (and the rate strip is on),
- * otherwise the announcement text from config/storefront.ini.
+ * The thin strip at the top of the header: today's metal rates when there are any (and
+ * [features] rate_strip is on) plus the standing message from config/storefront.ini. Time-limited
+ * offers go in Admin → Content → announcement bar, which shows above this strip.
  */
-export async function AnnouncementBar() {
+export async function RateStrip() {
   const rates = config.features.rate_strip ? await getCurrentRates() : {};
   const shown = config.pricing.strip_purities.flatMap((p) => {
     const r = rates[p];

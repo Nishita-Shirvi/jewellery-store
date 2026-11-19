@@ -1,4 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { visitorIp, watchCsp } from "./fixtures";
+
+test.beforeEach(async ({ context }, info) => {
+  await context.setExtraHTTPHeaders({ "x-forwarded-for": visitorIp(info.title) });
+});
 
 /** Replaces Razorpay's checkout.js: "pays" instantly and returns a correctly signed response. */
 const FAKE_RAZORPAY = `
@@ -13,6 +18,7 @@ window.Razorpay = function (o) {
 };`;
 
 test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async ({ page }) => {
+  const csp = watchCsp(page);
   await page.route("https://checkout.razorpay.com/**", (route) =>
     route.fulfill({ contentType: "application/javascript", body: FAKE_RAZORPAY }),
   );
@@ -42,11 +48,12 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await expect(page).toHaveURL(/\/login\?callbackUrl=%2Fcheckout/);
   await page.getByRole("link", { name: "Create an account" }).click();
   await page.getByLabel("Full name").fill("Playwright Buyer");
-  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill("Playwright2026");
   await page.getByLabel("Confirm password").fill("Playwright2026");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page).toHaveURL(/\/checkout$/);
+  // Password hashing + sign-in can be slow while other browser tests run in parallel.
+  await expect(page).toHaveURL(/\/checkout$/, { timeout: 20_000 });
   await expect(page.getByTestId("checkout-total")).toHaveText("₹4,400");
   await page.waitForLoadState("networkidle");
 
@@ -58,7 +65,7 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await page.getByLabel("State").selectOption("Tamil Nadu");
   await page.getByLabel("Pincode").fill("600001");
   await page.getByRole("button", { name: "Save address" }).click();
-  await expect(page.getByRole("radio")).toBeChecked();
+  await expect(page.getByRole("radio", { name: /Playwright Buyer/ })).toBeChecked();
   await page.getByRole("button", { name: "Pay ₹4,400" }).click();
 
   await expect(page).toHaveURL(/\/orders\/[a-z0-9]+\/success$/, { timeout: 20_000 });
@@ -69,6 +76,8 @@ test("browse → cart → checkout → pay (Razorpay test mode stand-in)", async
   await page.getByRole("link", { name: "View order" }).click();
   await expect(page.getByText("Order confirmed")).toBeVisible();
   await expect(page.getByText("₹4,400").first()).toBeVisible();
+  // The whole browse → pay journey ran under the Content-Security-Policy without a violation.
+  expect(csp).toEqual([]);
 });
 
 test("security headers are set", async ({ request }) => {

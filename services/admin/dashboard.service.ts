@@ -22,7 +22,7 @@ export async function getDashboardStats() {
       where: { paidAt: { gte: since }, status: { in: [...paidStatuses] } },
       _sum: { totalInPaise: true },
     }),
-    db.order.count({ where: { status: "PAID" } }),
+    db.order.count({ where: { status: { in: ["PAID", "CONFIRMED"] } } }), // prepaid + COD to ship
     db.product.findMany({
       where: { isActive: true, stock: { lte: LOW_STOCK_THRESHOLD } },
       orderBy: [{ stock: "asc" }, { name: "asc" }],

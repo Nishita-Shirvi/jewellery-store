@@ -1,3 +1,4 @@
+import { requirePermissionPage } from "@/lib/auth-guards";
 import Link from "next/link";
 import type { VisitStatus } from "@prisma/client";
 import { Pager } from "@/components/admin/pager";
@@ -27,6 +28,7 @@ export default async function AdminVisitsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requirePermissionPage("support.manage", "/admin/visits");
   const query = adminListQuerySchema.parse(await searchParams);
   const status = STATUSES.includes(query.status as VisitStatus)
     ? (query.status as VisitStatus)

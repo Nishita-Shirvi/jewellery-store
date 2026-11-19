@@ -7,14 +7,16 @@ import { logger } from "@/lib/logger";
 import { purityLabel } from "@/lib/jewellery";
 import { PURITIES, rateChangeBps, rateLinkedPrice } from "@/lib/metal-pricing";
 import { CATALOG_TAG } from "@/services/catalog.service";
+import { syncProductSummaries } from "@/services/inventory.service";
 
 /**
  * Metal rates and rate-linked prices.
  *
  * The newest MetalRate row per purity is the current rate. Saving rates recalculates the stored
- * priceInPaise of every RATE_LINKED product of that purity in the same transaction, so the
- * catalogue, filters, cart and checkout keep reading one stored price (and checkout's existing
- * "a price just changed" check protects anyone mid-purchase).
+ * price of every variant of every RATE_LINKED product of that purity in the same transaction
+ * (each variant by its own net weight; a variant may override the purity), then refreshes the
+ * product's "from" price. The catalogue, filters, cart and checkout keep reading stored prices,
+ * and checkout's existing "a price just changed" check protects anyone mid-purchase.
  */
 
 export const RATES_TAG = "metal-rates";
@@ -70,42 +72,82 @@ export async function rateLinkedCounts(): Promise<Partial<Record<Purity, number>
   const rows = await db.product.groupBy({
     by: ["purity"],
     where: { pricingMode: "RATE_LINKED", isActive: true },
-    _count: { _all: true },
+    _count: { id: true },
   });
-  return Object.fromEntries(rows.map((r) => [r.purity, r._count._all]));
+  return Object.fromEntries(rows.map((r) => [r.purity, r._count.id]));
 }
 
 export class RateError extends Error {}
 
-/** Recalculates rate-linked prices for the given purities (all when omitted). Returns how many changed. */
-async function repriceRateLinked(
+/**
+ * Recalculates the stored price of every variant of the given RATE_LINKED products (all of them
+ * when `productIds` is omitted), limited to `purities` when given. Variants whose purity has no rate
+ * keep their price. A "was" price that is no longer above the new price is cleared (no fake sale).
+ * Returns how many variants changed. Runs inside the caller's transaction.
+ */
+export async function repriceRateLinked(
   tx: Tx,
   rates: CurrentRates,
-  purities?: Purity[],
+  opts: { purities?: Purity[]; productIds?: string[] } = {},
 ): Promise<number> {
   const products = await tx.product.findMany({
-    where: { pricingMode: "RATE_LINKED", ...(purities ? { purity: { in: purities } } : {}) },
+    where: {
+      pricingMode: "RATE_LINKED",
+      ...(opts.productIds ? { id: { in: opts.productIds } } : {}),
+    },
+    orderBy: { id: "asc" },
     select: {
       id: true,
       purity: true,
-      priceInPaise: true,
-      netWeightMg: true,
       makingChargeInPaise: true,
       stoneChargeInPaise: true,
       gstRateBps: true,
+      variants: {
+        orderBy: { id: "asc" },
+        select: {
+          id: true,
+          purity: true,
+          priceInPaise: true,
+          compareAtPriceInPaise: true,
+          netWeightMg: true,
+        },
+      },
     },
   });
   let changed = 0;
+  const touched: string[] = [];
   for (const p of products) {
-    const rate = rates[p.purity];
-    if (!rate) continue;
-    const price = rateLinkedPrice({ ...p, ratePerGramInPaise: rate.ratePerGramInPaise });
-    if (price !== p.priceInPaise && price > 0) {
-      await tx.product.update({ where: { id: p.id }, data: { priceInPaise: price } });
+    let productChanged = false;
+    for (const v of p.variants) {
+      const purity = v.purity ?? p.purity;
+      if (opts.purities && !opts.purities.includes(purity)) continue;
+      const rate = rates[purity];
+      if (!rate || v.netWeightMg <= 0) continue;
+      const price = rateLinkedPrice({
+        ratePerGramInPaise: rate.ratePerGramInPaise,
+        netWeightMg: v.netWeightMg,
+        makingChargeInPaise: p.makingChargeInPaise,
+        stoneChargeInPaise: p.stoneChargeInPaise,
+        gstRateBps: p.gstRateBps,
+      });
+      if (price <= 0 || price === v.priceInPaise) continue;
+      const staleWas = v.compareAtPriceInPaise != null && v.compareAtPriceInPaise <= price;
+      await tx.productVariant.update({
+        where: { id: v.id },
+        data: { priceInPaise: price, ...(staleWas ? { compareAtPriceInPaise: null } : {}) },
+      });
       changed++;
+      productChanged = true;
     }
+    if (productChanged) touched.push(p.id);
   }
+  if (touched.length) await syncProductSummaries(tx, touched);
   return changed;
+}
+
+/** Current rates read inside a transaction (no cache), for repricing one product on save. */
+export async function repriceProduct(tx: Tx, productId: string): Promise<number> {
+  return repriceRateLinked(tx, await readCurrentRates(tx), { productIds: [productId] });
 }
 
 /**
@@ -118,6 +160,7 @@ export async function saveRates(
   confirmLarge: boolean,
 ): Promise<{
   saved: Purity[];
+  /** Variants whose price changed. */
   repriced: number;
   changes: Record<string, { from: unknown; to: unknown }>;
 }> {
@@ -147,7 +190,7 @@ export async function saveRates(
     const saved = entries.map(([p]) => p);
     const changed = Object.keys(changes) as Purity[];
     const after = await readCurrentRates(tx);
-    const repriced = changed.length ? await repriceRateLinked(tx, after, changed) : 0;
+    const repriced = changed.length ? await repriceRateLinked(tx, after, { purities: changed }) : 0;
     return { saved, repriced, changes };
   });
 
@@ -158,22 +201,16 @@ export async function saveRates(
 }
 
 /**
- * The price to store for a product being saved from the admin form. FIXED keeps the typed price;
- * RATE_LINKED calculates it and refuses when no rate exists for the purity yet.
+ * Checks a product about to be saved as RATE_LINKED: a rate must exist for its purity and it needs a
+ * net weight. Returns the calculated price for the base variant (used as the starting price).
  */
-export async function priceForSave(input: {
-  pricingMode: "FIXED" | "RATE_LINKED";
-  typedPriceInPaise: number | null;
+export async function rateLinkedStartPrice(input: {
   purity: Purity;
   netWeightMg: number;
   makingChargeInPaise: number;
   stoneChargeInPaise: number;
   gstRateBps: number;
 }): Promise<number> {
-  if (input.pricingMode === "FIXED") {
-    if (!input.typedPriceInPaise) throw new RateError("Enter a price.");
-    return input.typedPriceInPaise;
-  }
   const rate = (await readCurrentRates(db))[input.purity];
   if (!rate) {
     throw new RateError(

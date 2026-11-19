@@ -4,24 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const LINKS = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/reports", label: "Reports" },
-  { href: "/admin/orders", label: "Orders" },
-  { href: "/admin/returns", label: "Returns" },
-  { href: "/admin/products", label: "Products" },
-  { href: "/admin/rates", label: "Gold rates" },
-  { href: "/admin/categories", label: "Categories" },
-  { href: "/admin/coupons", label: "Coupons" },
-  { href: "/admin/reviews", label: "Reviews" },
-  { href: "/admin/visits", label: "Visits" },
-  { href: "/admin/settings", label: "Settings" },
-  { href: "/admin/audit", label: "Activity log" },
-];
-
-export function AdminNav({ visitsEnabled = true }: { visitsEnabled?: boolean }) {
+/** Only the pages this staff member may open (filtered by the layout from their permissions). */
+export function AdminNav({ links }: { links: { href: string; label: string }[] }) {
   const pathname = usePathname();
-  const links = visitsEnabled ? LINKS : LINKS.filter((l) => l.href !== "/admin/visits");
   return (
     <nav aria-label="Admin" className="border-border flex gap-1 overflow-x-auto border-b">
       {links.map((link) => {

@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { maxAllowed, mergeLines, priceCart, type PricedProduct } from "@/services/pricing";
+import { maxAllowed, mergeLines, priceCart, type PricedVariant } from "@/services/pricing";
 
-function product(overrides: Partial<PricedProduct> & { id: string }): PricedProduct {
+function product(overrides: Partial<PricedVariant> & { id: string }): PricedVariant {
+  const { id, ...rest } = overrides;
   return {
+    variantId: id,
+    productId: `p-${id}`,
+    sku: id.toUpperCase(),
+    variantLabel: "",
     slug: overrides.id,
     name: overrides.id,
     image: "/x.svg",
@@ -10,19 +15,18 @@ function product(overrides: Partial<PricedProduct> & { id: string }): PricedProd
     stock: 5,
     isAvailable: true,
     materialSummary: "22K yellow gold · 4 g",
-    sizes: [],
-    ...overrides,
+    ...rest,
   };
 }
 
-const map = (...products: PricedProduct[]) => new Map(products.map((p) => [p.id, p]));
+const map = (...variants: PricedVariant[]) => new Map(variants.map((v) => [v.variantId, v]));
 
 describe("priceCart", () => {
   it("uses database prices and adds up line totals in paise", () => {
     const cart = priceCart(
       [
-        { productId: "ring", size: "", quantity: 2 },
-        { productId: "chain", size: "", quantity: 1 },
+        { variantId: "ring", quantity: 2 },
+        { variantId: "chain", quantity: 1 },
       ],
       map(
         product({ id: "ring", priceInPaise: 68_500_00 }),
@@ -37,7 +41,7 @@ describe("priceCart", () => {
 
   it("reduces quantities above stock and flags them", () => {
     const cart = priceCart(
-      [{ productId: "ring", size: "", quantity: 4 }],
+      [{ variantId: "ring", quantity: 4 }],
       map(product({ id: "ring", stock: 1 })),
     );
     expect(cart.items[0]).toMatchObject({ quantity: 1, requestedQuantity: 4, issue: "reduced" });
@@ -46,7 +50,7 @@ describe("priceCart", () => {
 
   it("caps at the per-item maximum even with plenty of stock", () => {
     const cart = priceCart(
-      [{ productId: "ring", size: "", quantity: 10 }],
+      [{ variantId: "ring", quantity: 10 }],
       map(product({ id: "ring", stock: 500 })),
     );
     expect(cart.items[0]?.maxQuantity).toBe(10);
@@ -55,9 +59,9 @@ describe("priceCart", () => {
   it("excludes out-of-stock and unavailable products from the total", () => {
     const cart = priceCart(
       [
-        { productId: "sold", size: "", quantity: 1 },
-        { productId: "hidden", size: "", quantity: 1 },
-        { productId: "ok", size: "", quantity: 1 },
+        { variantId: "sold", quantity: 1 },
+        { variantId: "hidden", quantity: 1 },
+        { variantId: "ok", quantity: 1 },
       ],
       map(
         product({ id: "sold", stock: 0 }),
@@ -73,7 +77,7 @@ describe("priceCart", () => {
   });
 
   it("drops lines for products that no longer exist", () => {
-    const cart = priceCart([{ productId: "deleted", size: "", quantity: 2 }], map());
+    const cart = priceCart([{ variantId: "deleted", quantity: 2 }], map());
     expect(cart.items).toHaveLength(0);
     expect(cart.subtotalInPaise).toBe(0);
   });
@@ -83,15 +87,15 @@ describe("mergeLines", () => {
   it("adds quantities of the same product from guest and saved carts", () => {
     expect(
       mergeLines(
-        [{ productId: "a", size: "", quantity: 1 }],
+        [{ variantId: "a", quantity: 1 }],
         [
-          { productId: "a", size: "", quantity: 2 },
-          { productId: "b", size: "", quantity: 1 },
+          { variantId: "a", quantity: 2 },
+          { variantId: "b", quantity: 1 },
         ],
       ),
     ).toEqual([
-      { productId: "a", size: "", quantity: 3 },
-      { productId: "b", size: "", quantity: 1 },
+      { variantId: "a", quantity: 3 },
+      { variantId: "b", quantity: 1 },
     ]);
   });
 });
@@ -101,45 +105,5 @@ describe("maxAllowed", () => {
     expect(maxAllowed(3)).toBe(3);
     expect(maxAllowed(50)).toBe(10);
     expect(maxAllowed(-2)).toBe(0);
-  });
-});
-
-describe("sizes", () => {
-  it("keeps one line per product and size when merging", () => {
-    const merged = mergeLines(
-      [{ productId: "ring", size: "12", quantity: 1 }],
-      [
-        { productId: "ring", size: "12", quantity: 1 },
-        { productId: "ring", size: "14", quantity: 1 },
-      ],
-    );
-    expect(merged).toEqual([
-      { productId: "ring", size: "12", quantity: 2 },
-      { productId: "ring", size: "14", quantity: 1 },
-    ]);
-  });
-
-  it("shares one piece's stock across its sizes", () => {
-    const cart = priceCart(
-      [
-        { productId: "ring", size: "12", quantity: 2 },
-        { productId: "ring", size: "14", quantity: 2 },
-      ],
-      map(product({ id: "ring", stock: 3, sizes: ["12", "14"] })),
-    );
-    expect(cart.items.map((i) => [i.size, i.quantity, i.issue])).toEqual([
-      ["12", 2, null],
-      ["14", 1, "reduced"],
-    ]);
-    expect(cart.itemCount).toBe(3);
-  });
-
-  it("flags a size the product no longer offers", () => {
-    const cart = priceCart(
-      [{ productId: "ring", size: "9", quantity: 1 }],
-      map(product({ id: "ring", sizes: ["12", "14"] })),
-    );
-    expect(cart.items[0]).toMatchObject({ quantity: 0, issue: "unavailable" });
-    expect(cart.hasIssues).toBe(true);
   });
 });

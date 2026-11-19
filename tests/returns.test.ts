@@ -28,7 +28,7 @@ const delivered = new Date("2026-10-01T10:00:00Z");
 
 describe("order state machine", () => {
   it("every status has an entry and nothing leaves REFUNDED", () => {
-    expect(Object.keys(ORDER_TRANSITIONS)).toHaveLength(9);
+    expect(Object.keys(ORDER_TRANSITIONS)).toHaveLength(10); // + CONFIRMED (cash on delivery)
     expect(ORDER_TRANSITIONS.REFUNDED).toEqual([]);
   });
   it("allows the return and refund paths", () => {

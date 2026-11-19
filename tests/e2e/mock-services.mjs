@@ -1,6 +1,7 @@
 /**
  * Stand-ins for Razorpay's Orders API and Cloudinary uploads, used by the Playwright tests
- * (point RAZORPAY_API_BASE / CLOUDINARY_API_BASE at http://localhost:4010). Never used in production.
+ * (point RAZORPAY_API_BASE / CLOUDINARY_API_BASE / MSG91_API_BASE at http://localhost:4010).
+ * Never used in production.
  */
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import http from "node:http";
@@ -11,6 +12,16 @@ http
   .createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     res.setHeader("Access-Control-Allow-Origin", "*");
+
+    // Phase 26: simulate a Razorpay outage for orders of one amount (in paise), so only the
+    // monitoring test is affected while other tests keep paying normally:
+    // POST /test/razorpay-outage?amount=1313100 (and ?amount= to end it).
+    if (url.pathname === "/test/razorpay-outage") {
+      globalThis.__razorpayDownFor = Number(url.searchParams.get("amount")) || null;
+      return res
+        .writeHead(200, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ downFor: globalThis.__razorpayDownFor }));
+    }
 
     if (req.method === "POST" && url.pathname === "/v1/orders") {
       let body = "";
@@ -23,6 +34,12 @@ http
         if (auth !== `${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`)
           return res.writeHead(401).end("{}");
         const b = JSON.parse(body);
+        if (globalThis.__razorpayDownFor && b.amount === globalThis.__razorpayDownFor)
+          return res
+            .writeHead(503, { "Content-Type": "application/json" })
+            .end(
+              JSON.stringify({ error: { code: "SERVER_ERROR", description: "Simulated outage" } }),
+            );
         res.writeHead(200, { "Content-Type": "application/json" }).end(
           JSON.stringify({
             id: `order_${randomBytes(7).toString("hex")}`,
@@ -107,6 +124,28 @@ http
       return res
         .writeHead(200, { "Content-Type": "application/json" })
         .end(JSON.stringify({ sig }));
+    }
+
+    // MSG91 flow API (one-time codes for cash on delivery). Codes are kept so tests can read them.
+    const smsCodes = (globalThis.__smsCodes ??= new Map());
+    if (req.method === "POST" && url.pathname === "/api/v5/flow/") {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        if (!req.headers.authkey) return res.writeHead(401).end("{}");
+        const b = JSON.parse(body || "{}");
+        for (const r of b.recipients ?? []) smsCodes.set(r.mobiles, r.otp);
+        res
+          .writeHead(200, { "Content-Type": "application/json" })
+          .end(JSON.stringify({ type: "success" }));
+      });
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/test/last-sms-code") {
+      const code = smsCodes.get(url.searchParams.get("mobile") ?? "");
+      return res
+        .writeHead(code ? 200 : 404, { "Content-Type": "application/json" })
+        .end(JSON.stringify({ code: code ?? null }));
     }
 
     if (req.method === "POST" && /^\/v1_1\/[^/]+\/image\/upload$/.test(url.pathname)) {

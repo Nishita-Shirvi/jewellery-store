@@ -8,6 +8,7 @@ import { formatINR } from "@/lib/format";
 import { adminListQuerySchema } from "@/lib/validation/admin";
 import { listProductsAdmin } from "@/services/admin/product-admin.service";
 import { toggleProductActiveAction, updateStockAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +17,11 @@ export default async function AdminProductsPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
-  const params = await searchParams;
-  const query = adminListQuerySchema.parse(params);
+  await requirePermissionPage("products.view", "/admin/products");
+  const raw = await searchParams;
+  const query = adminListQuerySchema.parse(raw);
+  const stockError = raw.stockError?.slice(0, 200);
+  const deleted = raw.deleted === "1";
   const { items, total, pageCount } = await listProductsAdmin(query);
 
   return (
@@ -29,16 +33,23 @@ export default async function AdminProductsPage({
         <Button asChild>
           <Link href="/admin/products/new">Add product</Link>
         </Button>
+        {stockError && (
+          <p
+            role="alert"
+            className="w-full rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+          >
+            Stock not changed: {stockError}
+          </p>
+        )}
+        {deleted && (
+          <p
+            role="status"
+            className="w-full rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
+          >
+            Product deleted.
+          </p>
+        )}
       </div>
-
-      {params.deleted === "1" && (
-        <p
-          role="status"
-          className="mt-4 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800"
-        >
-          Product deleted.
-        </p>
-      )}
 
       <form className="mt-6 flex flex-wrap gap-2" action="/admin/products" role="search">
         <Input
@@ -99,27 +110,46 @@ export default async function AdminProductsPage({
                 </td>
                 <td className="p-3">{p.category.name}</td>
                 <td className="p-3">
+                  {p._count.options > 0 && <span className="text-muted-foreground">from </span>}
                   {formatINR(p.priceInPaise)}
                   {p.pricingMode === "RATE_LINKED" && (
-                    <span className="text-muted-foreground block text-xs">Follows rate</span>
+                    <p className="text-muted-foreground text-xs">Follows metal rate</p>
                   )}
                 </td>
                 <td className="p-3">
-                  <form action={updateStockAction} className="flex items-center gap-1">
-                    <input type="hidden" name="id" value={p.id} />
-                    <input type="hidden" name="stockOriginal" value={p.stock} />
-                    <Input
-                      name="stock"
-                      type="number"
-                      min={0}
-                      defaultValue={p.stock}
-                      aria-label={`Stock for ${p.name}`}
-                      className="h-8 w-20"
-                    />
-                    <Button type="submit" variant="ghost" size="sm">
-                      Save
-                    </Button>
-                  </form>
+                  {p._count.options > 0 ? (
+                    <p>
+                      {p.stock} in {p._count.variants} variants ·{" "}
+                      <Link
+                        href={`/admin/products/${p.id}/variants`}
+                        className="underline underline-offset-4"
+                      >
+                        Edit
+                      </Link>
+                    </p>
+                  ) : (
+                    // key: a fresh form (and stock) after every save or sale.
+                    <form
+                      key={p.stock}
+                      action={updateStockAction}
+                      className="flex items-center gap-1"
+                    >
+                      <input type="hidden" name="id" value={p.id} />
+                      {/* Stock shown now: the save is refused if a sale changes it first. */}
+                      <input type="hidden" name="stockOriginal" value={p.stock} />
+                      <Input
+                        name="stock"
+                        type="number"
+                        min={0}
+                        defaultValue={p.stock}
+                        aria-label={`Stock for ${p.name}`}
+                        className="h-8 w-20"
+                      />
+                      <Button type="submit" variant="ghost" size="sm">
+                        Save
+                      </Button>
+                    </form>
+                  )}
                   {p.reservedStock > 0 && (
                     <p className="mt-1 text-xs text-amber-700">
                       {p.reservedStock} held in checkouts

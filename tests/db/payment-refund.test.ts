@@ -60,8 +60,9 @@ let categoryId = "";
 let userId = "";
 const TOTAL = 50_000;
 
+/** A product with one base variant (as every product has since Phase 17). */
 async function product(stock: number) {
-  return db.product.create({
+  const p = await db.product.create({
     data: {
       name: `${RUN} piece`,
       slug: `${RUN}-${Math.random().toString(36).slice(2, 8)}`,
@@ -74,13 +75,30 @@ async function product(stock: number) {
       purity: "K22",
       metalColour: "YELLOW",
       netWeightMg: 1000,
+      variants: {
+        create: {
+          sku: `SKU-${RUN}-${Math.random().toString(36).slice(2, 8)}`.toUpperCase(),
+          priceInPaise: TOTAL,
+          stock,
+          netWeightMg: 1000,
+          images: [],
+        },
+      },
     },
+    include: { variants: true },
   });
+  return { id: p.id, variantId: p.variants[0]!.id };
 }
+
+type Piece = Awaited<ReturnType<typeof product>>;
+const hold = (p: Piece) =>
+  db.$transaction((tx) =>
+    reserveLines(tx, [{ productId: p.id, variantId: p.variantId, quantity: 1 }]),
+  );
 
 /** An order with one line and its Razorpay order (Payment row). */
 async function order(
-  productId: string,
+  p: Piece,
   data: Partial<{
     status: "PENDING" | "FAILED" | "CANCELLED" | "PAID";
     reservationState: "ACTIVE" | "RELEASED" | "CONVERTED" | "NONE";
@@ -103,7 +121,8 @@ async function order(
       paidAt: data.paidWith ? new Date() : null,
       items: {
         create: {
-          productId,
+          productId: p.id,
+          variantId: p.variantId,
           productName: "x",
           productSlug: "x",
           priceInPaise: TOTAL,
@@ -149,7 +168,9 @@ beforeEach(() => {
 
 afterAll(async () => {
   const where = { order: { userId } };
-  await db.cart.deleteMany({ where: { userId } });
+  const orders = await db.order.findMany({ where: { userId }, select: { id: true } });
+  for (const { id } of orders)
+    await db.job.deleteMany({ where: { payload: { path: ["orderId"], equals: id } } });
   await db.refund.deleteMany({ where });
   await db.payment.deleteMany({ where });
   await db.shipment.deleteMany({ where });
@@ -164,7 +185,7 @@ afterAll(async () => {
 describe("fix 1: a payment that can't pay the order is refunded, exactly once", () => {
   it("payment for an admin-cancelled order → recorded + refunded; redelivery doesn't refund twice", async () => {
     const p = await product(1);
-    const o = await order(p.id, { status: "CANCELLED", reservationState: "RELEASED" });
+    const o = await order(p, { status: "CANCELLED", reservationState: "RELEASED" });
     const payB = pid();
 
     const first = await pay(o.rzpOrderId, payB);
@@ -189,7 +210,7 @@ describe("fix 1: a payment that can't pay the order is refunded, exactly once", 
   it("second payment for an order already PAID by another payment → refunded; order untouched", async () => {
     const p = await product(1);
     const payA = pid();
-    const o = await order(p.id, { status: "PAID", reservationState: "CONVERTED", paidWith: payA });
+    const o = await order(p, { status: "PAID", reservationState: "CONVERTED", paidWith: payA });
     const payB = pid();
 
     expect((await pay(o.rzpOrderId, payA)).outcome).toBe("already_processed");
@@ -213,13 +234,13 @@ describe("fix 1: a payment that can't pay the order is refunded, exactly once", 
 describe("fix 2: sold out after payment", () => {
   it("order, payment and refund row are written together; Razorpay is called after", async () => {
     const p = await product(1);
-    const o = await order(p.id, {
+    const o = await order(p, {
       status: "CANCELLED",
       reservationState: "RELEASED",
       expiredAt: new Date(),
     });
     // someone else holds the only piece now
-    await db.$transaction((tx) => reserveLines(tx, [{ productId: p.id, quantity: 1 }]));
+    await hold(p);
     rzp.failCreate = true; // Razorpay down: the refund row must still exist
 
     const payB = pid();
@@ -240,29 +261,11 @@ describe("fix 2: sold out after payment", () => {
   });
 });
 
-describe("cart after payment", () => {
-  it("removes only the bought size; another size of the same piece stays", async () => {
-    const p = await product(5);
-    const o = await order(p.id); // the order line has no size ("")
-    const cart = await db.cart.upsert({ where: { userId }, update: {}, create: { userId } });
-    await db.cartItem.createMany({
-      data: [
-        { cartId: cart.id, productId: p.id, size: "", quantity: 1 },
-        { cartId: cart.id, productId: p.id, size: "14", quantity: 1 },
-      ],
-    });
-    expect((await pay(o.rzpOrderId, pid())).outcome).toBe("paid");
-    const left = await db.cartItem.findMany({ where: { cartId: cart.id, productId: p.id } });
-    expect(left.map((l) => l.size)).toEqual(["14"]);
-    await db.cartItem.deleteMany({ where: { cartId: cart.id } });
-  });
-});
-
 describe("fixes 3–6: refund retries", () => {
   async function failedRefund() {
     const p = await product(1);
     const payA = pid();
-    const o = await order(p.id, { status: "PAID", reservationState: "CONVERTED", paidWith: payA });
+    const o = await order(p, { status: "PAID", reservationState: "CONVERTED", paidWith: payA });
     await cancelPaidOrder({ orderId: o.id, by: "admin", actorId: "admin" });
     const refund = await db.refund.findFirstOrThrow({ where: { orderId: o.id } });
     // The bank rejects it.
@@ -348,7 +351,7 @@ describe("fixes 3–6: refund retries", () => {
 
   it("fix 6: a PENDING refund that never reached Razorpay is swept after 10 minutes", async () => {
     const p = await product(1);
-    const o = await order(p.id, { status: "PAID", reservationState: "CONVERTED", paidWith: pid() });
+    const o = await order(p, { status: "PAID", reservationState: "CONVERTED", paidWith: pid() });
     const refundId = await db.$transaction((tx) =>
       refunds.createRefundRecord(tx, { orderId: o.id, amountInPaise: TOTAL, reason: "crash" }),
     );
@@ -367,11 +370,11 @@ describe("fix 7: converting a hold uses the real (locked) reservation state", ()
   it("a stale 'ACTIVE' never consumes another buyer's hold", async () => {
     const p = await product(1);
     // Our hold already expired and was released; another buyer now holds the only piece.
-    const o = await order(p.id, { status: "PENDING", reservationState: "RELEASED" });
-    await db.$transaction((tx) => reserveLines(tx, [{ productId: p.id, quantity: 1 }]));
-    await expect(
-      db.$transaction((tx) => convertReservation(tx, o.id, "ACTIVE")),
-    ).rejects.toBeInstanceOf(InsufficientStockError);
+    const o = await order(p, { status: "PENDING", reservationState: "RELEASED" });
+    await hold(p);
+    await expect(db.$transaction((tx) => convertReservation(tx, o.id))).rejects.toBeInstanceOf(
+      InsufficientStockError,
+    );
     expect(await db.product.findUniqueOrThrow({ where: { id: p.id } })).toMatchObject({
       stock: 1,
       reservedStock: 1,
@@ -380,12 +383,12 @@ describe("fix 7: converting a hold uses the real (locked) reservation state", ()
 
   it("payment racing the expiry job: one piece, never oversold", async () => {
     const p = await product(1);
-    const o = await order(p.id, {
+    const o = await order(p, {
       status: "PENDING",
       reservationState: "ACTIVE",
       reservedUntil: new Date(Date.now() - 1000),
     });
-    await db.$transaction((tx) => reserveLines(tx, [{ productId: p.id, quantity: 1 }]));
+    await hold(p);
     const { releaseExpiredReservations } = await import("@/services/inventory.service");
     await Promise.all([pay(o.rzpOrderId, pid()), releaseExpiredReservations()]);
     const stock = await db.product.findUniqueOrThrow({ where: { id: p.id } });
@@ -398,7 +401,7 @@ describe("fix 7: converting a hold uses the real (locked) reservation state", ()
 describe("fix 8: no cancellation once a courier shipment exists", () => {
   it("admin and customer are blocked; the error tells the admin to cancel at the courier", async () => {
     const p = await product(1);
-    const o = await order(p.id, { status: "PAID", reservationState: "CONVERTED", paidWith: pid() });
+    const o = await order(p, { status: "PAID", reservationState: "CONVERTED", paidWith: pid() });
     await db.shipment.create({ data: { orderId: o.id, providerShipmentId: "SR123" } });
     await expect(cancelPaidOrder({ orderId: o.id, by: "admin", actorId: "admin" })).rejects.toThrow(
       /Cancel it in Shiprocket first/,

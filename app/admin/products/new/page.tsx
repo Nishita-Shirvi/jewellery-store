@@ -2,13 +2,13 @@ import { ProductForm } from "@/components/admin/product-form";
 import { listCategoryOptions } from "@/services/admin/category-admin.service";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { isUploadConfigured } from "@/services/upload.service";
-import { getCurrentRates } from "@/services/metal-rate.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export default async function NewProductPage() {
-  const [categories, placeholderImages, rates] = await Promise.all([
+  await requirePermissionPage("products.edit", "/admin/products/new");
+  const [categories, placeholderImages] = await Promise.all([
     listCategoryOptions(),
     listPlaceholderImages(),
-    getCurrentRates(),
   ]);
   return (
     <div>
@@ -18,7 +18,6 @@ export default async function NewProductPage() {
           categories={categories}
           placeholderImages={placeholderImages}
           uploadEnabled={isUploadConfigured()}
-          ratesAvailable={Object.keys(rates)}
           values={{
             name: "",
             slug: "",
@@ -28,8 +27,6 @@ export default async function NewProductPage() {
             price: "",
             makingCharge: "",
             stoneCharge: "",
-            occasions: [],
-            sizes: "",
             spinVideoUrl: "",
             stock: "1",
             metalType: "GOLD",
@@ -38,6 +35,8 @@ export default async function NewProductPage() {
             netWeight: "",
             grossWeight: "",
             gemstone: "",
+            tags: "",
+            countryOfOrigin: "India",
             huid: "",
             hsnCode: "7113",
             gstRate: "3",

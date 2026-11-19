@@ -8,6 +8,7 @@ import { STATUS_LABEL } from "@/lib/order-status";
 import { adminListQuerySchema } from "@/lib/validation/admin";
 import { listOrdersAdmin } from "@/services/admin/order-admin.service";
 import { displayOrderNumber } from "@/services/order.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ export default async function AdminOrdersPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requirePermissionPage("orders.view", "/admin/orders");
   const query = adminListQuerySchema.parse(await searchParams);
   const { items, total, pageCount } = await listOrdersAdmin(query);
 

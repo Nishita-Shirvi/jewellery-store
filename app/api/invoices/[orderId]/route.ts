@@ -1,22 +1,23 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth-guards";
+import { getCurrentUser, staffHasPermission } from "@/lib/auth-guards";
 import { renderInvoicePdf } from "@/lib/invoice/invoice-pdf";
 import { logger } from "@/lib/logger";
-import { getUserRole } from "@/services/auth.service";
 import { getInvoiceForViewer } from "@/services/invoice.service";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/invoices/<orderId> — the order's owner or an admin downloads the tax invoice PDF. */
-export async function GET(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
+/** GET /api/invoices/<orderId> — the order's owner or staff with orders.view downloads the tax invoice PDF. */
+async function handleGET(_request: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Please log in." }, { status: 401 });
   const { orderId } = await params;
   if (!/^[a-z0-9]{1,40}$/i.test(orderId))
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const isAdmin = (await getUserRole(user.id)) === "ADMIN";
+  // Staff need orders.view and a passed two-step sign-in; customers only see their own.
+  const isAdmin = await staffHasPermission(user.id, "orders.view");
   const invoice = await getInvoiceForViewer(orderId, { id: user.id, isAdmin });
   // Same 404 whether it doesn't exist or belongs to someone else (don't reveal which).
   if (!invoice) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -35,3 +36,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ord
     return NextResponse.json({ error: "Couldn't create the PDF." }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

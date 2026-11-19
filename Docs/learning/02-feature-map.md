@@ -4,78 +4,302 @@ When a bug comes in, find the feature here and open the files left to right: **U
 
 ## Shop (customer-facing)
 
-| Feature                                                       | UI (components / page)                                                                                                             | Entry point                                                                                     | Service                                                                                               | Helpers                                                                                                                                 | Tables                          | Tests                                                 |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- | ----------------------------------------------------- |
-| Home page (featured, occasion tiles, reviews, visit invite)   | `app/page.tsx`                                                                                                                     | page                                                                                            | `catalog.service.ts` (`getFeaturedProducts`, `getCategories`), `review.service.ts` (`getHomeReviews`) | `components/catalog/product-image.tsx`, `lib/storefront.ts`, `config/storefront.ini`                                                    | Product, Category, Review       | e2e                                                   |
-| Rate bar / announcement above the header                      | `components/layout/announcement-bar.tsx` (in `site-header.tsx`)                                                                    | —                                                                                               | `metal-rate.service.ts` (`getCurrentRates`)                                                           | `config/pricing.ini [pricing] strip_purities`, `config/storefront.ini`                                                                  | MetalRate                       |                                                       |
-| Product listing, filters, sort, budget chips                  | `app/products/(list)/page.tsx`, `components/catalog/catalog-filters.tsx`, `budget-chips.tsx`, `product-grid.tsx`, `pagination.tsx` | page (URL query params: also `occasion`, `colour`, `minWeight`, `maxWeight`)                    | `catalog.service.ts` (`listProducts`), `search.service.ts`                                            | `lib/validation/catalog.ts`, `lib/catalog-url.ts`, `lib/storefront.ts` (`BUDGETS`, occasions)                                           | Product                         | `tests/db/search.test.ts`, `tests/storefront.test.ts` |
-| Style advisor quiz                                            | `app/style-advisor/page.tsx`                                                                                                       | page (GET form → `redirect()` to `/products?…`)                                                 | `catalog.service.ts` (`getCategories`)                                                                | `lib/storefront.ts`, `lib/catalog-url.ts`                                                                                               | —                               | `tests/storefront.test.ts`                            |
-| Size guide                                                    | `app/size-guide/page.tsx`                                                                                                          | page                                                                                            | —                                                                                                     | `lib/storefront.ts` (`RING_SIZES`, `BANGLE_SIZES`)                                                                                      | —                               |                                                       |
-| Showroom visit booking                                        | `app/visit/page.tsx`, `components/storefront/visit-form.tsx`                                                                       | `app/visit/actions.ts` → `requestVisitAction`                                                   | `visit.service.ts` (`createVisitRequest`), `email.service.ts`                                         | `lib/validation/storefront.ts` (`visitRequestSchema`), `lib/rate-limit.ts`                                                              | VisitRequest                    | `tests/db/storefront.test.ts`                         |
-| Contact page, WhatsApp button                                 | `app/(legal)/contact/page.tsx`, product page                                                                                       | page                                                                                            | `storefront.service.ts` (`getStorefrontSettings`)                                                     | `lib/storefront.ts` (`whatsappLink`)                                                                                                    | AppSetting `storefront`         | `tests/storefront.test.ts`                            |
-| Category landing pages                                        | `app/collections/[slug]/page.tsx`                                                                                                  | page                                                                                            | `catalog.service.ts`                                                                                  |                                                                                                                                         | Category, Product               |                                                       |
-| Product page (media, price breakup, sizes, old-slug redirect) | `app/products/[slug]/page.tsx`, `components/catalog/product-media.tsx`, `components/cart/add-to-cart.tsx`                          | page                                                                                            | `catalog.service.ts` (`getProductBySlug`, `findRenamedProductSlug`), `metal-rate.service.ts`          | `lib/jewellery.ts` (metal/purity labels), `lib/metal-pricing.ts` (`priceBreakup`)                                                       | Product, MetalRate              | e2e, `tests/pricing.test.ts`                          |
-| Search box + autocomplete                                     | `components/layout/search-form.tsx`                                                                                                | `app/api/search/suggest/route.ts`                                                               | `search.service.ts` (`suggestProducts`, `searchProductScores`, `reindexSearchText`)                   |                                                                                                                                         | Product.searchText (pg_trgm)    | `tests/db/search.test.ts`                             |
-| Pincode check on product page                                 | `components/catalog/pincode-checker.tsx`                                                                                           | `app/products/actions.ts` → `checkPincodeAction`                                                | `shipment.service.ts` (`checkPincode`)                                                                | `lib/shipping/shiprocket.ts` (Shiprocket login token kept in AppSetting)                                                                | — (6-hour in-app cache)         | `tests/shipping.test.ts`                              |
-| Reviews & ratings                                             | `components/reviews/*`                                                                                                             | `app/products/review-actions.ts`                                                                | `review.service.ts`                                                                                   | `lib/reviews.ts`                                                                                                                        | Review, Product.rating*         | `tests/reviews.test.ts`, `tests/db/review.test.ts`    |
-| Wishlist                                                      | `components/wishlist/wishlist-button.tsx`, `app/account/wishlist/page.tsx`                                                         | `app/account/wishlist/actions.ts`                                                               | `wishlist.service.ts` (`needsSize` → "Choose size")                                                   |                                                                                                                                         | WishlistItem                    |                                                       |
-| Cart (one line per product + size; sizes share stock)         | `app/cart/page.tsx`, `components/cart/*`, cart badge in `components/layout/site-header.tsx`                                        | `app/cart/actions.ts`                                                                           | `cart.service.ts`, `pricing.ts` (`isValidSize`, `priceCart`)                                          | `lib/validation/cart.ts` (`sizeSchema`, `lineKey`)                                                                                      | Cart, CartItem (+ guest cookie) | `tests/pricing.test.ts`                               |
-| Checkout page, address                                        | `app/checkout/page.tsx`, `components/checkout/checkout-client.tsx`, `address-form.tsx`                                             | `app/checkout/actions.ts`, `app/account/actions.ts`                                             | `address.service.ts`, `order.service.ts`                                                              | `lib/validation/checkout.ts`, `lib/india.ts`                                                                                            | Address                         | `tests/checkout-validation.test.ts`                   |
-| Coupon at checkout                                            | `components/checkout/coupon-box.tsx`                                                                                               | `app/checkout/actions.ts`                                                                       | `coupon.service.ts`, `pricing.ts`                                                                     | `lib/coupons.ts`                                                                                                                        | Coupon, CouponRedemption        | `tests/coupons.test.ts`, `tests/db/coupon.test.ts`    |
-| Pay with Razorpay                                             | `components/checkout/pay-button.tsx`, `razorpay.ts`                                                                                | `startCheckoutAction`, `verifyPaymentAction`, `retryPaymentAction` in `app/checkout/actions.ts` | `order.service.ts`, `inventory.service.ts`                                                            | `lib/payments/razorpay.ts`                                                                                                              | Order, OrderItem, Payment       | `tests/razorpay.test.ts`, e2e                         |
-| Payment result pages                                          | `app/orders/[id]/success/page.tsx`, `failed/page.tsx` (never echoes `?reason=`)                                                    | page                                                                                            | `order.service.ts`                                                                                    |                                                                                                                                         | Order                           | e2e                                                   |
-| Shipping fee                                                  | shown in cart/checkout summary                                                                                                     | —                                                                                               | `pricing.ts`                                                                                          | `lib/shipping-fee.ts`, `lib/shipping-config.ts`, `config/shipping.ini [shipping]`                                                       | —                               | `tests/shipping.test.ts`                              |
-| GST on prices                                                 | checkout summary, invoice                                                                                                          | —                                                                                               | `order.service.ts` (at checkout)                                                                      | `lib/gst.ts`, `config/business.ini [business] state`                                                                                    | OrderItem tax fields            | `tests/gst.test.ts`                                   |
-| Login / register / Google                                     | `app/(auth)/*`, `components/auth/*`                                                                                                | `app/(auth)/actions.ts`, `app/api/auth/[...nextauth]/route.ts`                                  | `auth.service.ts`                                                                                     | `auth.ts` (per email+IP / IP / account limits), `auth.config.ts`, `lib/validation/auth.ts`, `lib/rate-limit.ts`, `lib/safe-redirect.ts` | User, Account, Session          |                                                       |
-| Route protection                                              | —                                                                                                                                  | `middleware.ts`                                                                                 | —                                                                                                     | `auth.config.ts`, `lib/auth-guards.ts`                                                                                                  | —                               | `tests/admin-actions-guard.test.ts`                   |
-| Legal pages                                                   | `app/(legal)/*`                                                                                                                    | page                                                                                            | `storefront.service.ts` (contact page)                                                                | `lib/business.ts`, `config/business.ini`, `config/shipping.ini [returns]`                                                               | —                               |                                                       |
-| Cookie banner + analytics                                     | `components/analytics/*`                                                                                                           | `app/api/funnel/route.ts`                                                                       | `report.service.ts` (`countFunnel`)                                                                   |                                                                                                                                         | FunnelDaily                     |                                                       |
-| SEO                                                           | `app/sitemap.ts`, `app/robots.ts`, `app/products/[slug]/opengraph-image.tsx`, metadata in pages                                    | —                                                                                               | `catalog.service.ts`                                                                                  |                                                                                                                                         | Product                         |                                                       |
+- **Home page (featured, occasion tiles, reviews, visit band)**
+  - UI (components / page): `app/page.tsx` (built-in home, used when no Admin → Content home sections are live)
+  - Entry point: page
+  - Service: `catalog.service.ts` (`getFeaturedProducts`, `getCategories`), `review.service.ts` (`getHomeReviews`)
+  - Helpers: `components/catalog/product-image.tsx`, `lib/storefront.ts` (`OCCASIONS`), `config/storefront.ini`
+  - Tables: Product, Category, Review
+  - Tests: e2e
+- **Rate strip above the header**
+  - UI (components / page): `components/layout/rate-strip.tsx` (in `site-header.tsx`; the scheduled announcement bar from Admin → Content shows above it)
+  - Service: `metal-rate.service.ts` (`getCurrentRates`)
+  - Helpers: `config/pricing.ini` `[pricing] strip_purities`, `config/storefront.ini` `[storefront] announcement`
+  - Tables: MetalRate
+- **Product listing, filters, sort, budget chips**
+  - UI (components / page): `app/products/(list)/page.tsx`, `components/catalog/catalog-filters.tsx`, `budget-chips.tsx`, `product-grid.tsx`, `pagination.tsx`
+  - Entry point: page (URL query params, incl. `occasion`, `colour`, `minWeight`, `maxWeight`)
+  - Service: `catalog.service.ts` (`listProducts`), `search.service.ts`
+  - Helpers: `lib/validation/catalog.ts`, `lib/catalog-url.ts`, `lib/storefront.ts` (`BUDGETS`, `OCCASIONS` — occasions are product tags)
+  - Tables: Product
+  - Tests: `tests/db/search.test.ts`, `tests/storefront.test.ts`
+- **Style advisor**
+  - UI (components / page): `app/style-advisor/page.tsx`
+  - Entry point: page (GET form → `redirect()` to `/products?…`; works without JavaScript)
+  - Service: `catalog.service.ts` (`getCategories`)
+  - Helpers: `lib/storefront.ts`, `lib/catalog-url.ts`
+  - Tests: `tests/storefront.test.ts`
+- **Size guide**
+  - UI (components / page): `app/size-guide/page.tsx` (linked from products with options and the footer)
+  - Helpers: `lib/storefront.ts` (`RING_SIZES`, `BANGLE_SIZES`)
+- **Showroom visit booking**
+  - UI (components / page): `app/visit/page.tsx`, `components/storefront/visit-form.tsx`
+  - Entry point: `app/visit/actions.ts` → `requestVisitAction`
+  - Service: `visit.service.ts` (`createVisitRequest`), `email.service.ts`
+  - Helpers: `lib/validation/storefront.ts`, `lib/rate-limit.ts`
+  - Tables: VisitRequest
+  - Tests: `tests/db/storefront.test.ts`
+- **Contact page, WhatsApp buttons**
+  - UI (components / page): `app/(legal)/contact/page.tsx`, product page, visit page, help centre, checkout, support tickets
+  - Service: `storefront.service.ts` (`getStorefrontSettings`)
+  - Helpers: `lib/support.ts` (`whatsappLink`, `whatsappDigits`; Admin → Showroom number, else `[support] whatsapp_number`)
+  - Tables: AppSetting `storefront`
+  - Tests: `tests/storefront.test.ts`, `tests/support.test.ts`
+- **Category landing pages**
+  - UI (components / page): `app/collections/[slug]/page.tsx`
+  - Entry point: page
+  - Service: `catalog.service.ts`
+  - Tables: Category, Product
+- **Product page (gallery + 360° video, price breakup, occasion chips, old-link redirect)**
+  - UI (components / page): `app/products/[slug]/page.tsx`, `components/catalog/product-media.tsx`, `variant-purchase.tsx`
+  - Entry point: page
+  - Service: `catalog.service.ts` (`getProductBySlug`, `findRenamedProductSlug`), `metal-rate.service.ts`
+  - Helpers: `lib/jewellery.ts` (metal/purity labels), `lib/metal-pricing.ts` (`priceBreakup`), `lib/media.ts`
+  - Tables: Product, ProductVariant, MetalRate
+  - Tests: e2e, `tests/pricing.test.ts`
+- **Search box + autocomplete**
+  - UI (components / page): `components/layout/search-form.tsx`
+  - Entry point: `app/api/search/suggest/route.ts`
+  - Service: `search.service.ts` (`suggestProducts`, `searchProductScores`, `reindexSearchText`)
+  - Tables: Product.searchText (pg_trgm)
+  - Tests: `tests/db/search.test.ts`
+- **Pincode check on product page**
+  - UI (components / page): `components/catalog/pincode-checker.tsx`
+  - Entry point: `app/products/actions.ts` → `checkPincodeAction`
+  - Service: `shipment.service.ts` (`checkPincode`)
+  - Helpers: `lib/shipping/shiprocket.ts` (Shiprocket login token kept in AppSetting)
+  - Tables: — (6-hour in-app cache)
+  - Tests: `tests/shipping.test.ts`
+- **Reviews & ratings**
+  - UI (components / page): `components/reviews/*`
+  - Entry point: `app/products/review-actions.ts`
+  - Service: `review.service.ts`
+  - Helpers: `lib/reviews.ts`
+  - Tables: Review, Product.rating*
+  - Tests: `tests/reviews.test.ts`, `tests/db/review.test.ts`
+- **Wishlist**
+  - UI (components / page): `components/wishlist/wishlist-button.tsx`, `app/account/wishlist/page.tsx`
+  - Entry point: `app/account/wishlist/actions.ts`
+  - Service: `wishlist.service.ts`
+  - Tables: WishlistItem
+- **Cart**
+  - UI (components / page): `app/cart/page.tsx`, `components/cart/*`, cart badge in `components/layout/site-header.tsx`
+  - Entry point: `app/cart/actions.ts`
+  - Service: `cart.service.ts`, `pricing.ts`
+  - Helpers: `lib/validation/cart.ts`
+  - Tables: Cart, CartItem (+ guest cookie)
+  - Tests: `tests/pricing.test.ts`
+- **Checkout page, address**
+  - UI (components / page): `app/checkout/page.tsx`, `components/checkout/checkout-client.tsx`, `address-form.tsx`
+  - Entry point: `app/checkout/actions.ts`, `app/account/actions.ts`
+  - Service: `address.service.ts`, `order.service.ts`
+  - Helpers: `lib/validation/checkout.ts`, `lib/india.ts`
+  - Tables: Address
+  - Tests: `tests/checkout-validation.test.ts`
+- **Coupon at checkout**
+  - UI (components / page): `components/checkout/coupon-box.tsx`
+  - Entry point: `app/checkout/actions.ts`
+  - Service: `coupon.service.ts`, `pricing.ts`
+  - Helpers: `lib/coupons.ts`
+  - Tables: Coupon, CouponRedemption
+  - Tests: `tests/coupons.test.ts`, `tests/db/coupon.test.ts`
+- **Pay with Razorpay**
+  - UI (components / page): `components/checkout/pay-button.tsx`, `razorpay.ts`
+  - Entry point: `startCheckoutAction`, `verifyPaymentAction`, `retryPaymentAction` in `app/checkout/actions.ts`
+  - Service: `order.service.ts`, `inventory.service.ts`
+  - Helpers: `lib/payments/razorpay.ts`
+  - Tables: Order, OrderItem, Payment
+  - Tests: `tests/razorpay.test.ts`, e2e
+- **Payment result pages**
+  - UI (components / page): `app/orders/[id]/success/page.tsx`, `failed/page.tsx`
+  - Entry point: page
+  - Service: `order.service.ts`
+  - Tables: Order
+  - Tests: e2e
+- **Shipping fee**
+  - UI (components / page): shown in cart/checkout summary
+  - Service: `pricing.ts`
+  - Helpers: `lib/shipping-fee.ts`, `lib/shipping-config.ts`, `config/shipping.ini [shipping]`
+  - Tests: `tests/shipping.test.ts`
+- **GST on prices**
+  - UI (components / page): checkout summary, invoice
+  - Service: `order.service.ts` (at checkout)
+  - Helpers: `lib/gst.ts`, `config/business.ini [business] state`
+  - Tables: OrderItem tax fields
+  - Tests: `tests/gst.test.ts`
+- **Login / register / Google**
+  - UI (components / page): `app/(auth)/*`, `components/auth/*`
+  - Entry point: `app/(auth)/actions.ts`, `app/api/auth/[...nextauth]/route.ts`
+  - Service: `auth.service.ts`
+  - Helpers: `auth.ts` (limits per email+IP, per IP and per account), `auth.config.ts`, `lib/validation/auth.ts`, `lib/rate-limit.ts`, `lib/safe-redirect.ts`
+  - Tables: User, Account, Session
+- **Route protection**
+  - Entry point: `middleware.ts`
+  - Helpers: `auth.config.ts`, `lib/auth-guards.ts`
+  - Tests: `tests/admin-actions-guard.test.ts`
+- **Legal pages**
+  - UI (components / page): `app/(legal)/*`
+  - Entry point: page
+  - Service: `storefront.service.ts` (contact page)
+  - Helpers: `lib/business.ts`, `config/business.ini`, `config/shipping.ini [returns]`
+- **Cookie banner + analytics**
+  - UI (components / page): `components/analytics/*`
+  - Entry point: `app/api/funnel/route.ts`
+  - Service: `report.service.ts` (`countFunnel`)
+  - Tables: FunnelDaily
+- **SEO**
+  - UI (components / page): `app/sitemap.ts`, `app/robots.ts`, `app/products/[slug]/opengraph-image.tsx`, metadata in pages
+  - Service: `catalog.service.ts`
+  - Tables: Product
 
 ## Customer account
 
-| Feature                               | UI                                                                                          | Entry point                                           | Service                                                                            | Tables                         | Tests                                                         |
-| ------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------ | ------------------------------------------------------------- |
-| My orders, order detail, tracking     | `app/account/orders/page.tsx`, `[id]/page.tsx`, `components/shipping/tracking-timeline.tsx` | page                                                  | `order.service.ts` (`listOrdersForUser`, `getOrderForUser`), `shipment.service.ts` | Order, Shipment, ShipmentEvent |                                                               |
-| Cancel a paid order (before shipping) | button on order page                                                                        | `app/account/orders/actions.ts` → `cancelOrderAction` | `return.service.ts` (`cancelPaidOrder`) → `refund.service.ts`                      | Order, Refund                  | `tests/returns.test.ts`                                       |
-| Request a return                      | `app/account/orders/[id]/return/*`                                                          | `requestReturnAction`, `uploadReturnPhotoAction`      | `return.service.ts` (`requestReturn`; window from `[returns] window_days`)         | ReturnRequest, ReturnItem      | `tests/returns.test.ts`                                       |
-| Download invoice                      | link on order page                                                                          | `app/api/invoices/[orderId]/route.ts`                 | `invoice.service.ts` (`getInvoiceForViewer`)                                       | Invoice                        | `tests/db/invoice.test.ts`, `tests/db/invoice-guards.test.ts` |
-| Addresses                             | `app/account/addresses/page.tsx`, `components/account/address-editor.tsx`                   | `app/account/actions.ts`                              | `address.service.ts`                                                               | Address                        |                                                               |
+- **My orders, order detail, tracking**
+  - UI: `app/account/orders/page.tsx`, `[id]/page.tsx`, `components/shipping/tracking-timeline.tsx`
+  - Entry point: page
+  - Service: `order.service.ts` (`listOrdersForUser`, `getOrderForUser`), `shipment.service.ts`
+  - Tables: Order, Shipment, ShipmentEvent
+- **Cancel a paid order (before shipping)**
+  - UI: button on order page
+  - Entry point: `app/account/orders/actions.ts` → `cancelOrderAction`
+  - Service: `return.service.ts` (`cancelPaidOrder`) → `refund.service.ts`
+  - Tables: Order, Refund
+  - Tests: `tests/returns.test.ts`
+- **Request a return**
+  - UI: `app/account/orders/[id]/return/*`
+  - Entry point: `requestReturnAction`, `uploadReturnPhotoAction`
+  - Service: `return.service.ts` (`requestReturn`; window from `[returns] window_days`)
+  - Tables: ReturnRequest, ReturnItem
+  - Tests: `tests/returns.test.ts`
+- **Download invoice**
+  - UI: link on order page
+  - Entry point: `app/api/invoices/[orderId]/route.ts`
+  - Service: `invoice.service.ts` (`getInvoiceForViewer`)
+  - Tables: Invoice
+  - Tests: `tests/db/invoice.test.ts`, `tests/db/invoice-guards.test.ts`
+- **Addresses**
+  - UI: `app/account/addresses/page.tsx`, `components/account/address-editor.tsx`
+  - Entry point: `app/account/actions.ts`
+  - Service: `address.service.ts`
+  - Tables: Address
 
 ## Admin panel (`/admin`)
 
-Admin server actions are in **`app/admin/actions.ts`** (products, orders, catalogue…) and **`app/admin/storefront-actions.ts`** (gold rates, showroom settings, visits). Each one calls `requireAdmin()` first.
+Admin server actions are in **`app/admin/actions.ts`** (rates, showroom settings and visits in `app/admin/storefront-actions.ts`) and each one checks the staff member's permission first (`requirePermission`).
 
-| Feature                                                                                                 | Page                                                                                   | Action(s)                                                                                                         | Service                                                                                                                                                 | Tables                                  |
-| ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| Dashboard (today's orders, revenue, low stock, stale-rate + new-visit warnings)                         | `app/admin/page.tsx`                                                                   | —                                                                                                                 | `admin/dashboard.service.ts`, `metal-rate.service.ts` (`ratesAreStale`), `visit.service.ts` (`countNewVisits`)                                          | Order, Product, MetalRate, VisitRequest |
-| Products: list, create, edit, activate, stock, photos (upload/reorder), sizes, occasions, video, delete | `app/admin/products/*`, `components/admin/product-form.tsx`, `delete-product-form.tsx` | `saveProductAction`, `toggleProductActiveAction`, `updateStockAction`, `uploadImageAction`, `deleteProductAction` | `admin/product-admin.service.ts` (`updateProduct` with `stockOriginal`, `deleteProduct`), `metal-rate.service.ts` (`priceForSave`), `upload.service.ts` | Product, AuditLog                       |
-| Gold / metal rates                                                                                      | `app/admin/rates/page.tsx`, `components/admin/rates-form.tsx`                          | `saveRatesAction`                                                                                                 | `metal-rate.service.ts` (`saveRates` → reprices rate-linked products)                                                                                   | MetalRate, Product, AuditLog            |
-| Showroom settings                                                                                       | `app/admin/settings/page.tsx`, `components/admin/storefront-settings-form.tsx`         | `saveStorefrontSettingsAction`                                                                                    | `storefront.service.ts`                                                                                                                                 | AppSetting `storefront`                 |
-| Visit requests                                                                                          | `app/admin/visits/page.tsx`                                                            | `updateVisitStatusAction`                                                                                         | `visit.service.ts`                                                                                                                                      | VisitRequest                            |
-| Categories                                                                                              | `app/admin/categories/page.tsx`, `components/admin/category-form.tsx`                  | `saveCategoryAction`, `deleteCategoryAction`                                                                      | `admin/category-admin.service.ts`                                                                                                                       | Category                                |
-| Orders: list, detail, status                                                                            | `app/admin/orders/*`                                                                   | `updateOrderStatusAction`                                                                                         | `admin/order-admin.service.ts` (uses `lib/order-status.ts` `ADMIN_TRANSITIONS`)                                                                         | Order                                   |
-| Create shipment (Shiprocket)                                                                            | order detail                                                                           | `createShipmentAction`                                                                                            | `shipment.service.ts` (`createShipmentForOrder`)                                                                                                        | Shipment                                |
-| Returns: approve / reject, retry refund                                                                 | `app/admin/returns/page.tsx`, order detail                                             | `approveReturnAction`, `rejectReturnAction`, `retryRefundAction`                                                  | `return.service.ts`, `refund.service.ts`                                                                                                                | ReturnRequest, Refund                   |
-| Invoices                                                                                                | order detail                                                                           | `generateInvoiceAction`                                                                                           | `invoice.service.ts`                                                                                                                                    | Invoice, InvoiceCounter                 |
-| Coupons                                                                                                 | `app/admin/coupons/*`, `components/admin/coupon-form.tsx`                              | `saveCouponAction`, `toggleCouponAction`                                                                          | `admin/coupon-admin.service.ts`                                                                                                                         | Coupon                                  |
-| Review moderation                                                                                       | `app/admin/reviews/page.tsx`                                                           | `moderateReviewAction`                                                                                            | `review.service.ts` (`moderateReview`)                                                                                                                  | Review                                  |
-| Reports + CSV export                                                                                    | `app/admin/reports/page.tsx`                                                           | `app/api/admin/orders/export/route.ts`                                                                            | `report.service.ts`                                                                                                                                     | Order, FunnelDaily                      |
-| Audit log                                                                                               | `app/admin/audit/page.tsx`                                                             | —                                                                                                                 | `audit.service.ts`                                                                                                                                      | AuditLog                                |
+- **Dashboard (today's orders, revenue, low stock, stale-rate and new-visit warnings)**
+  - Page: `app/admin/page.tsx`
+  - Service: `admin/dashboard.service.ts`, `metal-rate.service.ts` (`ratesAreStale`), `visit.service.ts` (`countNewVisits`)
+  - Tables: Order, Product, MetalRate, VisitRequest
+- **Products: list, create, edit, activate, stock, photos (upload/reorder), pricing mode, 360° video, delete**
+  - Page: `app/admin/products/*`, `components/admin/product-form.tsx`, `delete-product-form.tsx`, variants at `app/admin/products/[id]/variants` (`components/admin/variant-forms.tsx`)
+  - Action(s): `saveProductAction`, `toggleProductActiveAction`, `updateStockAction`, `uploadImageAction`, `deleteProductAction`
+  - Service: `admin/product-admin.service.ts` (stock-changed check, `deleteProduct`, old slugs kept), `metal-rate.service.ts` (`repriceProduct` for rate-linked pieces), `upload.service.ts`
+  - Tables: Product, ProductVariant, AuditLog
+- **Gold / metal rates**
+  - Page: `app/admin/rates/page.tsx`, `components/admin/rates-form.tsx` (view `products.view`, save `products.edit`)
+  - Action(s): `saveRatesAction`
+  - Service: `metal-rate.service.ts` (`saveRates` → `repriceRateLinked`)
+  - Tables: MetalRate, Product, ProductVariant, AuditLog
+- **Showroom settings**
+  - Page: `app/admin/settings/page.tsx` (Admin → Showroom, `content.manage`), `components/admin/storefront-settings-form.tsx`
+  - Action(s): `saveStorefrontSettingsAction`
+  - Service: `storefront.service.ts`
+  - Tables: AppSetting `storefront`
+- **Visit requests**
+  - Page: `app/admin/visits/page.tsx` (`support.manage`)
+  - Action(s): `updateVisitStatusAction`
+  - Service: `visit.service.ts`
+  - Tables: VisitRequest
+- **Categories**
+  - Page: `app/admin/categories/page.tsx`, `components/admin/category-form.tsx`
+  - Action(s): `saveCategoryAction`, `deleteCategoryAction`
+  - Service: `admin/category-admin.service.ts`
+  - Tables: Category
+- **Orders: list, detail, status**
+  - Page: `app/admin/orders/*`
+  - Action(s): `updateOrderStatusAction`
+  - Service: `admin/order-admin.service.ts` (uses `lib/order-status.ts` `ADMIN_TRANSITIONS`)
+  - Tables: Order
+- **Create shipment (Shiprocket)**
+  - Page: order detail
+  - Action(s): `createShipmentAction`
+  - Service: `shipment.service.ts` (`createShipmentForOrder`)
+  - Tables: Shipment
+- **Returns: approve / reject, retry refund**
+  - Page: `app/admin/returns/page.tsx`, order detail
+  - Action(s): `approveReturnAction`, `rejectReturnAction`, `retryRefundAction`
+  - Service: `return.service.ts`, `refund.service.ts`
+  - Tables: ReturnRequest, Refund
+- **Invoices**
+  - Page: order detail
+  - Action(s): `generateInvoiceAction`
+  - Service: `invoice.service.ts`
+  - Tables: Invoice, InvoiceCounter
+- **Coupons**
+  - Page: `app/admin/coupons/*`, `components/admin/coupon-form.tsx`
+  - Action(s): `saveCouponAction`, `toggleCouponAction`
+  - Service: `admin/coupon-admin.service.ts`
+  - Tables: Coupon
+- **Review moderation**
+  - Page: `app/admin/reviews/page.tsx`
+  - Action(s): `moderateReviewAction`
+  - Service: `review.service.ts` (`moderateReview`)
+  - Tables: Review
+- **Reports + CSV export**
+  - Page: `app/admin/reports/page.tsx`
+  - Action(s): `app/api/admin/orders/export/route.ts`
+  - Service: `report.service.ts`
+  - Tables: Order, FunnelDaily
+- **Audit log**
+  - Page: `app/admin/audit/page.tsx`
+  - Service: `audit.service.ts`
+  - Tables: AuditLog
 
 ## Behind the scenes
 
-| Feature                                          | Entry point                                                                         | Service                                                                                                                 | Tables                               | Tests                                                                                               |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
-| Razorpay webhook (payments + refunds)            | `app/api/webhooks/razorpay/route.ts`                                                | `order.service.ts` (`markOrderPaid`, `markPaymentFailed`), `refund.service.ts`                                          | Payment, Order, Refund               | `tests/razorpay.test.ts`                                                                            |
-| Courier tracking webhook                         | `app/api/webhooks/courier-updates/route.ts`                                         | `shipment.service.ts` (`applyTrackingUpdate`)                                                                           | Shipment, ShipmentEvent, Order       | `tests/shipping.test.ts`                                                                            |
-| Release expired stock holds + send stuck refunds | `app/api/cron/release-reservations/route.ts` (+ holds also at every checkout start) | `inventory.service.ts` (`releaseExpiredReservations`), `refund.service.ts` (`sendStuckRefunds`)                         | Order, Product.reservedStock, Refund | `tests/db/reservation.test.ts`, `tests/reservation-unit.test.ts`, `tests/db/payment-refund.test.ts` |
-| Image upload (Cloudinary / R2)                   | `uploadImageAction`, `uploadReturnPhotoAction`, review photo upload                 | `upload.service.ts`                                                                                                     | —                                    | `tests/sigv4.test.ts`, `tests/media.test.ts`                                                        |
-| Low-stock email                                  | `app/api/cron/low-stock/route.ts`                                                   | `alert.service.ts`, `report.service.ts`                                                                                 | AppSetting (sent-today marker)       |                                                                                                     |
-| Order emails / SMS                               | called from services                                                                | `notification.service.ts`, `email.service.ts`, `emails/order-email.tsx`                                                 | —                                    |                                                                                                     |
-| Health check                                     | `app/api/health/route.ts`                                                           | `health.service.ts`                                                                                                     | —                                    |                                                                                                     |
-| Startup summary log                              | `instrumentation.ts`                                                                | `lib/startup.ts`                                                                                                        | —                                    |                                                                                                     |
-| Settings                                         | —                                                                                   | `lib/config.ts` (`config/*.ini`), `lib/env.ts` (`.env`, `productionProblems`), `storefront.service.ts` (admin-editable) | AppSetting                           | `tests/config.test.ts`                                                                              |
-| Logging                                          | —                                                                                   | `lib/logger.ts`                                                                                                         | —                                    | `tests/logger.test.ts`                                                                              |
-| Database setup / demo data                       | `npm run db:migrate`, `npm run db:seed` (create-only, refuses production)           | `prisma/schema.prisma`, `prisma/migrations/`, `prisma/seed.ts`                                                          | all                                  | CI (incl. "Migrations match schema.prisma")                                                         |
-| Production build                                 | `npm run vercel-build` → `scripts/vercel-build.mjs`                                 | —                                                                                                                       | —                                    | —                                                                                                   |
+- **Razorpay webhook (payments + refunds)**
+  - Entry point: `app/api/webhooks/razorpay/route.ts`
+  - Service: `order.service.ts` (`markOrderPaid`, `markPaymentFailed`), `refund.service.ts`
+  - Tables: Payment, Order, Refund
+  - Tests: `tests/razorpay.test.ts`
+- **Courier tracking webhook**
+  - Entry point: `app/api/webhooks/courier-updates/route.ts`
+  - Service: `shipment.service.ts` (`applyTrackingUpdate`)
+  - Tables: Shipment, ShipmentEvent, Order
+  - Tests: `tests/shipping.test.ts`
+- **Release expired stock holds**
+  - Entry point: `app/api/cron/release-reservations/route.ts` (+ at every checkout start)
+  - Service: `inventory.service.ts` (`releaseExpiredReservations`)
+  - Tables: Order, Product.reservedStock
+  - Tests: `tests/db/reservation.test.ts`, `tests/reservation-unit.test.ts`
+- **Low-stock email**
+  - Entry point: `app/api/cron/low-stock/route.ts`
+  - Service: `alert.service.ts`, `report.service.ts`
+  - Tables: AppSetting (sent-today marker)
+- **Order emails / SMS**
+  - Entry point: called from services
+  - Service: `notification.service.ts`, `email.service.ts`, `emails/order-email.tsx`
+- **Health check**
+  - Entry point: `app/api/health/route.ts`
+  - Service: `health.service.ts`
+- **Startup summary log**
+  - Entry point: `instrumentation.ts`
+  - Service: `lib/startup.ts`
+- **Image upload (Cloudinary / R2)**
+  - Entry point: `uploadImageAction`, `uploadReturnPhotoAction`, review photo upload
+  - Service: `upload.service.ts` (`isOwnUpload` for customer photos), `lib/storage/sigv4.ts`, `lib/media.ts`
+  - Tests: `tests/sigv4.test.ts`, `tests/media.test.ts`
+- **Settings**
+  - Service: `lib/config.ts` (`config/*.ini`), `lib/env.ts` (`.env`, `productionProblems`), `storefront.service.ts` (admin-editable)
+  - Tests: `tests/config.test.ts`
+- **Logging**
+  - Service: `lib/logger.ts`
+  - Tests: `tests/logger.test.ts`
+- **Database setup / demo data**
+  - Entry point: `npm run db:migrate`, `npm run db:seed` (create-only, refuses production)
+  - Service: `prisma/schema.prisma`, `prisma/migrations/`, `prisma/seed.ts`
+  - Tables: all
+  - Tests: CI (incl. "Migrations match schema.prisma")
+- **Production build**
+  - Entry point: `scripts/vercel-build.mjs` (migrates on production only)

@@ -18,5 +18,9 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id?: string;
     role?: Role;
+    /** When this session signed in (ms). Sessions older than a password change are ended. */
+    signedInAt?: number;
+    /** Last time the server re-checked the account (ms). */
+    checkedAt?: number;
   }
 }

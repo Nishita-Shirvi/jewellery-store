@@ -1,7 +1,9 @@
 export interface CartItemView {
   productId: string;
-  /** Chosen size, or "" for pieces without sizes. */
-  size: string;
+  variantId: string;
+  sku: string;
+  /** e.g. "Ring size 12 / Rose"; "" for products without options. */
+  variantLabel: string;
   slug: string;
   name: string;
   image: string;

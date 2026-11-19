@@ -11,7 +11,9 @@ import {
 } from "@/lib/gst";
 import { logger } from "@/lib/logger";
 import { getBusiness } from "@/lib/business";
-import type { AddressSnapshot } from "@/services/address.service";
+import { lineName } from "@/lib/variants";
+import { openSnapshot } from "@/services/address.service";
+import { decryptPii, encryptPii } from "@/lib/pii";
 
 export interface InvoiceLine {
   name: string;
@@ -51,6 +53,8 @@ export interface InvoiceSnapshot {
   };
   amountInWords: string;
   coupon?: { code: string; discountInPaise: number };
+  /** "Prepaid (online)" or "Cash on delivery". Missing on invoices made before Phase 18. */
+  paymentMode?: string;
 }
 
 /**
@@ -66,7 +70,11 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     where: { id: orderId },
     include: { items: true, user: { select: { email: true } } },
   });
-  if (!order || !order.paidAt) return null;
+  if (!order) return null;
+  // Prepaid: invoiced when paid. Cash on delivery: invoiced when the order is confirmed (the goods
+  // are supplied then; the cash comes later).
+  const invoiceDate = order.paidAt ?? (order.paymentMethod === "COD" ? order.createdAt : null);
+  if (!invoiceDate) return null;
 
   const seller = getBusiness();
   if (seller.incomplete) {
@@ -75,7 +83,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     logger.warn("invoice.skipped_business_details_incomplete", { orderId });
     return null;
   }
-  const address = order.addressSnapshot as AddressSnapshot;
+  const address = openSnapshot(order.addressSnapshot);
   // Use the tax split stored at checkout; the configured seller state may have changed since.
   // Only orders without a saved split (or with 0% GST) fall back to comparing states.
   const intra = order.items.some((i) => i.igstInPaise > 0)
@@ -96,7 +104,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
           }
         : taxForLine(item.lineTotalInPaise - item.discountInPaise, item.gstRateBps, intra);
     return {
-      name: item.productName,
+      name: lineName(item.productName, item.variantLabel),
       hsn: item.hsnCode,
       quantity: item.quantity,
       unitPriceInPaise: item.priceInPaise,
@@ -118,6 +126,19 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
       totalInPaise: order.shippingInPaise,
     });
   }
+  if (order.codFeeInPaise > 0) {
+    // Taxed like shipping (part of the same supply) — confirm with your CA.
+    const rate = Math.max(...order.items.map((i) => i.gstRateBps));
+    lines.push({
+      name: "Cash on delivery charges",
+      hsn: "996812",
+      quantity: 1,
+      unitPriceInPaise: order.codFeeInPaise,
+      rateBps: rate,
+      ...taxForLine(order.codFeeInPaise, rate, intra),
+      totalInPaise: order.codFeeInPaise,
+    });
+  }
 
   const sum = (k: keyof InvoiceLine) => lines.reduce((s, l) => s + (l[k] as number), 0);
   const totals = {
@@ -136,7 +157,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
     return null;
   }
 
-  const fy = financialYear(order.paidAt);
+  const fy = financialYear(invoiceDate);
   try {
     return await db.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<{ lastNumber: number }[]>`
@@ -147,7 +168,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
       const number = formatInvoiceNumber(config.invoice.prefix, fy, lastNumber);
       const snapshot: InvoiceSnapshot = {
         number,
-        date: order.paidAt!.toISOString(),
+        date: invoiceDate.toISOString(),
         orderNumber: `#${order.id.slice(-8).toUpperCase()}`,
         seller: {
           name: seller.legalName,
@@ -176,6 +197,7 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
         lines,
         totals,
         amountInWords: amountInWords(totals.totalInPaise),
+        paymentMode: order.paymentMethod === "COD" ? "Cash on delivery" : "Prepaid (online)",
         ...(order.couponCode && order.discountInPaise > 0
           ? { coupon: { code: order.couponCode, discountInPaise: order.discountInPaise } }
           : {}),
@@ -186,7 +208,8 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
           number,
           financialYear: fy,
           sequence: lastNumber,
-          snapshot: snapshot as unknown as Prisma.InputJsonValue,
+          // Buyer's name, phone, email and address encrypted at rest (Phase 27/29).
+          snapshot: sealInvoiceBuyer(snapshot) as unknown as Prisma.InputJsonValue,
         },
       });
       logger.info("invoice.created", { orderId, number });
@@ -202,6 +225,38 @@ export async function createInvoiceForOrder(orderId: string): Promise<{ number: 
 }
 
 /** The invoice if the user owns the order (or is an admin). */
+/** Stored copy: the buyer's personal details encrypted (tax amounts stay readable for reports). */
+export function sealInvoiceBuyer(snapshot: InvoiceSnapshot): InvoiceSnapshot {
+  const b = snapshot.buyer;
+  return {
+    ...snapshot,
+    buyer: {
+      ...b,
+      name: encryptPii(b.name),
+      phone: encryptPii(b.phone),
+      email: encryptPii(b.email),
+      address: encryptPii(b.address),
+    },
+  };
+}
+
+/** Reads a stored invoice (encrypted buyer, or plain text from before encryption). */
+export function openInvoice(value: unknown): InvoiceSnapshot {
+  const snapshot = value as InvoiceSnapshot;
+  const b = snapshot?.buyer;
+  if (!b) return snapshot;
+  return {
+    ...snapshot,
+    buyer: {
+      ...b,
+      name: decryptPii(b.name),
+      phone: decryptPii(b.phone),
+      email: decryptPii(b.email),
+      address: decryptPii(b.address),
+    },
+  };
+}
+
 export async function getInvoiceForViewer(
   orderId: string,
   viewer: { id: string; isAdmin: boolean },
@@ -212,7 +267,7 @@ export async function getInvoiceForViewer(
   });
   if (!invoice) return null;
   if (!viewer.isAdmin && invoice.order.userId !== viewer.id) return null;
-  return { number: invoice.number, snapshot: invoice.snapshot as unknown as InvoiceSnapshot };
+  return { number: invoice.number, snapshot: openInvoice(invoice.snapshot) };
 }
 
 export async function hasInvoice(orderId: string) {

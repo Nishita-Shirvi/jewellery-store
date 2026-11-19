@@ -1,7 +1,7 @@
 /** Catalogue types. These are the data contracts the final frontend design will build on. */
-import type { MetalColour, MetalType, Occasion, PricingMode, Purity } from "@prisma/client";
+import type { MetalColour, MetalType, PricingMode, Purity } from "@prisma/client";
 
-export type { MetalColour, MetalType, Occasion, PricingMode, Purity };
+export type { MetalColour, MetalType, PricingMode, Purity };
 
 /** Category as defined in the dummy catalogue (seed data). */
 export interface DummyCategory {
@@ -37,6 +37,10 @@ export interface ProductCardData {
   slug: string;
   image: string;
   priceInPaise: number;
+  /** "Was" price shown crossed out (Phase 24); null = not on sale. */
+  compareAtPriceInPaise: number | null;
+  /** Whole % off, worked out on the server; null = no badge. */
+  percentOff: number | null;
   /** e.g. "22K yellow gold · 4.1 g" */
   materialSummary: string;
   inStock: boolean;
@@ -58,6 +62,32 @@ export interface ProductListResult {
   pageCount: number;
 }
 
+/** One buyable version of a product (Phase 17). */
+export interface VariantView {
+  id: string;
+  sku: string;
+  /** "" for products without options. */
+  label: string;
+  priceInPaise: number;
+  compareAtPriceInPaise: number | null;
+  percentOff: number | null;
+  /** Units customers can buy right now. */
+  available: number;
+  images: string[];
+  netWeightMg: number;
+  grossWeightMg: number | null;
+  /** e.g. "22K rose gold · 3.15 g" for this variant. */
+  materialSummary: string;
+  /** One value id per option. */
+  optionValueIds: string[];
+}
+
+export interface OptionView {
+  id: string;
+  name: string;
+  values: { id: string; value: string }[];
+}
+
 export interface ProductDetail extends ProductCardData {
   id: string;
   description: string;
@@ -70,14 +100,18 @@ export interface ProductDetail extends ProductCardData {
   grossWeightMg: number | null;
   gemstone: string | null;
   huid: string | null;
+  countryOfOrigin: string;
   isReturnable: boolean;
   pricingMode: PricingMode;
   makingChargeInPaise: number;
   stoneChargeInPaise: number;
   gstRateBps: number;
-  occasions: Occasion[];
-  /** Sizes the customer must choose from; empty = one size. */
-  sizes: string[];
+  /** The product's tags that are occasions (lib/storefront.ts OCCASIONS). */
+  occasions: string[];
   spinVideoUrl: string | null;
   category: { name: string; slug: string };
+  /** Empty for products without options (they have a single base variant). */
+  options: OptionView[];
+  /** Active variants only, in display order. */
+  variants: VariantView[];
 }

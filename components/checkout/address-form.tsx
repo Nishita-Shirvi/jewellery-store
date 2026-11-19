@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/auth/form-field";
 import { addAddressAction, type AddressFormState } from "@/app/checkout/actions";
 import { INDIAN_STATES } from "@/lib/india";
+import { usePincodeState } from "@/components/checkout/use-pincode-state";
 
 export function AddressForm({ onSaved }: { onSaved?: (addressId: string) => void }) {
   const [state, formAction, pending] = useActionState<AddressFormState, FormData>(
@@ -13,6 +14,7 @@ export function AddressForm({ onSaved }: { onSaved?: (addressId: string) => void
     {},
   );
   const e = state.fieldErrors ?? {};
+  const pin = usePincodeState();
 
   useEffect(() => {
     if (state.ok && state.addressId) onSaved?.(state.addressId);
@@ -24,6 +26,7 @@ export function AddressForm({ onSaved }: { onSaved?: (addressId: string) => void
       className="grid gap-4 sm:grid-cols-2"
       noValidate
       aria-label="New address"
+      onInput={pin.onInput}
     >
       {state.error && (
         <p role="alert" className="text-sm text-red-700 sm:col-span-2">
@@ -85,6 +88,13 @@ export function AddressForm({ onSaved }: { onSaved?: (addressId: string) => void
         maxLength={6}
         errors={e.pincode}
       />
+      <p
+        aria-live="polite"
+        className="text-muted-foreground text-xs empty:hidden sm:col-span-2"
+        data-testid="pincode-hint"
+      >
+        {pin.hint}
+      </p>
       <div className="sm:col-span-2">
         <Button type="submit" variant="outline" disabled={pending}>
           {pending ? "Saving…" : "Save address"}

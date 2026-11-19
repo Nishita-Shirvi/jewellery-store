@@ -1,4 +1,3 @@
-import { occasionSlug } from "@/lib/storefront";
 import type { ProductListQuery } from "@/lib/validation/catalog";
 
 /** Builds a /products URL, dropping defaults so links stay short and cache-friendly. */
@@ -11,7 +10,7 @@ export function productsUrl(query: Partial<ProductListQuery>): string {
   if (query.minPrice !== undefined) params.set("minPrice", String(query.minPrice));
   if (query.maxPrice !== undefined) params.set("maxPrice", String(query.maxPrice));
   if (query.inStock) params.set("inStock", "1");
-  if (query.occasion) params.set("occasion", occasionSlug(query.occasion));
+  if (query.occasion) params.set("occasion", query.occasion);
   if (query.colour) params.set("colour", query.colour);
   if (query.minWeight !== undefined) params.set("minWeight", String(query.minWeight));
   if (query.maxWeight !== undefined) params.set("maxWeight", String(query.maxWeight));

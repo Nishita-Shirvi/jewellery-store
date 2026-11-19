@@ -4,6 +4,7 @@ import { withSentryConfig } from "@sentry/nextjs/config";
 // Validate env vars and config/*.ini at startup (dev, build and start). Fails fast on any mistake.
 import "./lib/env";
 import { config as appConfig } from "./lib/config";
+import { buildCsp } from "./lib/csp";
 
 /** Public host of the R2 bucket (config/images.ini), so next/image may optimise its photos. */
 const r2Host = appConfig.images.r2_public_url
@@ -12,8 +13,18 @@ const r2Host = appConfig.images.r2_public_url
 
 const isProd = process.env.NODE_ENV === "production";
 
-/** Security headers for every response. A full Content-Security-Policy arrives in Phase 23. */
+/** Security headers for every response (CSP: lib/csp.ts, Phase 23). */
 const securityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: buildCsp({
+      isProd,
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+      sentryDsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+      extraConnect: process.env.RAZORPAY_API_BASE, // set only in tests (local payment stand-in)
+      imageHost: appConfig.images.r2_public_url,
+    }),
+  },
   { key: "X-Frame-Options", value: "DENY" }, // no clickjacking via iframes
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -39,13 +50,14 @@ const nextConfig: NextConfig = {
     // Placeholder product images until real photos arrive (Docs/note.md, D-07).
     remotePatterns: [
       { protocol: "https", hostname: "placehold.co" },
-      process.env.CLOUDINARY_CLOUD_NAME
-        ? {
-            protocol: "https",
-            hostname: "res.cloudinary.com",
-            pathname: `/${process.env.CLOUDINARY_CLOUD_NAME}/**`,
-          }
-        : { protocol: "https", hostname: "res.cloudinary.com" },
+      // Only our own Cloudinary account (once configured) — not any account's images.
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: process.env.CLOUDINARY_CLOUD_NAME
+          ? `/${process.env.CLOUDINARY_CLOUD_NAME}/**`
+          : "/**",
+      },
       ...(r2Host ? [{ protocol: "https" as const, hostname: r2Host }] : []),
     ],
   },
@@ -58,6 +70,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // The service worker must always be fresh, or a fix could take days to reach phones.
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
       // Private pages must never be stored by shared caches.
       {
         source: "/(account|admin|checkout|orders)/:path*",
@@ -74,6 +94,11 @@ export default withSentryConfig(nextConfig, {
   authToken: process.env.SENTRY_AUTH_TOKEN,
   silent: !process.env.CI,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  // Phase 26: one Sentry release per deployed commit (matches Sentry.init release).
+  release: {
+    name: process.env.VERCEL_GIT_COMMIT_SHA,
+    create: Boolean(process.env.SENTRY_AUTH_TOKEN),
+  },
   widenClientFileUpload: true,
   webpack: { treeshake: { removeDebugLogging: true } },
   telemetry: false,

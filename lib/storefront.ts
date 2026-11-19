@@ -1,34 +1,27 @@
-import type { Occasion } from "@prisma/client";
-import { z } from "zod";
-
 /** Shop-floor labels and helpers shared by server and client code (no secrets, no DB). */
 
-export const OCCASIONS: Occasion[] = [
-  "BRIDAL",
-  "FESTIVE",
-  "DAILY_WEAR",
-  "OFFICE",
-  "GIFTING",
-  "PARTY",
-];
+/**
+ * Occasions are product tags (Admin → product → Tags, e.g. "bridal, festive"), the same tags the
+ * occasion collections in Admin → Content use. The catalogue filter, style advisor and home tiles
+ * offer these.
+ */
+export const OCCASIONS = [
+  { tag: "bridal", label: "Bridal" },
+  { tag: "festive", label: "Festive" },
+  { tag: "daily-wear", label: "Daily wear" },
+  { tag: "office-wear", label: "Office wear" },
+  { tag: "gift", label: "Gifting" },
+  { tag: "party", label: "Party" },
+] as const;
 
-export const occasionLabel: Record<Occasion, string> = {
-  BRIDAL: "Bridal",
-  FESTIVE: "Festive",
-  DAILY_WEAR: "Daily wear",
-  OFFICE: "Office wear",
-  GIFTING: "Gifting",
-  PARTY: "Party",
-};
+export type OccasionTag = (typeof OCCASIONS)[number]["tag"];
 
-/** URL form of an occasion: "daily-wear" ↔ DAILY_WEAR. */
-export function occasionSlug(occasion: Occasion): string {
-  return occasion.toLowerCase().replace(/_/g, "-");
+export function occasionFromSlug(slug: string): OccasionTag | undefined {
+  return OCCASIONS.find((o) => o.tag === slug)?.tag;
 }
 
-export function occasionFromSlug(slug: string): Occasion | undefined {
-  const value = slug.toUpperCase().replace(/-/g, "_");
-  return (OCCASIONS as string[]).includes(value) ? (value as Occasion) : undefined;
+export function occasionLabel(tag: string): string {
+  return OCCASIONS.find((o) => o.tag === tag)?.label ?? tag;
 }
 
 /** Budget shortcuts shown above the price filter (whole rupees). */
@@ -40,30 +33,7 @@ export const BUDGETS: { label: string; minPrice?: number; maxPrice?: number }[] 
   { label: "Above ₹1,00,000", minPrice: 100_000 },
 ];
 
-// ── Sizes ─────────────────────────────────────────────────
-
-export const MAX_SIZES = 30;
-const sizeToken = /^[0-9A-Za-z.\-/ ]{1,12}$/;
-
-/** "10, 12 ,14" or one per line → ["10","12","14"]; duplicates removed, order kept. */
-export function parseSizes(input: string): string[] {
-  const seen = new Set<string>();
-  for (const raw of input.split(/[,\n]/)) {
-    const size = raw.trim().replace(/\s+/g, " ");
-    if (size) seen.add(size);
-  }
-  return [...seen];
-}
-
-export const sizesSchema = z
-  .string()
-  .optional()
-  .transform((v) => parseSizes(v ?? ""))
-  .pipe(
-    z
-      .array(z.string().regex(sizeToken, { message: "Sizes use letters, numbers, . - / only" }))
-      .max(MAX_SIZES, { message: `At most ${MAX_SIZES} sizes` }),
-  );
+// ── Size guide ────────────────────────────────────────────
 
 /** Indian ring sizes with inner circumference (mm) and diameter (mm). */
 export const RING_SIZES: { size: number; circumferenceMm: number; diameterMm: number }[] = [
@@ -88,21 +58,6 @@ export const BANGLE_SIZES: { size: string; diameterMm: number }[] = [
   { size: "2.10", diameterMm: 66.7 },
   { size: "2.12", diameterMm: 69.9 },
 ];
-
-// ── WhatsApp ──────────────────────────────────────────────
-
-/** "+91 98765 43210" → "919876543210" (digits only, as wa.me expects). Null if not a plausible number. */
-export function whatsappDigits(phone: string): string | null {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.length === 10) return `91${digits}`;
-  if (digits.length >= 11 && digits.length <= 15) return digits;
-  return null;
-}
-
-export function whatsappLink(phone: string, text: string): string | null {
-  const digits = whatsappDigits(phone);
-  return digits ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : null;
-}
 
 // ── Showroom visits ───────────────────────────────────────
 

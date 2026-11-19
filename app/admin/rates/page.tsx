@@ -1,3 +1,4 @@
+import { requirePermissionPage } from "@/lib/auth-guards";
 import { RatesForm } from "@/components/admin/rates-form";
 import { config } from "@/lib/config";
 import { formatINR } from "@/lib/format";
@@ -15,6 +16,7 @@ const when = new Intl.DateTimeFormat("en-IN", {
 });
 
 export default async function AdminRatesPage() {
+  await requirePermissionPage("products.view", "/admin/rates");
   const [rates, counts, history] = await Promise.all([
     getCurrentRates(),
     rateLinkedCounts(),

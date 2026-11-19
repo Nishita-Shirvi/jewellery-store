@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { ForbiddenError, UnauthorizedError, requireAdmin } from "@/lib/auth-guards";
+import { ForbiddenError, UnauthorizedError, requirePermission } from "@/lib/auth-guards";
 import { csvRow } from "@/lib/report/csv";
 import { istDay, istMidnight } from "@/lib/report/dates";
 import { audit } from "@/services/audit.service";
 import { displayOrderNumber } from "@/services/order.service";
 import { ordersForExport } from "@/services/report.service";
+import { lineName } from "@/lib/variants";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** GET /api/admin/orders/export?from=2026-10-01&to=2026-10-31 → orders.csv (admins only). */
-export async function GET(request: Request) {
+/** GET /api/admin/orders/export?from=2026-10-01&to=2026-10-31 → orders.csv (staff with reports.view). */
+async function handleGET(request: Request) {
   let admin;
   try {
-    admin = await requireAdmin();
+    admin = await requirePermission("reports.view");
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError)
       return NextResponse.json({ error: error.message }, { status: error.status });
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
       istDay(o.createdAt),
       o.status,
       o.user.email,
-      o.items.map((i) => `${i.productName} x${i.quantity}`).join("; "),
+      o.items.map((i) => `${lineName(i.productName, i.variantLabel)} x${i.quantity}`).join("; "),
       (o.subtotalInPaise / 100).toFixed(2),
       (o.discountInPaise / 100).toFixed(2),
       (o.shippingInPaise / 100).toFixed(2),
@@ -78,3 +80,6 @@ export async function GET(request: Request) {
     },
   });
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

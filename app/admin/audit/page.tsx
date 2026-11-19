@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Pager } from "@/components/admin/pager";
 import { listAudit } from "@/services/audit.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 const dateFmt = new Intl.DateTimeFormat("en-IN", {
@@ -22,6 +23,7 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<{ type?: string; page?: string }>;
 }) {
+  await requirePermissionPage("audit.view", "/admin/audit");
   const sp = await searchParams;
   const type = TYPES.includes((sp.type ?? "") as (typeof TYPES)[number]) ? (sp.type ?? "") : "";
   const page = Math.min(Math.max(1, Number(sp.page) || 1), 10_000);

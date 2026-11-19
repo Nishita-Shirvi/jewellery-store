@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Heart, ShoppingBag } from "lucide-react";
 import { SearchForm } from "@/components/layout/search-form";
 import { UserMenu } from "@/components/layout/user-menu";
-import { AnnouncementBar } from "@/components/layout/announcement-bar";
+import { RateStrip } from "@/components/layout/rate-strip";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { publicEnv } from "@/lib/env";
 import { getCategories } from "@/services/catalog.service";
@@ -15,12 +15,12 @@ export async function SiteHeader() {
 
   return (
     <header className="bg-background/95 sticky top-0 z-40 backdrop-blur">
-      <AnnouncementBar />
+      <RateStrip />
       <div className="border-border border-b">
-        <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-4 sm:gap-6">
           <Link
             href="/"
-            className="font-display text-primary shrink-0 text-2xl tracking-wide"
+            className="font-display text-primary shrink-0 text-xl tracking-wide min-[380px]:text-2xl"
             style={{ fontFamily: "var(--font-display)" }}
           >
             {publicEnv.NEXT_PUBLIC_SITE_NAME}

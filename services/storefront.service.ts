@@ -1,6 +1,7 @@
 import "server-only";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
+import { config } from "@/lib/config";
 import { logger } from "@/lib/logger";
 import {
   DEFAULT_STOREFRONT,
@@ -31,6 +32,15 @@ export const getStorefrontSettings = unstable_cache(
   ["storefront:settings:v1"],
   { tags: [STOREFRONT_TAG], revalidate: 3600 },
 );
+
+/**
+ * The WhatsApp number for every "Chat on WhatsApp" button: the one in Admin → Showroom, else
+ * config/customer.ini [support] whatsapp_number. "" when unset or [features] whatsapp_button is off.
+ */
+export async function whatsappNumber(): Promise<string> {
+  if (!config.features.whatsapp_button) return "";
+  return (await getStorefrontSettings()).whatsapp || config.support.whatsapp_number;
+}
 
 export async function saveStorefrontSettings(settings: StorefrontSettings): Promise<void> {
   await db.appSetting.upsert({

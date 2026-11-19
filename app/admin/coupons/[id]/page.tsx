@@ -3,6 +3,7 @@ import { CouponForm } from "@/components/admin/coupon-form";
 import { toIstInput } from "@/lib/datetime-input";
 import { paiseToRupeesInput } from "@/lib/money";
 import { getCouponAdmin } from "@/services/admin/coupon-admin.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export default async function EditCouponPage({
   params,
@@ -11,6 +12,7 @@ export default async function EditCouponPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requirePermissionPage("coupons.manage", "/admin/coupons");
   const { id } = await params;
   const { created } = await searchParams;
   const c = await getCouponAdmin(id);

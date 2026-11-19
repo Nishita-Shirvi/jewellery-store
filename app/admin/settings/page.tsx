@@ -1,3 +1,4 @@
+import { requirePermissionPage } from "@/lib/auth-guards";
 import { StorefrontSettingsForm } from "@/components/admin/storefront-settings-form";
 import { config } from "@/lib/config";
 import { getStorefrontSettings } from "@/services/storefront.service";
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 const onOff = (v: boolean) => (v ? "On" : "Off");
 
 export default async function AdminSettingsPage() {
+  await requirePermissionPage("content.manage", "/admin/settings");
   const settings = await getStorefrontSettings();
   const f = config.features;
   return (

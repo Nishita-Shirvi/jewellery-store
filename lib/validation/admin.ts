@@ -2,7 +2,7 @@ import { z } from "zod";
 import { parseGramsToMg, parseRupeesToPaise } from "@/lib/money";
 import { parseRatePercent } from "@/lib/gst";
 import { isAllowedImageUrl, isAllowedVideoUrl } from "@/lib/media";
-import { sizesSchema } from "@/lib/storefront";
+import { parseTags } from "@/lib/merch";
 
 const id = z
   .string()
@@ -100,6 +100,19 @@ export const productFormSchema = z
       .max(200)
       .optional()
       .transform((v) => v || null),
+    /** Shown on the product page (Phase 27). */
+    countryOfOrigin: z
+      .string()
+      .trim()
+      .max(60)
+      .optional()
+      .transform((v) => v || "India"),
+    /** "Bridal, daily wear" → ["bridal", "daily-wear"]: used by rule-based collections (Phase 24). */
+    tags: z
+      .string()
+      .max(600)
+      .optional()
+      .transform((v) => parseTags(v ?? "")),
     huid: z
       .string()
       .trim()
@@ -123,15 +136,6 @@ export const productFormSchema = z
       // Same image twice would show twice in the gallery.
       .transform((list) => [...new Set(list)])
       .pipe(z.array(imageUrlSchema).min(1, { message: "Add at least one image" }).max(10)),
-    /** Comma-separated by the action from the occasion checkboxes. */
-    occasions: z
-      .string()
-      .optional()
-      .transform((v) => [...new Set((v ?? "").split(",").filter(Boolean))])
-      .pipe(
-        z.array(z.enum(["BRIDAL", "FESTIVE", "DAILY_WEAR", "OFFICE", "GIFTING", "PARTY"])).max(6),
-      ),
-    sizes: sizesSchema,
     spinVideoUrl: z
       .string()
       .trim()
@@ -140,7 +144,7 @@ export const productFormSchema = z
       .refine((v) => v === null || isAllowedVideoUrl(v), {
         message: "Use an uploaded .mp4/.webm link from our Cloudinary or R2, or a /videos/... path",
       }),
-    /** Stock shown when the form was opened; the save refuses if it changed meanwhile. */
+    /** Stock shown when the form was opened; the save refuses if a sale changed it meanwhile. */
     stockOriginal: z.coerce.number().int().min(0).optional().catch(undefined),
     hsnCode: z
       .string()
@@ -184,12 +188,12 @@ export const categoryFormSchema = z.object({
     .union([z.literal(""), slug])
     .optional()
     .transform((v) => v || undefined),
-  /** undefined = the form has no description field: keep what's stored. "" clears it. */
   description: z
     .string()
     .trim()
     .max(500)
     .optional()
+    /** undefined = the form has no description field: keep what's stored. "" clears it. */
     .transform((v) => (v === undefined ? undefined : v || null)),
   sortOrder: z.coerce.number().int().min(0).max(1000).default(0),
   isActive: checkbox,

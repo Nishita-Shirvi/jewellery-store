@@ -12,39 +12,29 @@ export const productIdSchema = z
   .max(40)
   .regex(/^[a-z0-9]+$/i);
 
-/** "" = the product has no sizes. Checked against the product's own size list in the service. */
-export const sizeSchema = z
-  .string()
-  .trim()
-  .max(12)
-  .regex(/^[0-9A-Za-z.\-/ ]*$/)
-  .default("");
-
+/**
+ * One cart line. `variantId` is the exact size/colour (Phase 17). Guest-cart cookies written before
+ * Phase 17 have no variantId: those lines resolve to the product's base variant when read.
+ */
 export const cartLineSchema = z.object({
   productId: productIdSchema,
-  // Cookies written before sizes existed have no size.
-  size: sizeSchema,
+  variantId: productIdSchema.optional(),
   quantity: z.number().int().min(1).max(MAX_QTY_PER_ITEM),
 });
 
 export const addToCartSchema = z.object({
   productId: productIdSchema,
-  size: sizeSchema,
+  /** Required when the product has options; optional for products with a single base variant. */
+  variantId: productIdSchema.optional(),
   quantity: z.coerce.number().int().min(1).max(MAX_QTY_PER_ITEM),
 });
 
 export const updateQuantitySchema = z.object({
-  productId: productIdSchema,
-  size: sizeSchema,
+  variantId: productIdSchema,
   // 0 removes the item.
   quantity: z.coerce.number().int().min(0).max(MAX_QTY_PER_ITEM),
 });
 
-export const removeItemSchema = z.object({ productId: productIdSchema, size: sizeSchema });
+export const removeItemSchema = z.object({ variantId: productIdSchema });
 
 export type CartLine = z.infer<typeof cartLineSchema>;
-
-/** One cart line per product + size. */
-export function lineKey(line: { productId: string; size: string }): string {
-  return `${line.productId}|${line.size}`;
-}

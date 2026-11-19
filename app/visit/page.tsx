@@ -5,9 +5,9 @@ import { VisitForm } from "@/components/storefront/visit-form";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { config } from "@/lib/config";
 import { istDay } from "@/lib/report/dates";
-import { whatsappLink } from "@/lib/storefront";
+import { whatsappLink } from "@/lib/support";
 import { getProductBySlug } from "@/services/catalog.service";
-import { getStorefrontSettings } from "@/services/storefront.service";
+import { getStorefrontSettings, whatsappNumber } from "@/services/storefront.service";
 import { VISIT_MAX_DAYS_AHEAD } from "@/services/visit.service";
 
 export const metadata: Metadata = {
@@ -30,9 +30,7 @@ export default async function VisitPage({
   ]);
   const today = istDay(new Date());
   const max = istDay(new Date(Date.now() + VISIT_MAX_DAYS_AHEAD * 86_400_000));
-  const whatsapp = settings.whatsapp
-    ? whatsappLink(settings.whatsapp, "Hello, I'd like to visit the showroom.")
-    : null;
+  const whatsapp = whatsappLink(await whatsappNumber(), "Hello, I'd like to visit the showroom.");
 
   return (
     <div className="mx-auto grid max-w-5xl gap-12 px-4 py-12 md:grid-cols-[1fr_320px]">

@@ -18,7 +18,20 @@ export default defineConfig({
         }
       : undefined,
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /switches\.spec\.ts/,
+    },
+    // Kill switches pause the whole shop for a moment, so they run alone, after everything else.
+    {
+      name: "switches",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /switches\.spec\.ts/,
+      dependencies: ["chromium"],
+    },
+  ],
   webServer: [
     {
       command: "node tests/e2e/mock-services.mjs",

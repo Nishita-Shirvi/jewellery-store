@@ -2,8 +2,11 @@ import Link from "next/link";
 import { getBusiness } from "@/lib/business";
 import { config } from "@/lib/config";
 import { getCategories } from "@/services/catalog.service";
+import { NewsletterForm } from "@/components/marketing/marketing-forms";
+import { NEWSLETTER_CONSENT_TEXT } from "@/services/marketing.service";
 
 const help = [
+  { href: "/help", label: "Help centre" },
   ...(config.features.visit_booking ? [{ href: "/visit", label: "Visit the showroom" }] : []),
   ...(config.features.style_advisor ? [{ href: "/style-advisor", label: "Style advisor" }] : []),
   { href: "/size-guide", label: "Size guide" },
@@ -35,6 +38,9 @@ export async function SiteFooter() {
             <br />
             {business.phone}
           </p>
+          <div className="pt-2">
+            <NewsletterForm consentText={NEWSLETTER_CONSENT_TEXT} />
+          </div>
         </div>
         <nav aria-label="Shop">
           <p className="mb-3 text-sm font-semibold">Shop</p>

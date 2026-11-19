@@ -2,14 +2,16 @@ import "server-only";
 import type { Address } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { AddressInput } from "@/lib/validation/checkout";
+import { decryptAddress, encryptAddress } from "@/lib/pii";
 
 const MAX_ADDRESSES = 20;
 
 export async function listAddresses(userId: string): Promise<Address[]> {
-  return db.address.findMany({
+  const rows = await db.address.findMany({
     where: { userId },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
   });
+  return rows.map(decryptAddress);
 }
 
 /** Only returns the address if it belongs to this user (prevents using someone else's address ID). */
@@ -17,7 +19,8 @@ export async function getAddressForUser(
   userId: string,
   addressId: string,
 ): Promise<Address | null> {
-  return db.address.findFirst({ where: { id: addressId, userId } });
+  const row = await db.address.findFirst({ where: { id: addressId, userId } });
+  return row ? decryptAddress(row) : null;
 }
 
 export class TooManyAddressesError extends Error {
@@ -30,8 +33,8 @@ export class TooManyAddressesError extends Error {
 export async function createAddress(userId: string, input: AddressInput): Promise<Address> {
   const count = await db.address.count({ where: { userId } });
   if (count >= MAX_ADDRESSES) throw new TooManyAddressesError();
-  return db.address.create({
-    data: {
+  const row = await db.address.create({
+    data: encryptAddress({
       userId,
       fullName: input.fullName,
       phone: input.phone,
@@ -42,8 +45,9 @@ export async function createAddress(userId: string, input: AddressInput): Promis
       state: input.state,
       pincode: input.pincode,
       isDefault: count === 0,
-    },
+    }),
   });
+  return decryptAddress(row);
 }
 
 /** Frozen copy stored on the order, so later address edits never change past orders. */
@@ -63,6 +67,16 @@ export function addressSnapshot(address: Address) {
 
 export type AddressSnapshot = ReturnType<typeof addressSnapshot>;
 
+/** The snapshot as stored on the order: name, phone and street lines encrypted (Phase 27). */
+export function sealSnapshot(snapshot: AddressSnapshot): AddressSnapshot {
+  return encryptAddress(snapshot);
+}
+
+/** Reads an order's address snapshot (encrypted, or plain text from before Phase 27). */
+export function openSnapshot(value: unknown): AddressSnapshot {
+  return decryptAddress((value ?? {}) as AddressSnapshot);
+}
+
 /** Updates only if the address belongs to this user. Returns false otherwise. */
 export async function updateAddress(
   userId: string,
@@ -71,7 +85,7 @@ export async function updateAddress(
 ): Promise<boolean> {
   const result = await db.address.updateMany({
     where: { id: addressId, userId },
-    data: {
+    data: encryptAddress({
       fullName: input.fullName,
       phone: input.phone,
       line1: input.line1,
@@ -80,7 +94,7 @@ export async function updateAddress(
       city: input.city,
       state: input.state,
       pincode: input.pincode,
-    },
+    }),
   });
   return result.count > 0;
 }

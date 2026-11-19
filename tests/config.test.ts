@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildConfig, envOverrides, parseIni } from "@/lib/config";
 
-describe("config.ini", () => {
+describe("config/*.ini", () => {
   it("parses sections, comments and quoted values", () => {
     const raw = parseIni(
       `; comment\n# also comment\n[business]\nlegal_name = "Acme Jewels"\n\n[shipping]\nfee_rupees=50\n`,

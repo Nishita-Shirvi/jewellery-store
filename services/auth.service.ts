@@ -28,16 +28,59 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, BCRYPT_ROUNDS);
 }
 
-/** Returns the user when email + password match, otherwise null. */
+/** Wrong passwords in a row before the account is locked, and for how long. */
+export const LOCK_AFTER_FAILURES = 8;
+export const LOCK_MINUTES = 15;
+
+export class AccountLockedError extends Error {
+  constructor() {
+    super("Account temporarily locked");
+    this.name = "AccountLockedError";
+  }
+}
+
+/**
+ * Returns the user when email + password match, otherwise null. Throws AccountLockedError while
+ * the account is locked (the password isn't even checked then). The lock lives in the database,
+ * so it holds across every server instance — unlike the in-memory per-IP rate limit.
+ */
 export async function verifyCredentials(input: LoginInput): Promise<AuthenticatedUser | null> {
   const user = await db.user.findUnique({
     where: { email: input.email },
-    select: { id: true, email: true, name: true, role: true, passwordHash: true },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      passwordHash: true,
+      lockedUntil: true,
+    },
   });
 
   const valid = await bcrypt.compare(input.password, user?.passwordHash ?? DUMMY_HASH);
-  if (!user || !user.passwordHash || !valid) return null;
+  if (user?.lockedUntil && user.lockedUntil > new Date()) throw new AccountLockedError();
+  if (!user || !user.passwordHash) return null;
 
+  if (!valid) {
+    const after = await db.user.update({
+      where: { id: user.id },
+      data: { failedLogins: { increment: 1 } },
+      select: { failedLogins: true },
+    });
+    if (after.failedLogins >= LOCK_AFTER_FAILURES) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) },
+      });
+      throw new AccountLockedError();
+    }
+    return null;
+  }
+
+  await db.user.updateMany({
+    where: { id: user.id, OR: [{ failedLogins: { gt: 0 } }, { lockedUntil: { not: null } }] },
+    data: { failedLogins: 0, lockedUntil: null },
+  });
   return { id: user.id, email: user.email, name: user.name, role: user.role };
 }
 

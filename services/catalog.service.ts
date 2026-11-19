@@ -5,6 +5,9 @@ import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
 import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
+import { variantJewellery } from "@/lib/variants";
+import { percentOff } from "@/lib/merch";
+import { occasionFromSlug } from "@/lib/storefront";
 import { PAGE_SIZE, slugSchema, type ProductListQuery } from "@/lib/validation/catalog";
 import type {
   CategorySummary,
@@ -17,11 +20,12 @@ import type {
 export const CATALOG_TAG = "catalog";
 const CACHE_SECONDS = 300;
 
-const cardSelect = {
+export const cardSelect = {
   name: true,
   slug: true,
   images: true,
   priceInPaise: true,
+  compareAtPriceInPaise: true,
   stock: true,
   reservedStock: true,
   reviewCount: true,
@@ -34,14 +38,21 @@ const cardSelect = {
 
 type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
 
+/** "Was" price and % off, only when it's a real saving (worked out here, never in the browser). */
+function salePrice(priceInPaise: number, compareAt: number | null) {
+  const pct = percentOff(priceInPaise, compareAt);
+  return { compareAtPriceInPaise: pct ? compareAt : null, percentOff: pct };
+}
+
 const FALLBACK_IMAGE = "/images/products/classic-solitaire-ring.svg";
 
-function toCard(row: CardRow): ProductCardData {
+export function toCard(row: CardRow): ProductCardData {
   return {
     name: row.name,
     slug: row.slug,
     image: row.images[0] ?? FALLBACK_IMAGE,
     priceInPaise: row.priceInPaise,
+    ...salePrice(row.priceInPaise, row.compareAtPriceInPaise),
     materialSummary: materialSummary(row),
     inStock: availableStock(row) > 0,
     reviewCount: row.reviewCount,
@@ -83,8 +94,9 @@ export const listProducts = unstable_cache(
       // In stock = more units than are held in checkouts (compares two columns).
       ...(query.inStock ? { stock: { gt: db.product.fields.reservedStock } } : {}),
       ...(query.rating ? { ratingAvgX100: { gte: query.rating * 100 } } : {}),
-      ...(query.occasion ? { occasions: { has: query.occasion } } : {}),
+      ...(query.occasion ? { tags: { has: query.occasion } } : {}),
       ...(query.colour ? { metalColour: query.colour } : {}),
+      // Weight filter uses the product's main net weight (sizes of one piece weigh about the same).
       ...(query.minWeight !== undefined || query.maxWeight !== undefined
         ? {
             netWeightMg: {
@@ -129,7 +141,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v3"],
+  ["catalog:list:v4"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -143,7 +155,7 @@ export const getFeaturedProducts = unstable_cache(
     });
     return rows.map(toCard);
   },
-  ["catalog:featured"],
+  ["catalog:featured:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -194,15 +206,42 @@ export const getProductBySlug = unstable_cache(
         grossWeightMg: true,
         gemstone: true,
         huid: true,
+        countryOfOrigin: true,
         isReturnable: true,
         pricingMode: true,
         makingChargeInPaise: true,
         stoneChargeInPaise: true,
         gstRateBps: true,
-        occasions: true,
-        sizes: true,
+        tags: true,
         spinVideoUrl: true,
         category: { select: { name: true, slug: true } },
+        options: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            name: true,
+            values: { orderBy: { position: "asc" }, select: { id: true, value: true } },
+          },
+        },
+        variants: {
+          where: { isActive: true },
+          orderBy: [{ position: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            sku: true,
+            label: true,
+            priceInPaise: true,
+            compareAtPriceInPaise: true,
+            stock: true,
+            reservedStock: true,
+            images: true,
+            netWeightMg: true,
+            grossWeightMg: true,
+            purity: true,
+            metalColour: true,
+            optionValues: { select: { optionValueId: true } },
+          },
+        },
       },
     });
     if (!row) return null;
@@ -220,17 +259,31 @@ export const getProductBySlug = unstable_cache(
       grossWeightMg: row.grossWeightMg,
       gemstone: row.gemstone,
       huid: row.huid,
+      countryOfOrigin: row.countryOfOrigin,
       isReturnable: row.isReturnable,
       pricingMode: row.pricingMode,
       makingChargeInPaise: row.makingChargeInPaise,
       stoneChargeInPaise: row.stoneChargeInPaise,
       gstRateBps: row.gstRateBps,
-      occasions: row.occasions,
-      sizes: row.sizes,
+      occasions: row.tags.filter((t) => occasionFromSlug(t) !== undefined),
       spinVideoUrl: row.spinVideoUrl,
       category: row.category,
+      options: row.options.filter((o) => o.values.length > 0),
+      variants: row.variants.map((v) => ({
+        id: v.id,
+        sku: v.sku,
+        label: v.label,
+        priceInPaise: v.priceInPaise,
+        ...salePrice(v.priceInPaise, v.compareAtPriceInPaise),
+        available: availableStock(v),
+        images: v.images,
+        netWeightMg: v.netWeightMg,
+        grossWeightMg: v.grossWeightMg,
+        materialSummary: materialSummary(variantJewellery(row, v)),
+        optionValueIds: v.optionValues.map((o) => o.optionValueId),
+      })),
     };
   },
-  ["catalog:product:v2"],
+  ["catalog:product:v4"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );

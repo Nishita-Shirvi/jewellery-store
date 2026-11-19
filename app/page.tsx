@@ -13,17 +13,21 @@ import { ProductGrid } from "@/components/catalog/product-grid";
 import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/reviews/stars";
 import { config } from "@/lib/config";
-import { OCCASIONS, occasionLabel, occasionSlug } from "@/lib/storefront";
+import { OCCASIONS, type OccasionTag } from "@/lib/storefront";
 import { getCategories, getFeaturedProducts } from "@/services/catalog.service";
 import { getHomeReviews } from "@/services/review.service";
+import { HomeSections } from "@/components/merch/home-sections";
+import { getLiveHomeSections } from "@/services/merch.service";
+import { checkPreviewToken } from "@/lib/preview";
+import { RecoRow } from "@/components/reco/reco-row";
 
-const OCCASION_TEXT: Record<(typeof OCCASIONS)[number], string> = {
-  BRIDAL: "Sets, chokers and mangalsutras for the big day",
-  FESTIVE: "Jhumkas, kadas and temple pieces",
-  DAILY_WEAR: "Light chains, studs and everyday rings",
-  OFFICE: "Quiet, polished pieces for work",
-  GIFTING: "For birthdays, anniversaries and new arrivals",
-  PARTY: "Statement earrings and cocktail rings",
+const OCCASION_TEXT: Record<OccasionTag, string> = {
+  bridal: "Sets, chokers and mangalsutras for the big day",
+  festive: "Jhumkas, kadas and temple pieces",
+  "daily-wear": "Light chains, studs and everyday rings",
+  "office-wear": "Quiet, polished pieces for work",
+  gift: "For birthdays, anniversaries and new arrivals",
+  party: "Statement earrings and cocktail rings",
 };
 
 const TRUST = [
@@ -49,7 +53,33 @@ const TRUST = [
   },
 ];
 
-export default async function HomePage() {
+/**
+ * Home: the sections built in Admin → Content when any are live (Phase 24); otherwise the
+ * built-in homepage below. A content problem never takes the homepage down.
+ */
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview?: string }>;
+}) {
+  const preview = checkPreviewToken("home", "home", (await searchParams).preview);
+  const sections = await getLiveHomeSections(new Date(), { preview }).catch(() => []);
+  if (sections.length > 0)
+    return (
+      <>
+        {preview && (
+          <p role="status" className="bg-amber-50 p-3 text-center text-sm text-amber-900">
+            Homepage preview — showing drafts and scheduled sections too. Customers see only
+            what&apos;s live.
+          </p>
+        )}
+        <HomeSections sections={sections} />
+      </>
+    );
+  return <DefaultHome />;
+}
+
+async function DefaultHome() {
   const [categories, featured, reviews] = await Promise.all([
     getCategories(),
     getFeaturedProducts(config.storefront.featured_count),
@@ -173,8 +203,8 @@ export default async function HomePage() {
           </Link>
         </section>
 
-        {/* Shop by occasion */}
-        <section aria-labelledby="occasion-heading" className="py-16">
+        {/* Shop by occasion (product tags; same tags as the occasion collections) */}
+        <section aria-labelledby="occasion-heading" className="pt-16">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <h2 id="occasion-heading" className="text-3xl">
               Shop by occasion
@@ -191,16 +221,16 @@ export default async function HomePage() {
           </div>
           <ul className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3">
             {OCCASIONS.map((o) => (
-              <li key={o}>
+              <li key={o.tag}>
                 <Link
-                  href={`/products?occasion=${occasionSlug(o)}`}
+                  href={`/products?occasion=${o.tag}`}
                   className="group border-border hover:border-gold bg-background block h-full rounded-md border p-5 transition-colors"
                 >
                   <span className="block text-xl" style={{ fontFamily: "var(--font-display)" }}>
-                    {occasionLabel[o]}
+                    {o.label}
                   </span>
                   <span className="text-muted-foreground mt-1 block text-sm">
-                    {OCCASION_TEXT[o]}
+                    {OCCASION_TEXT[o.tag]}
                   </span>
                   <span className="text-primary mt-3 inline-block text-xs font-medium group-hover:underline">
                     Explore →
@@ -226,6 +256,7 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+        <RecoRow widget="trending" query="w=trending" />
       </div>
 
       {/* Why buy here */}

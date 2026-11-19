@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
+import { recordAnalyticsConsentAction } from "@/app/account/privacy/actions";
 
 const COOKIE = "consent";
 
@@ -31,6 +32,8 @@ export function Analytics({ gaId }: { gaId?: string }) {
   function choose(value: "analytics" | "essential") {
     document.cookie = `${COOKIE}=${value}; path=/; max-age=${60 * 60 * 24 * 180}; samesite=lax`;
     setConsent(value);
+    // Phase 27: logged on the account too when signed in (does nothing otherwise).
+    void recordAnalyticsConsentAction(value === "analytics").catch(() => undefined);
   }
 
   return (

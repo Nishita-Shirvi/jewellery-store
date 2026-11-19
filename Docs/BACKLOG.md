@@ -1,79 +1,168 @@
 # Backlog
 
-Known work that is **not done yet**, with why it matters and roughly what the fix is. Most items
-came from the full code review in PR #26 (18 Nov 2026); each was checked against the code.
+Things still to do. Nothing here is broken today.
 
-Priority: **P1** fix before real traffic · **P2** fix soon · **P3** nice to have.
+## Needs Vineet (before going live)
 
-When you finish an item, delete it here and mention it in `CHANGELOG.md`.
+**BL-4 · Encryption key** (added 4 Nov)
+Customer addresses and phone numbers are stored encrypted. Before deploying:
 
-## Reports and admin
+1. Create a key: `openssl rand -base64 48`
+2. Put it in Vercel as `PII_ENCRYPTION_KEY`, and keep a copy in a password manager. Without it, saved addresses can't be read.
+3. After deploying, run `npm run pii:encrypt` once on the live database. Running `npm run pii:encrypt -- --dry` afterwards should show zeros.
 
-| Pri | Item                                   | Why it matters                                                                                                                                                                                          | Suggested fix                                                                                                                                        |
-| --- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P2  | Reports count refunded orders as sales | `PAID_STATUSES` includes `REFUND_PENDING` / `REFUNDED`, so "Orders", average order value and top products include refunded and returned items. Refunds are grouped by `processedAt`, sales by `paidAt`. | Leave fully refunded orders out of counts and average order value; subtract `returnedQuantity` in top products; label refunds "processed in period". |
-| P2  | Dashboard and reports disagree         | Dashboard counts only `PAID/SHIPPED/DELIVERED` and uses raw `stock` for low stock; reports use `stock − reservedStock`.                                                                                 | One shared helper for "sales" and "available stock".                                                                                                 |
-| P2  | Orders CSV doesn't match the report    | Export filters by `createdAt` and includes unpaid cancelled holds; stops at 20,000 rows without saying so.                                                                                              | Filter by `paidAt` + paid statuses; show a warning when the row cap is hit.                                                                          |
-| P2  | Review queue capped at 100             | `listReviewsAdmin` takes 100 newest; older pending reviews can never be moderated.                                                                                                                      | Paginate with `Pager`; show oldest pending first.                                                                                                    |
-| P3  | Product list tools                     | Search by name only; no category filter, sort, HUID search, bulk hide/feature/price, CSV import/export or "duplicate product".                                                                          | Add filters first, then bulk actions.                                                                                                                |
-| P3  | Featured order and category content    | Featured pieces sort by newest only; categories have no image/description fields in admin; collection intro text is hard-coded in `app/collections/[slug]/page.tsx`.                                    | `featuredOrder` column; category form fields; move intro text to the category.                                                                       |
-| P3  | Draft products and preview             | New products are live by default; hidden products can't be previewed in the store.                                                                                                                      | Admin-only preview route for hidden products.                                                                                                        |
-| P3  | Mark shipment cancelled by hand        | After cancelling a parcel at the courier, the order can only be cancelled once a courier "cancelled" update arrives.                                                                                    | Admin button "Shipment cancelled at courier" (audited).                                                                                              |
+**BL-5 · Legal text and business details** (added 4 Nov)
 
-## Accounts and security
+- A lawyer or CA should read the privacy policy and terms.
+- Fill in the business and grievance officer details in `config/business.ini` (sections `[business]` and `[grievance_officer]`). They appear on product pages, policies and invoices.
 
-| Pri | Item                                | Why it matters                                                                                                                                       | Suggested fix                                                                          |
-| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| P1  | Rate limits are per server instance | `lib/rate-limit.ts` keeps counters in memory; on Vercel every instance has its own, so login/visit/review limits multiply.                           | Move to Upstash Redis (Goal.md Phase 19).                                              |
-| P2  | No email verification at sign-up    | Anyone can register someone else's email; the real owner then can't use "Sign in with Google" for it. Register also reveals whether an email exists. | Verify email before activating; then allow linking verified accounts; generic message. |
-| P2  | Sessions can't be revoked           | JWT sessions last 30 days; a stolen cookie or a blocked customer keeps working (admin role is re-checked, customer actions aren't).                  | Shorter `maxAge` + `updateAge`, and a `tokenVersion` check in the `jwt` callback.      |
-| P3  | Content-Security-Policy             | Only basic security headers are set today.                                                                                                           | Full CSP (Goal.md Phase 23), allowing Razorpay, GA, Cloudinary/R2.                     |
+**BL-6 · Zoho Books / Tally** (added 5 Nov)
+Today the shop gives a monthly sales register to import by hand. An automatic sync needs either a Zoho Books account (API details) or a Tally connector on the office PC. Decide which one you use, then share access.
 
-## Payments, refunds and invoices
+**BL-7 · Backup restore test on the live database** (added 5 Nov)
+The restore test has only been run on a test copy (it passed in 3 seconds). Run it once on production:
+`npm run backup:drill -- --target "<empty Neon branch address>"`
+Then write the result in `Docs/BACKUPS.md`.
 
-| Pri | Item                               | Why it matters                                                                                                                                      | Suggested fix                                                                                             |
-| --- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| P1  | Confirm Razorpay auto-capture      | The checkout callback marks an order paid on the signed authorisation. If auto-capture is off, Razorpay releases the money after a few days.        | Check Razorpay → Settings → Payment capture = Automatic (in GO_LIVE_CHECKLIST), or verify status via API. |
-| P2  | Missed invoices aren't backfilled  | The invoice is created after the payment commits; if that fails (timeout) the order has no invoice until an admin clicks Generate.                  | Cron: create invoices for paid orders without one, dated and numbered correctly.                          |
-| P2  | Refund marker fields               | Refund claims use a `failureReason` marker and extra payments a `providerOrderId = "extra:…"` prefix (no schema change was allowed in PR #26).      | Add `RefundStatus.SENDING`, `attempt`, `claimedAt`, and `Payment.kind` (ORDER / EXTRA); migrate.          |
-| P3  | Extra-payment refund email wording | A refunded duplicate payment sends the normal "refund processed" order email.                                                                       | Separate email text for "duplicate payment refunded".                                                     |
-| P3  | Split-return rounding              | Per-unit `Math.round` can over-refund 1 paisa per split return; a full "changed my mind" return leaves the order DELIVERED (shipping not refunded). | Refund the last unit of a line as the remainder; decide final status by "all items returned".             |
+**BL-12 · Razorpay auto-capture** (added 19 Nov)
+The checkout marks an order paid on Razorpay's signed authorisation. If auto-capture is off, Razorpay releases the money after a few days. Check Razorpay → Settings → Payment capture = **Automatic** (also in `GO_LIVE_CHECKLIST.md`).
 
-## Catalogue and pricing
+## After the final design
 
-| Pri | Item                                     | Why it matters                                                                           | Suggested fix                                                                |
-| --- | ---------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| P2  | Automatic gold-rate feed                 | Rates are typed in by an admin every day.                                                | Server-side provider adapter + daily cron writing `MetalRate` (keys in env). |
-| P2  | Per-size stock                           | Stock is shared across sizes (assumes workshop resizing).                                | Optional per-size stock table if the shop holds ready sizes.                 |
-| P3  | Search does a full-table check per query | Every search counts products with empty `searchText` and may reindex inside the request. | Drop the per-search check now that create/update reindex the product.        |
-| P3  | Seed data has no occasions or sizes      | New dev databases show empty "Shop by occasion" tiles.                                   | Add occasions/sizes to `prisma/seed-data/catalog.ts`.                        |
-| P3  | Image alt text                           | Product photos use the product name only; no per-image alt text.                         | Optional alt text per image in the product form.                             |
-| P3  | Mobile filters                           | On phones the full filter form sits above the products.                                  | Collapsible filter panel (`<details>`) on small screens.                     |
-| P3  | Virtual try-on, 3D viewer, photo search  | Seen in the demo site; heavy and only worth it with real 3D scans / a larger catalogue.  | Revisit after launch.                                                        |
+**BL-8 · Hindi.** All customer text in Hindi too, with a language switch. Needs the final wording and a translator.
 
-## Images (Cloudflare R2)
+**BL-9 · Dark mode.** Best done together with the final colours.
 
-| Pri | Item                          | Why it matters                                                                                                                                     | Suggested fix                                                                            |
-| --- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| P2  | Move existing photos to R2    | After switching `[images] provider = r2`, old photos are still served from Cloudinary (admins can keep saving them), so both services stay in use. | One-off script: copy each Cloudinary image to R2 and rewrite product/review/return URLs. |
-| P3  | Upload 360° videos from admin | The video field takes a link; videos are uploaded to Cloudinary/R2 by hand.                                                                        | Video upload in the product form (size limit, mp4/webm sniffing).                        |
+**BL-10 · Instant cart.** The cart count updates about 0.2 seconds after a click. Making it instant is worth doing with the final header design.
 
-## Platform and testing
+## Planned upgrades
 
-| Pri | Item                                | Why it matters                                                                                 | Suggested fix                                                        |
-| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| P2  | Webhook and cron routes untested    | Only their helpers have tests; route-level signature/auth handling isn't covered.              | Route tests for Razorpay webhook, courier webhook and cron auth.     |
-| P3  | Sentry navigation hook              | Start-up warns that `onRouterTransitionStart` isn't exported from `instrumentation-client.ts`. | Export `Sentry.captureRouterTransitionStart`.                        |
-| P3  | `package.json#prisma` is deprecated | Prisma 7 needs `prisma.config.ts`.                                                             | Move the seed setting to `prisma.config.ts` before upgrading Prisma. |
+**BL-11 · Next.js 16, Prisma 7, ESLint 10** (added 6 Nov)
+Big version jumps that Dependabot suggested (PRs #5, #6, #8). Each needs code changes, so they were closed for now:
 
-## Code quality (from the PR #26 code review)
+- Prisma 7 needs a new config file and database adapter (decision D-09).
+- eslint-config-next 16 only works with Next.js 16.
+- ESLint 10 isn't supported yet by the TypeScript lint plugins.
 
-Not bugs today, but places where two copies of one rule can drift apart.
+Best done together, on their own branch, with the full test run, when there's a quiet week. Dependabot is set to stop suggesting these big jumps (it still sends safe small updates).
 
-| Pri | Item                                         | Why it matters                                                                                                                                                  | Suggested fix                                                                    |
-| --- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| P3  | Old-slug lookup is uncached                  | `findRenamedProductSlug` runs an uncached `previousSlugs has` query (no GIN index) on every unknown `/products/<slug>`; bots can make many.                     | Wrap in `unstable_cache` with `CATALOG_TAG`; add a GIN index on `previousSlugs`. |
-| P3  | Retry-refund rule copied into the admin page | `app/admin/orders/[id]/page.tsx` hard-codes the 10-minute rule instead of calling `canRetryRefund` / `STUCK_REFUND_MS`.                                         | Call `canRetryRefund(r)` from `refund.service`.                                  |
-| P3  | Large-rate-change check written twice        | `saveRates` has its own copy; `isLargeRateChange` in `lib/metal-pricing.ts` is only used by tests.                                                              | Call `isLargeRateChange(old, new, limitBps)` in `saveRates`.                     |
-| P3  | "Sizes share stock" rule written four times  | Cart add/update, `priceCart`, guest-cart merge and checkout each total quantities per piece their own way.                                                      | One helper that totals quantity per `productId`, used everywhere.                |
-| P3  | Small duplicates in admin code               | `typed()` in `app/admin/storefront-actions.ts` copies `typedValues()`; the occasion list is repeated in `lib/validation/admin.ts` instead of using `OCCASIONS`. | Share the helper; use `OCCASIONS`.                                               |
+**BL-13 · Automatic gold-rate feed** (added 19 Nov)
+Rates are typed in by an admin every morning.
+Fix: a server-side provider adapter and a daily cron that writes `MetalRate` (keys in env).
+
+**BL-14 · Move existing photos to R2** (added 19 Nov)
+After switching `[images] provider = r2`, old photos are still served from Cloudinary (admins can keep saving them), so both services stay in use.
+Fix: a one-off script that copies each Cloudinary image to R2 and rewrites product, review and return links.
+
+**BL-15 · Upload 360° videos from admin** (added 19 Nov)
+The video field takes a link; videos are uploaded to Cloudinary/R2 by hand.
+Fix: video upload in the product form (size limit, mp4/webm check).
+
+**BL-16 · Shared rate limits** (added 19 Nov)
+`lib/rate-limit.ts` keeps counters in memory. On Vercel every instance has its own, so login, visit-booking and review limits multiply with traffic.
+Fix: move to Upstash Redis.
+
+**BL-17 · Email check at sign-up** (added 19 Nov)
+Anyone can register someone else's email; the real owner then can't use "Continue with Google" for it. Register also says whether an email already exists.
+Fix: verify the email before activating; then allow linking verified accounts; show a generic message.
+
+**BL-18 · Virtual try-on, 3D viewer, photo search** (added 19 Nov)
+Seen on demo sites; heavy, and only worth it with real 3D scans and a larger catalogue. Revisit after launch.
+
+## Small fixes found in code review
+
+**BL-1 · "Shown" counts for recommendations can be a little low.**
+Counts are saved every few seconds, so the last few seconds can be lost if a server restarts. Clicks and purchases are always exact.
+Fix: save as soon as nothing else is being saved.
+
+**BL-2 · Cash-on-delivery sales show late in the recommendations report.**
+A COD order counts only after the cash is recorded.
+Fix: also count confirmed COD orders, shown separately.
+
+**BL-3 · The homepage loads its product rows one after another.**
+Fine with 1–3 rows; slower with many.
+Fix: load them all at once.
+
+### From the storefront release review (19 Nov)
+
+**BL-19 · A sale during a variant-grid edit can be undone.**
+The product form and the quick stock box send the stock shown when the page opened and refuse the save if a sale changed it. The variant grid (Products → Variants) has no such check, so saving it can overwrite a sale that happened while it was open.
+Fix: send each variant's original stock and refuse the save on a mismatch, like the product form does.
+
+**BL-20 · The weight filter uses the main weight only.**
+The catalogue's net-weight filter compares the product's main weight, not each size's weight, so a size that fits the range can be missed (or the other way round).
+Fix: filter on variant weights.
+
+**BL-21 · Old product links are looked up without a cache or index.**
+`findRenamedProductSlug` runs an uncached `previousSlugs has` query on every unknown `/products/<slug>`; bots can send many.
+Fix: wrap it in `unstable_cache` with the catalogue tag and add a GIN index on `previousSlugs`.
+
+**BL-22 · The large-rate-change check is written twice.**
+`isLargeRateChange` in `lib/metal-pricing.ts` is only used by tests; `saveRates` in `services/metal-rate.service.ts` has its own copy.
+Fix: call `isLargeRateChange` from `saveRates`.
+
+**BL-23 · Reports count refunded orders as sales.**
+Order counts, average order value and top products include returned and refunded orders. Refunds are grouped by when they were processed, sales by when they were paid.
+Fix: leave fully refunded orders out; subtract returned quantities in top products; label refunds "processed in period".
+
+**BL-24 · Dashboard and reports disagree.**
+The dashboard counts fewer statuses as sales and uses total stock for "low stock"; reports use stock minus held stock.
+Fix: one shared helper for "sales" and "available stock".
+
+**BL-25 · Orders CSV doesn't match the report.**
+The export filters by order date and includes unpaid cancelled holds; it stops at 20,000 rows without saying so.
+Fix: filter by paid date and paid statuses; warn when the row cap is hit.
+
+**BL-26 · Review queue shows only 100.**
+`listReviewsAdmin` takes the 100 newest, so older pending reviews can't be reached.
+Fix: paginate; show oldest pending first.
+
+**BL-27 · Product list tools.**
+Admin search is by name only; no category filter, sort, HUID search, bulk hide/feature or "duplicate product". (CSV import/export exists in Admin → Accounting.)
+Fix: add filters first, then bulk actions.
+
+**BL-28 · Featured order and category content.**
+Featured pieces sort by newest only; the category form has no image or description fields.
+Fix: a `featuredOrder` column; category form fields.
+
+**BL-29 · Preview hidden products.**
+Hidden products can't be previewed in the store.
+Fix: an admin-only preview route.
+
+**BL-30 · Mark a shipment cancelled by hand.**
+After cancelling a parcel at the courier, the order can only be cancelled once the courier's "cancelled" update arrives.
+Fix: an audited admin button "Shipment cancelled at courier".
+
+**BL-31 · Refund marker fields.**
+Refund claims use a `failureReason` marker, and extra payments a `providerOrderId = "extra:…"` prefix, instead of real columns.
+Fix: add a "sending" refund status, `attempt`, `claimedAt` and `Payment.kind` (order / extra); migrate.
+
+**BL-32 · Duplicate-payment refund email.**
+A refunded duplicate payment sends the normal "refund processed" order email.
+Fix: separate wording for "duplicate payment refunded".
+
+**BL-33 · Split-return rounding.**
+Rounding per unit can over-refund 1 paisa per split return; a full "changed my mind" return leaves the order Delivered (shipping not refunded).
+Fix: refund the last unit of a line as the remainder; decide the final status by "all items returned".
+
+**BL-34 · Search checks the whole table on every query.**
+Every search counts products with an empty search index and may reindex inside the request.
+Fix: drop the per-search check now that saving a product reindexes it.
+
+**BL-35 · Image alt text.**
+Product photos use the product name as alt text.
+Fix: optional alt text per photo in the product form.
+
+**BL-36 · Mobile filters.**
+On phones the full filter form sits above the products.
+Fix: a collapsible filter panel on small screens.
+
+**BL-37 · Webhook and cron routes untested.**
+Only their helpers have tests; route-level signature and auth handling isn't covered.
+Fix: route tests for the Razorpay webhook, courier webhook and cron auth.
+
+**BL-38 · Sentry navigation hook.**
+Start-up warns that `onRouterTransitionStart` isn't exported from `instrumentation-client.ts`.
+Fix: export `Sentry.captureRouterTransitionStart`.
+
+When something here is fixed, delete it and mention it in `CHANGELOG.md`.

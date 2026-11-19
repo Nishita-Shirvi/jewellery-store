@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Stars } from "@/components/reviews/stars";
 import { listReviewsAdmin } from "@/services/review.service";
 import { moderateReviewAction } from "../actions";
+import { requirePermissionPage } from "@/lib/auth-guards";
 
 export const dynamic = "force-dynamic";
 const dateFmt = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" });
@@ -18,6 +19,7 @@ export default async function AdminReviewsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  await requirePermissionPage("reviews.moderate", "/admin/reviews");
   const status = (await searchParams).status ?? "PENDING";
   const reviews = await listReviewsAdmin(status);
   return (

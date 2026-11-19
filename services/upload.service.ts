@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { config } from "@/lib/config";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { isAllowedImageUrl } from "@/lib/media";
 import { amzDate, encodePath, sha256Hex, signV4 } from "@/lib/storage/sigv4";
 
 /**
@@ -60,6 +61,15 @@ export function sniffImageType(bytes: Uint8Array): ImageType | null {
     return "image/webp";
   }
   return null;
+}
+
+/**
+ * Was this URL produced by OUR upload into this folder (our Cloudinary account or R2 bucket)?
+ * Customers submit photo URLs with reviews and returns; any other account, bucket or folder is
+ * refused. The URL is normalised first, so "../" tricks can't escape the folder.
+ */
+export function isOwnUpload(url: string, folder: string): boolean {
+  return isAllowedImageUrl(url, { allowLocal: false }) && url.includes(`/${folder}/`);
 }
 
 /** Product photos. Returns the public HTTPS URL. */

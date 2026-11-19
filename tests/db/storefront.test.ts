@@ -8,9 +8,12 @@ vi.mock("next/cache", () => ({
 }));
 
 const { db } = await import("@/lib/db");
-const { saveRates, priceForSave, RateError } = await import("@/services/metal-rate.service");
-const { updateProduct, deleteProduct, AdminInputError } =
+const inventory = await import("@/services/inventory.service");
+const { saveRates, rateLinkedStartPrice, RateError } =
+  await import("@/services/metal-rate.service");
+const { updateProduct, deleteProduct, setProductStock, AdminInputError } =
   await import("@/services/admin/product-admin.service");
+const variantAdmin = await import("@/services/admin/variant-admin.service");
 const { createVisitRequest, checkVisitDate, VisitError } = await import("@/services/visit.service");
 const { productFormSchema } = await import("@/lib/validation/admin");
 
@@ -18,16 +21,24 @@ const RUN = `sf${Date.now().toString(36)}`;
 const startedAt = new Date();
 let adminId = "";
 let categoryId = "";
+let seq = 0;
 const productIds: string[] = [];
 
-async function product(data: Partial<Parameters<typeof db.product.create>[0]["data"]> = {}) {
+/** A product with one base variant (no options), like every product created in admin. */
+async function product(
+  data: Partial<Parameters<typeof db.product.create>[0]["data"]> & {
+    stock?: number;
+    priceInPaise?: number;
+  } = {},
+) {
+  const n = ++seq;
+  const price = data.priceInPaise ?? 10_000_00;
+  const stock = data.stock ?? 5;
   const p = await db.product.create({
     data: {
-      name: `${RUN} piece ${productIds.length}`,
-      slug: `${RUN}-piece-${productIds.length}`,
+      name: `${RUN} piece ${n}`,
+      slug: `${RUN}-piece-${n}`,
       description: "A test piece for the storefront tests.",
-      priceInPaise: 10_000_00,
-      stock: 5,
       images: ["/images/products/classic-solitaire-ring.svg"],
       metalType: "PLATINUM",
       purity: "PT950",
@@ -35,7 +46,19 @@ async function product(data: Partial<Parameters<typeof db.product.create>[0]["da
       netWeightMg: 2000,
       categoryId,
       ...data,
+      priceInPaise: price,
+      stock,
+      variants: {
+        create: {
+          sku: `${RUN}-P${n}`.toUpperCase(),
+          priceInPaise: price,
+          stock,
+          netWeightMg: 2000,
+          images: [],
+        },
+      },
     } as Parameters<typeof db.product.create>[0]["data"],
+    include: { variants: true },
   });
   productIds.push(p.id);
   return p;
@@ -60,6 +83,9 @@ function form(p: { id: string; name: string }, overrides: Record<string, string>
   });
 }
 
+const variantsOf = (productId: string) =>
+  db.productVariant.findMany({ where: { productId }, orderBy: { position: "asc" } });
+
 beforeAll(async () => {
   adminId = (await db.user.create({ data: { email: `${RUN}@example.com`, role: "ADMIN" } })).id;
   categoryId = (await db.category.create({ data: { name: `${RUN} cat`, slug: `${RUN}-cat` } })).id;
@@ -67,6 +93,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.visitRequest.deleteMany({ where: { name: { startsWith: RUN } } });
+  await db.orderItem.deleteMany({ where: { productId: { in: productIds } } });
+  await db.order.deleteMany({ where: { userId: adminId } });
   await db.product.deleteMany({ where: { id: { in: productIds } } });
   await db.category.deleteMany({ where: { id: categoryId } });
   await db.metalRate.deleteMany({ where: { createdAt: { gte: startedAt }, setById: adminId } });
@@ -80,55 +108,79 @@ describe("metal rates", () => {
     const fixed = await product();
     const result = await saveRates(adminId, { PT950: 3_000_00 }, true);
     expect(result.saved).toEqual(["PT950"]);
-    // 2 g × ₹3,000 + ₹1,000 making = ₹7,000; × 1.03 = ₹7,210
+    // 2 g × ₹3,000 + ₹1,000 making = ₹7,000; × 1.03 = ₹7,210 — on the variant and the summary.
+    expect((await variantsOf(linked.id))[0]!.priceInPaise).toBe(7_210_00);
     expect((await db.product.findUniqueOrThrow({ where: { id: linked.id } })).priceInPaise).toBe(
       7_210_00,
     );
-    expect((await db.product.findUniqueOrThrow({ where: { id: fixed.id } })).priceInPaise).toBe(
-      10_000_00,
+    expect((await variantsOf(fixed.id))[0]!.priceInPaise).toBe(10_000_00);
+  });
+
+  it("prices every size by its own weight, and clears a 'was' price that is no longer higher", async () => {
+    const p = await product({ pricingMode: "RATE_LINKED" });
+    await variantAdmin.saveOptions(p.id, [{ name: "Ring size", values: ["10", "12"] }], adminId);
+    const [small, big] = (await variantsOf(p.id)).filter((v) => v.optionKey !== "");
+    await db.productVariant.update({
+      where: { id: small!.id },
+      data: { netWeightMg: 1000, compareAtPriceInPaise: 3_100_00 },
+    });
+    await db.productVariant.update({ where: { id: big!.id }, data: { netWeightMg: 3000 } });
+    await saveRates(adminId, { PT950: 3_100_00 }, true);
+    const after = new Map((await variantsOf(p.id)).map((v) => [v.id, v]));
+    // 1 g × ₹3,100 × 1.03 = ₹3,193; 3 g → ₹9,579
+    expect(after.get(small!.id)!.priceInPaise).toBe(3_193_00);
+    expect(after.get(small!.id)!.compareAtPriceInPaise).toBeNull();
+    expect(after.get(big!.id)!.priceInPaise).toBe(9_579_00);
+    // The product's "from" price is the cheapest active size.
+    expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).priceInPaise).toBe(
+      3_193_00,
     );
   });
 
   it("refuses a >15% jump unless confirmed (the per-10-gram typo)", async () => {
-    await expect(saveRates(adminId, { PT950: 30_000_00 }, false)).rejects.toBeInstanceOf(RateError);
+    await expect(saveRates(adminId, { PT950: 31_000_00 }, false)).rejects.toBeInstanceOf(RateError);
     const latest = await db.metalRate.findFirstOrThrow({
       where: { purity: "PT950" },
       orderBy: { createdAt: "desc" },
     });
-    expect(latest.ratePerGramInPaise).toBe(3_000_00);
+    expect(latest.ratePerGramInPaise).toBe(3_100_00);
   });
 
-  it("calculates the price on save for rate-linked products", async () => {
-    const price = await priceForSave({
-      pricingMode: "RATE_LINKED",
-      typedPriceInPaise: null,
+  it("works out the starting price for a new rate-linked product", async () => {
+    const price = await rateLinkedStartPrice({
       purity: "PT950",
       netWeightMg: 1000,
       makingChargeInPaise: 0,
       stoneChargeInPaise: 0,
       gstRateBps: 300,
     });
-    expect(price).toBe(3_090_00);
+    expect(price).toBe(3_193_00);
   });
 });
 
 describe("product edits", () => {
   it("doesn't undo a sale that happened while the admin was editing", async () => {
-    const p = await product({ stock: 3, pricingMode: "FIXED" });
+    const p = await product({ stock: 3 });
+    const base = p.variants[0]!;
     // A customer buys one after the form was opened with stock 3.
-    await db.product.update({ where: { id: p.id }, data: { stock: 2 } });
+    await db.productVariant.update({ where: { id: base.id }, data: { stock: 2 } });
+    await db.$transaction((tx) => inventory.syncProductSummaries(tx, [p.id]));
     // Admin changes only the name: stock must stay 2.
     await updateProduct(
       p.id,
       form(p, { name: `${p.name} renamed`, stock: "3", stockOriginal: "3" }),
       adminId,
     );
-    expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(2);
+    expect((await variantsOf(p.id))[0]!.stock).toBe(2);
     // Admin changes stock based on the stale 3: refused instead of overwriting.
     await expect(
       updateProduct(p.id, form(p, { stock: "10", stockOriginal: "3" }), adminId),
     ).rejects.toBeInstanceOf(AdminInputError);
-    expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(2);
+    expect((await variantsOf(p.id))[0]!.stock).toBe(2);
+    // The quick stock edit in the list behaves the same way.
+    await expect(setProductStock(p.id, 9, adminId, 3)).rejects.toBeInstanceOf(AdminInputError);
+    await setProductStock(p.id, 9, adminId, 2);
+    expect((await db.product.findUniqueOrThrow({ where: { id: p.id } })).stock).toBe(9);
   });
 
   it("keeps the old slug so links redirect", async () => {
@@ -139,13 +191,20 @@ describe("product edits", () => {
     expect(after.previousSlugs).toContain(p.slug);
   });
 
+  it("switching to rate-linked reprices from today's rate", async () => {
+    const p = await product();
+    await updateProduct(p.id, form(p, { pricingMode: "RATE_LINKED", price: "" }), adminId);
+    // 2 g × ₹3,100 × 1.03 = ₹6,386
+    expect((await variantsOf(p.id))[0]!.priceInPaise).toBe(6_386_00);
+  });
+
   it("deletes a never-ordered product but refuses one with orders", async () => {
     const p = await product();
     await deleteProduct(p.id, adminId);
     expect(await db.product.findUnique({ where: { id: p.id } })).toBeNull();
 
     const ordered = await product();
-    const order = await db.order.create({
+    await db.order.create({
       data: {
         userId: adminId,
         status: "PENDING",
@@ -155,6 +214,7 @@ describe("product edits", () => {
         items: {
           create: {
             productId: ordered.id,
+            variantId: ordered.variants[0]!.id,
             productName: ordered.name,
             productSlug: ordered.slug,
             priceInPaise: 100,
@@ -166,7 +226,6 @@ describe("product edits", () => {
       },
     });
     await expect(deleteProduct(ordered.id, adminId)).rejects.toBeInstanceOf(AdminInputError);
-    await db.order.delete({ where: { id: order.id } });
   });
 });
 

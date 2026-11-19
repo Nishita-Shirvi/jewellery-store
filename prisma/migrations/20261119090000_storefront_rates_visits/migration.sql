@@ -2,25 +2,11 @@
 CREATE TYPE "PricingMode" AS ENUM ('FIXED', 'RATE_LINKED');
 
 -- CreateEnum
-CREATE TYPE "Occasion" AS ENUM ('BRIDAL', 'FESTIVE', 'DAILY_WEAR', 'OFFICE', 'GIFTING', 'PARTY');
-
--- CreateEnum
 CREATE TYPE "VisitStatus" AS ENUM ('NEW', 'CONFIRMED', 'COMPLETED', 'CANCELLED');
 
--- DropIndex
-DROP INDEX "CartItem_cartId_productId_key";
-
 -- AlterTable
-ALTER TABLE "CartItem" ADD COLUMN     "size" TEXT NOT NULL DEFAULT '';
-
--- AlterTable
-ALTER TABLE "OrderItem" ADD COLUMN     "size" TEXT NOT NULL DEFAULT '';
-
--- AlterTable
-ALTER TABLE "Product" ADD COLUMN     "occasions" "Occasion"[] DEFAULT ARRAY[]::"Occasion"[],
-ADD COLUMN     "previousSlugs" TEXT[] DEFAULT ARRAY[]::TEXT[],
+ALTER TABLE "Product" ADD COLUMN     "previousSlugs" TEXT[] DEFAULT ARRAY[]::TEXT[],
 ADD COLUMN     "pricingMode" "PricingMode" NOT NULL DEFAULT 'FIXED',
-ADD COLUMN     "sizes" TEXT[] DEFAULT ARRAY[]::TEXT[],
 ADD COLUMN     "spinVideoUrl" TEXT,
 ADD COLUMN     "stoneChargeInPaise" INTEGER NOT NULL DEFAULT 0;
 
@@ -62,12 +48,6 @@ CREATE INDEX "VisitRequest_status_preferredDate_idx" ON "VisitRequest"("status",
 
 -- CreateIndex
 CREATE INDEX "VisitRequest_createdAt_idx" ON "VisitRequest"("createdAt");
-
--- CreateIndex
-CREATE UNIQUE INDEX "CartItem_cartId_productId_size_key" ON "CartItem"("cartId", "productId", "size");
-
--- CreateIndex
-CREATE INDEX "Order_couponId_idx" ON "Order"("couponId");
 
 -- CreateIndex
 CREATE INDEX "Product_isActive_netWeightMg_idx" ON "Product"("isActive", "netWeightMg");

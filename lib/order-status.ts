@@ -6,9 +6,12 @@ import type { OrderStatus } from "@prisma/client";
  */
 export const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["PAID", "FAILED", "CANCELLED", "REFUND_PENDING"],
+  // Cash on delivery: no payment step. Cancelled before shipping (nothing to refund) or after a
+  // refused delivery (RTO). Money is recorded later on the DELIVERED order (paidAt).
+  CONFIRMED: ["SHIPPED", "DELIVERED", "CANCELLED"],
   FAILED: ["PAID", "CANCELLED", "REFUND_PENDING"],
   PAID: ["SHIPPED", "DELIVERED", "REFUND_PENDING"],
-  SHIPPED: ["DELIVERED"],
+  SHIPPED: ["DELIVERED", "CANCELLED"], // CANCELLED only when a COD parcel comes back (RTO)
   DELIVERED: ["RETURN_REQUESTED"],
   RETURN_REQUESTED: ["REFUND_PENDING", "DELIVERED"], // approved / rejected
   REFUND_PENDING: ["REFUNDED", "DELIVERED"], // all refunded / partial return refunded
@@ -24,6 +27,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 export const ADMIN_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING: ["CANCELLED"],
   FAILED: ["CANCELLED"],
+  CONFIRMED: ["SHIPPED", "CANCELLED"],
   PAID: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["DELIVERED"],
   DELIVERED: [],
@@ -33,12 +37,16 @@ export const ADMIN_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   CANCELLED: [],
 };
 
+/** Orders that are bought and waiting to be shipped (prepaid or COD). */
+export const READY_TO_SHIP_STATUSES: OrderStatus[] = ["PAID", "CONFIRMED"];
+
 export function canAdminTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ADMIN_TRANSITIONS[from].includes(to);
 }
 
 export const STATUS_LABEL: Record<OrderStatus, string> = {
   PENDING: "Awaiting payment",
+  CONFIRMED: "Confirmed (cash on delivery)",
   PAID: "Paid",
   SHIPPED: "Shipped",
   DELIVERED: "Delivered",
@@ -51,6 +59,7 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
 
 export const STATUS_TONE: Record<OrderStatus, string> = {
   PENDING: "bg-amber-50 text-amber-800 border-amber-200",
+  CONFIRMED: "bg-indigo-50 text-indigo-800 border-indigo-200",
   PAID: "bg-blue-50 text-blue-800 border-blue-200",
   SHIPPED: "bg-violet-50 text-violet-800 border-violet-200",
   DELIVERED: "bg-emerald-50 text-emerald-800 border-emerald-200",
@@ -63,6 +72,7 @@ export const STATUS_TONE: Record<OrderStatus, string> = {
 
 /** Customers see paid orders and later; unpaid attempts stay hidden from their history. */
 export const CUSTOMER_VISIBLE_STATUSES: OrderStatus[] = [
+  "CONFIRMED",
   "PAID",
   "SHIPPED",
   "DELIVERED",
@@ -72,6 +82,10 @@ export const CUSTOMER_VISIBLE_STATUSES: OrderStatus[] = [
   "REFUNDED",
 ];
 
+/**
+ * Statuses that count as a sale once paidAt is set. A COD order counts from the day its cash is
+ * recorded (paidAt), so CONFIRMED is deliberately not here.
+ */
 export const PAID_STATUSES: OrderStatus[] = [
   "PAID",
   "SHIPPED",

@@ -4,13 +4,7 @@ import { Button } from "@/components/ui/button";
 import { productsUrl } from "@/lib/catalog-url";
 import { config } from "@/lib/config";
 import { colourLabel } from "@/lib/jewellery";
-import {
-  BUDGETS,
-  OCCASIONS,
-  occasionFromSlug,
-  occasionLabel,
-  occasionSlug,
-} from "@/lib/storefront";
+import { BUDGETS, OCCASIONS, occasionFromSlug } from "@/lib/storefront";
 import { getCategories } from "@/services/catalog.service";
 
 export const metadata: Metadata = {
@@ -68,9 +62,9 @@ export default async function StyleAdvisorPage({ searchParams }: { searchParams:
           <legend className="text-lg font-medium">1. What&apos;s the occasion?</legend>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {OCCASIONS.map((o) => (
-              <label key={o} className={option}>
-                <input type="radio" name="occasion" value={occasionSlug(o)} className="sr-only" />
-                {occasionLabel[o]}
+              <label key={o.tag} className={option}>
+                <input type="radio" name="occasion" value={o.tag} className="sr-only" />
+                {o.label}
               </label>
             ))}
           </div>

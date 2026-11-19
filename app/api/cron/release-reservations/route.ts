@@ -2,20 +2,18 @@ import { NextResponse } from "next/server";
 import { isAuthorizedCron } from "@/lib/cron-auth";
 import { env } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { releaseExpiredReservations } from "@/services/inventory.service";
-import { sendStuckRefunds } from "@/services/refund.service";
-import { revalidateTag } from "next/cache";
-import { CATALOG_TAG } from "@/services/catalog.service";
+import { cronTick } from "@/services/cron.service";
+import { withRequestId } from "@/lib/request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * GET /api/cron/release-reservations
- * Closes unpaid orders whose stock hold ([inventory] reservation_minutes) ran out and gives their stock back.
- * Called every few minutes by Vercel Cron or the GitHub Actions schedule (see Docs/DEPLOY.md).
+ * Kept for existing schedules: same as /api/cron/jobs (releases expired stock holds as a job and
+ * runs every due background job).
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   if (!env.CRON_SECRET) return NextResponse.json({ error: "not_configured" }, { status: 503 });
   if (!isAuthorizedCron(request.headers.get("authorization"), env.CRON_SECRET)) {
     logger.warn("cron.unauthorized", { path: "release-reservations" });
@@ -23,14 +21,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await releaseExpiredReservations();
-    if (result.released > 0) revalidateTag(CATALOG_TAG);
-    // Also send refunds that a crash left unsent (PENDING, never reached Razorpay, 10+ min old).
-    const refunds = await sendStuckRefunds();
-    logger.info("cron.release_reservations", { ...result, stuckRefunds: refunds.found });
-    return NextResponse.json({ ok: true, ...result, stuckRefunds: refunds.found });
+    return NextResponse.json({ ok: true, ...(await cronTick()) });
   } catch (error) {
     logger.error("cron.release_reservations_failed", { error });
     return NextResponse.json({ error: "failed" }, { status: 500 });
   }
 }
+
+/** Phase 26: every log line of this request shares one id (also sent as x-request-id). */
+export const GET = withRequestId(handleGET);

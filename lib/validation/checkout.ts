@@ -56,6 +56,18 @@ export const startCheckoutSchema = z.object({
   couponCode: couponCodeSchema,
 });
 
+/** Cash on delivery (Phase 18). */
+export const codQuoteSchema = z.object({ addressId: id, couponCode: couponCodeSchema });
+
+export const placeCodSchema = startCheckoutSchema.extend({
+  challengeId: id.optional(),
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, { message: "Enter the 6-digit code" })
+    .optional(),
+});
+
 export const verifyPaymentSchema = z.object({
   orderId: id,
   razorpay_order_id: z.string().regex(/^order_[A-Za-z0-9]{6,40}$/),

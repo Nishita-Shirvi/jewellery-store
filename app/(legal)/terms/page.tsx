@@ -37,6 +37,11 @@ export default function TermsPage() {
       <p>See our Shipping policy and Refunds and cancellations policy.</p>
       <h2>Your account</h2>
       <p>Keep your password private. You&apos;re responsible for activity on your account.</p>
+      <p>
+        You can download your data or delete your account at any time from Account → Privacy. Orders
+        still in progress must be delivered, cancelled or refunded first; order and invoice records
+        are kept as tax law requires (see the privacy policy).
+      </p>
       <h2>Governing law</h2>
       <p>
         These terms are governed by the laws of India. Disputes are subject to the courts at the

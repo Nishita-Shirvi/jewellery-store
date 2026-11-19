@@ -14,15 +14,17 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 
 ## Shop set-up in the admin panel (see `ADMIN_GUIDE.md`)
 
-- [ ] **Admin → Gold rates:** today's rate per gram entered for every purity you sell (at least 22K and 24K, which the rate bar shows by default). Dashboard shows no "Metal rates are older than…" warning
-- [ ] Each product set to **Fixed price** or **Follows today's metal rate**; rate-linked pieces have net weight, making charge and stone charge filled in, and the price breakup on the product page looks right
+- [ ] **Admin → Gold rates:** today's rate per gram entered for every purity you sell (at least 22K and 24K, which the rate strip shows by default). Dashboard shows no "Metal rates are older than…" warning
+- [ ] Each product set to **Fixed price** or **Follows today's metal rate**; rate-linked pieces have net weight on every variant, making charge and stone charge filled in, and the price looks right
 - [ ] Someone is named to update the rates **every morning**
-- [ ] **Admin → Settings:** showroom address, opening hours, showroom phone, WhatsApp number and Google Maps link filled in; contact page checked
-- [ ] Tap **Ask on WhatsApp** on a product from a phone — the message reaches the shop's WhatsApp
+- [ ] **Admin → Showroom:** showroom address, opening hours, phone, WhatsApp number and Google Maps link filled in; contact page checked
+- [ ] Tap **Chat on WhatsApp** on a product from a phone — the message reaches the shop's WhatsApp
 - [ ] Book a test visit on `/visit` — the alert email arrives and the request is in **Admin → Visits**; then mark it Cancelled
-- [ ] **Occasions** ticked on every product (the home page tiles, filters and style advisor depend on them)
-- [ ] **Sizes** entered for rings and bangles that need them; `/size-guide` matches how the workshop sizes
-- [ ] Feature switches in `config/features.ini` agreed (visit booking, WhatsApp button, rate bar, style advisor) and the announcement text in `config/storefront.ini` is correct
+- [ ] **Occasion tags** (`bridal`, `festive`, `daily-wear`, `office-wear`, `gift`, `party`) on every product — the home page tiles, filters and style advisor depend on them
+- [ ] Rings and bangles have their sizes as **variants**; `/size-guide` matches how the workshop sizes
+- [ ] Feature switches in `config/features.ini` agreed (visit booking, WhatsApp button, rate strip, style advisor) and the announcement text in `config/storefront.ini` is correct
+- [ ] Image storage chosen (`config/images.ini` → `provider`) and its keys set on Vercel (`CLOUDINARY_*` or `R2_*` + `r2_public_url`); a test photo uploads. For R2: bucket on a **custom domain**, not the rate-limited `r2.dev` address
+- [ ] `SEED_ALLOW_PROD` is **not** set on Vercel
 
 ## Accounts and secrets
 
@@ -30,8 +32,6 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] Production Neon branch, separate from development
 - [ ] Admin account created with a strong, unique password
 - [ ] Nobody has `.env` files except the people who need them; Neon password reset if it was ever shared
-- [ ] Image storage chosen (`config/images.ini` → `provider`) and its keys set on Vercel (`CLOUDINARY_*` or `R2_*` + `r2_public_url`); a test photo uploads. For R2: bucket on a **custom domain**, not the rate-limited `r2.dev` address
-- [ ] `SEED_ALLOW_PROD` is **not** set on Vercel
 
 ## Switching Razorpay to live
 
@@ -47,11 +47,30 @@ Tick every line before taking real orders. Keep this file updated; Phase 30 exte
 - [ ] `/api/health` returns ok on the live domain
 - [ ] GitHub Actions CI is green on `main`
 - [ ] Resend domain verified (SPF, DKIM, DMARC); test order email arrives and isn't in spam
-- [ ] Sentry receiving errors (optional but recommended)
-- [ ] `CRON_SECRET` set (production refuses to start without it); `/api/cron/release-reservations` returns 200 with the bearer token
+- [ ] Sentry receiving errors (optional but recommended); in Sentry → Alerts add "Number of errors > 25 in 10 minutes" → email
+- [ ] Vercel → Settings → Environment Variables → "Automatically expose System Environment Variables" ON (Sentry release tags)
+- [ ] Monitoring (Phase 26): `[alerts] admin_email` set; GitHub Actions "Uptime" green (needs ENABLE_CRON, SITE_URL, CRON_SECRET); Admin → System shows the scheduler running and no firing alerts
+- [ ] Optional: add `https://<site>/api/health` to a free uptime service (1-minute checks, SMS)
+- [ ] **Before deploying Phase 27:** set `PII_ENCRYPTION_KEY` in Vercel (`openssl rand -base64 48`, keep a copy in your password manager — without it saved addresses can't be read). After the deploy, run `npm run pii:encrypt` once against the live database, then `npm run pii:encrypt -- --dry` should show zeros
+- [ ] Account → Privacy works on the live site: download your data, and (with a test account) delete it
+- [ ] Ask your lawyer / CA to read the privacy policy and terms (B-09)
 - [ ] Production build log shows `prisma migrate deploy` ran (and no `Unsafe production settings` error); `RUN_MIGRATIONS` is not set on Production
+- [ ] `CRON_SECRET` set (production refuses to start without it); `/api/cron/jobs` returns 200 with the bearer token; GitHub `cron.yml` enabled (`ENABLE_CRON=true`, `SITE_URL`, `CRON_SECRET`)
+- [ ] Admin → Jobs shows no failed jobs after a test order (email, invoice, webhook all DONE)
+- [ ] Owner signs in to /admin, sets up two-step sign-in on their phone and **stores the 8 recovery codes offline**; staff invited from Admin → Staff with the smallest role that fits
 - [ ] `app.start` log line shows `razorpayMode: "live"`, `email: true`, `cronJobs: true`
 - [ ] Google login redirect URI updated (if used)
+
+## Production readiness (Phase 30)
+
+- [ ] Restore drill run against production into a Neon branch, result added to `Docs/BACKUPS.md` → Drill log (BL-7)
+- [ ] All Vercel Production environment variables copied to the password manager (especially `PII_ENCRYPTION_KEY`, `AUTH_SECRET`)
+- [ ] Owner has tried each kill switch once on Admin → System (pause → check the shop → turn back on)
+- [ ] Owner has read `Docs/ADMIN_GUIDE.md`; whoever looks after the code has read `Docs/ONBOARDING.md` and `Docs/RUNBOOK.md`
+- [ ] Admin → System: every alert OK, cron ran in the last 45 minutes, health "OK"
+- [ ] Admin → Jobs: nothing failed
+- [ ] Load test passed on the production build (`tests/load`, 2× expected traffic, see LAUNCH.md)
+- [ ] `Docs/LAUNCH.md` read: who watches what in the first 24 hours, and how to roll back
 
 ## Real-money test (do this last)
 

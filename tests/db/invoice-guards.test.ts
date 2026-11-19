@@ -20,6 +20,7 @@ const { createInvoiceForOrder } = await import("@/services/invoice.service");
 const RUN = `ig${Date.now().toString(36)}`;
 let userId = "";
 let productId = "";
+let variantId = "";
 let categoryId = "";
 
 /** A paid order whose tax split was stored at checkout (here: IGST, i.e. inter-state). */
@@ -42,6 +43,7 @@ async function paidOrder(buyerState: string) {
       items: {
         create: {
           productId,
+          variantId,
           productName: "Ring",
           productSlug: "x",
           priceInPaise: 103_000,
@@ -61,23 +63,33 @@ async function paidOrder(buyerState: string) {
 beforeAll(async () => {
   categoryId = (await db.category.create({ data: { name: RUN, slug: RUN } })).id;
   userId = (await db.user.create({ data: { email: `${RUN}@example.com` } })).id;
-  productId = (
-    await db.product.create({
-      data: {
-        name: RUN,
-        slug: RUN,
-        description: "x",
-        priceInPaise: 103_000,
-        stock: 5,
-        images: ["/x.svg"],
-        categoryId,
-        metalType: "SILVER",
-        purity: "S925",
-        metalColour: "SILVER",
-        netWeightMg: 4000,
+  const product = await db.product.create({
+    data: {
+      name: RUN,
+      slug: RUN,
+      description: "x",
+      priceInPaise: 103_000,
+      stock: 5,
+      images: ["/x.svg"],
+      categoryId,
+      metalType: "SILVER",
+      purity: "S925",
+      metalColour: "SILVER",
+      netWeightMg: 4000,
+      variants: {
+        create: {
+          sku: RUN.toUpperCase(),
+          priceInPaise: 103_000,
+          stock: 5,
+          netWeightMg: 4000,
+          images: [],
+        },
       },
-    })
-  ).id;
+    },
+    include: { variants: true },
+  });
+  productId = product.id;
+  variantId = product.variants[0]!.id;
 });
 
 afterAll(async () => {

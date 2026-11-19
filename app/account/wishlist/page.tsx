@@ -15,7 +15,7 @@ export default async function WishlistPage() {
 
   return (
     <section>
-      <h1 className="text-2xl font-semibold tracking-tight">Wishlist</h1>
+      <h1 className="text-3xl md:text-4xl">Wishlist</h1>
       {items.length === 0 ? (
         <div className="border-border mt-8 rounded-md border border-dashed p-10 text-center">
           <p className="font-medium">Nothing saved yet</p>
@@ -42,10 +42,6 @@ export default async function WishlistPage() {
                 <p className="text-xs text-amber-700">No longer available</p>
               ) : !item.inStock ? (
                 <p className="text-xs text-amber-700">Out of stock</p>
-              ) : item.needsSize ? (
-                <Button asChild size="sm" className="w-full">
-                  <Link href={`/products/${item.slug}`}>Choose size</Link>
-                </Button>
               ) : (
                 <form action={moveToCartAction}>
                   <input type="hidden" name="productId" value={item.productId} />

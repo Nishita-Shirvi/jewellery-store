@@ -24,4 +24,4 @@ export function getBusiness() {
   };
 }
 
-export const POLICY_LAST_UPDATED = "9 October 2026";
+export const POLICY_LAST_UPDATED = "4 November 2026";

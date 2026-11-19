@@ -1,8 +1,21 @@
+import { Price } from "@/components/catalog/price";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { CalendarDays, MessageCircle } from "lucide-react";
+import { config } from "@/lib/config";
+import { formatINR } from "@/lib/format";
+import { formatRate } from "@/lib/gst";
+import { priceBreakup } from "@/lib/metal-pricing";
+import { occasionLabel } from "@/lib/storefront";
+import { whatsappLink } from "@/lib/support";
+import { ProductMedia } from "@/components/catalog/product-media";
+import { Button } from "@/components/ui/button";
+import { getCurrentRates } from "@/services/metal-rate.service";
+import { whatsappNumber } from "@/services/storefront.service";
 import { AddToCart } from "@/components/cart/add-to-cart";
+import { VariantPurchase } from "@/components/catalog/variant-purchase";
+import { NotifyMe } from "@/components/marketing/marketing-forms";
 import { PincodeChecker } from "@/components/catalog/pincode-checker";
 import { WishlistButton } from "@/components/wishlist/wishlist-button";
 import { ReviewSection } from "@/components/reviews/review-section";
@@ -12,18 +25,13 @@ import { publicEnv } from "@/lib/env";
 import { TrackEvent } from "@/components/analytics/track-event";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isWishlisted } from "@/services/wishlist.service";
-import { formatINR, formatWeight } from "@/lib/format";
+import { formatWeight } from "@/lib/format";
 import { colourLabel, metalLabel, purityLabel, stockStatus } from "@/lib/jewellery";
 import { cn } from "@/lib/utils";
-import { config } from "@/lib/config";
-import { priceBreakup } from "@/lib/metal-pricing";
-import { formatRate } from "@/lib/gst";
-import { occasionLabel, occasionSlug, whatsappLink } from "@/lib/storefront";
-import { ProductMedia } from "@/components/catalog/product-media";
-import { Button } from "@/components/ui/button";
 import { findRenamedProductSlug, getProductBySlug } from "@/services/catalog.service";
-import { getCurrentRates } from "@/services/metal-rate.service";
-import { getStorefrontSettings } from "@/services/storefront.service";
+import { ViewTracker } from "@/components/reco/view-tracker";
+import { RecentlyViewedRow, RecoRow } from "@/components/reco/reco-row";
+import { getBusiness } from "@/lib/business";
 
 type Params = Promise<{ slug: string }>;
 
@@ -70,39 +78,51 @@ export default async function ProductPage({
     if (renamed) permanentRedirect(`/products/${renamed}`);
     notFound();
   }
-  const [viewer, rates, storefront] = await Promise.all([
+  const [viewer, rates, whatsappTo] = await Promise.all([
     getCurrentUser(),
     product.pricingMode === "RATE_LINKED" ? getCurrentRates() : Promise.resolve(null),
-    getStorefrontSettings(),
+    whatsappNumber(),
   ]);
   const saved = viewer ? await isWishlisted(viewer.id, product.id) : false;
-  const rate = rates?.[product.purity];
-  const computed = rate
-    ? priceBreakup({ ...product, ratePerGramInPaise: rate.ratePerGramInPaise })
-    : null;
-  // Only show the breakup when it adds up to the price actually charged (never two different totals).
-  const breakup = computed && computed.priceInPaise === product.priceInPaise ? computed : null;
-  const productUrl = new URL(`/products/${product.slug}`, publicEnv.NEXT_PUBLIC_APP_URL).toString();
-  const whatsapp =
-    config.features.whatsapp_button && storefront.whatsapp
-      ? whatsappLink(
-          storefront.whatsapp,
-          `Hello, I'd like to know more about ${product.name} (${productUrl})`,
-        )
-      : null;
 
   const stock = stockStatus(product.stock);
+  const business = getBusiness();
   const details: [string, string][] = [
     [
       "Metal",
       `${metalLabel[product.metalType]} (${colourLabel[product.metalColour].toLowerCase()})`,
     ],
     ["Purity", purityLabel[product.purity]],
-    ["Net weight", formatWeight(product.netWeightMg)],
   ];
-  if (product.grossWeightMg) details.push(["Gross weight", formatWeight(product.grossWeightMg)]);
+  // With options (sizes…), weight differs per variant and is shown next to the picker instead.
+  const hasOptions = product.options.length > 0;
+  const base = product.variants[0];
+  // Rate-linked price breakup (single-variant pieces). Shown only when it adds up to the price
+  // actually charged, so the page never shows two different totals.
+  const rate = rates?.[product.purity];
+  const computed =
+    rate && base && !hasOptions
+      ? priceBreakup({
+          ratePerGramInPaise: rate.ratePerGramInPaise,
+          netWeightMg: base.netWeightMg,
+          makingChargeInPaise: product.makingChargeInPaise,
+          stoneChargeInPaise: product.stoneChargeInPaise,
+          gstRateBps: product.gstRateBps,
+        })
+      : null;
+  const breakup = computed && base && computed.priceInPaise === base.priceInPaise ? computed : null;
+  const productUrl = new URL(`/products/${product.slug}`, publicEnv.NEXT_PUBLIC_APP_URL).toString();
+  const whatsapp = whatsappLink(
+    whatsappTo,
+    `Hello, I'd like to know more about ${product.name} (${productUrl})`,
+  );
+  if (!hasOptions) {
+    details.push(["Net weight", formatWeight(product.netWeightMg)]);
+    if (product.grossWeightMg) details.push(["Gross weight", formatWeight(product.grossWeightMg)]);
+  }
   if (product.gemstone) details.push(["Stones", product.gemstone]);
   if (product.huid) details.push(["BIS hallmark (HUID)", product.huid]);
+  details.push(["Country of origin", product.countryOfOrigin]);
   details.push([
     "Returns",
     product.isReturnable && config.returns.window_days > 0
@@ -150,41 +170,71 @@ export default async function ProductPage({
               </span>
             </a>
           )}
-          <p className="mt-5 text-2xl font-semibold">{formatINR(product.priceInPaise)}</p>
-          <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
-          {breakup && rate && (
-            <details className="mt-3 text-sm">
-              <summary className="text-muted-foreground cursor-pointer text-xs underline underline-offset-4">
-                Price breakup (today&apos;s {purityLabel[product.purity]} rate{" "}
-                {formatINR(rate.ratePerGramInPaise)}/g)
-              </summary>
-              <dl className="border-border mt-2 grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 rounded-md border p-3 text-xs">
-                <dt>Metal ({formatWeight(product.netWeightMg)})</dt>
-                <dd className="text-right">{formatINR(breakup.metalValueInPaise)}</dd>
-                {breakup.makingChargeInPaise > 0 && (
-                  <>
-                    <dt>Making charge</dt>
-                    <dd className="text-right">{formatINR(breakup.makingChargeInPaise)}</dd>
-                  </>
-                )}
-                {breakup.stoneChargeInPaise > 0 && (
-                  <>
-                    <dt>Stones</dt>
-                    <dd className="text-right">{formatINR(breakup.stoneChargeInPaise)}</dd>
-                  </>
-                )}
-                <dt>GST ({formatRate(product.gstRateBps)}, incl. rounding)</dt>
-                <dd className="text-right">{formatINR(breakup.gstInPaise)}</dd>
-                <dt className="font-semibold">Total</dt>
-                <dd className="text-right font-semibold">{formatINR(breakup.priceInPaise)}</dd>
-              </dl>
-            </details>
-          )}
-          <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
+          {hasOptions ? (
+            <div className="mt-5">
+              <VariantPurchase
+                productId={product.id}
+                options={product.options}
+                variants={product.variants}
+                viewerEmail={viewer?.email}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="mt-5">
+                <Price
+                  size="lg"
+                  priceInPaise={product.priceInPaise}
+                  compareAtPriceInPaise={product.compareAtPriceInPaise}
+                  percentOff={product.percentOff}
+                />
+              </div>
+              <p className="text-muted-foreground text-xs">Inclusive of all taxes</p>
+              {breakup && rate && base && (
+                <details className="mt-3 text-sm">
+                  <summary className="text-muted-foreground cursor-pointer text-xs underline underline-offset-4">
+                    Price breakup (today&apos;s {purityLabel[product.purity]} rate{" "}
+                    {formatINR(rate.ratePerGramInPaise)}/g)
+                  </summary>
+                  <dl className="border-border mt-2 grid max-w-xs grid-cols-[1fr_auto] gap-x-6 gap-y-1 rounded-md border p-3 text-xs">
+                    <dt>Metal ({formatWeight(base.netWeightMg)})</dt>
+                    <dd className="text-right">{formatINR(breakup.metalValueInPaise)}</dd>
+                    {breakup.makingChargeInPaise > 0 && (
+                      <>
+                        <dt>Making charge</dt>
+                        <dd className="text-right">{formatINR(breakup.makingChargeInPaise)}</dd>
+                      </>
+                    )}
+                    {breakup.stoneChargeInPaise > 0 && (
+                      <>
+                        <dt>Stones</dt>
+                        <dd className="text-right">{formatINR(breakup.stoneChargeInPaise)}</dd>
+                      </>
+                    )}
+                    <dt>GST ({formatRate(product.gstRateBps)}, incl. rounding)</dt>
+                    <dd className="text-right">{formatINR(breakup.gstInPaise)}</dd>
+                    <dt className="font-semibold">Total</dt>
+                    <dd className="text-right font-semibold">{formatINR(breakup.priceInPaise)}</dd>
+                  </dl>
+                </details>
+              )}
+              <p className={cn("mt-3 text-sm font-medium", toneClass[stock.tone])}>{stock.label}</p>
 
-          <div className="mt-6">
-            <AddToCart productId={product.id} stock={product.stock} sizes={product.sizes} />
-          </div>
+              <div className="mt-6">
+                <AddToCart
+                  productId={product.id}
+                  variantId={base?.id}
+                  stock={base ? base.available : 0}
+                  priceInPaise={product.priceInPaise}
+                />
+                {base && base.available === 0 && (
+                  <div className="mt-4">
+                    <NotifyMe variantId={base.id} email={viewer?.email} />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <WishlistButton productId={product.id} slug={product.slug} initial={saved} />
             {whatsapp && (
@@ -202,25 +252,32 @@ export default async function ProductPage({
               </Button>
             )}
           </div>
-          <div className="mt-6">
-            <PincodeChecker />
-          </div>
-
-          <p className="mt-8 leading-relaxed">{product.description}</p>
+          {hasOptions && (
+            <p className="mt-3 text-sm">
+              <Link href="/size-guide" className="underline underline-offset-4">
+                Size guide
+              </Link>
+            </p>
+          )}
           {product.occasions.length > 0 && (
             <ul className="mt-4 flex flex-wrap gap-2" aria-label="Perfect for">
               {product.occasions.map((o) => (
                 <li key={o}>
                   <Link
-                    href={`/products?occasion=${occasionSlug(o)}`}
+                    href={`/products?occasion=${o}`}
                     className="border-border hover:border-primary rounded-full border px-3 py-1 text-xs"
                   >
-                    {occasionLabel[o]}
+                    {occasionLabel(o)}
                   </Link>
                 </li>
               ))}
             </ul>
           )}
+          <div className="mt-6">
+            <PincodeChecker />
+          </div>
+
+          <p className="mt-8 leading-relaxed">{product.description}</p>
 
           <h2 className="mt-8 text-sm font-semibold">Product details</h2>
           <dl className="divide-border border-border mt-3 divide-y border-y text-sm">
@@ -231,6 +288,30 @@ export default async function ProductPage({
               </div>
             ))}
           </dl>
+
+          {/* Seller details (Consumer Protection (E-Commerce) Rules, 2020; Phase 27). */}
+          <section aria-labelledby="seller-h" className="mt-8 text-sm" data-testid="seller-details">
+            <h2 id="seller-h" className="text-sm font-semibold">
+              Sold by
+            </h2>
+            <p className="text-muted-foreground mt-2 leading-relaxed">
+              {business.legalName}, {business.address}
+              {business.gstin ? ` · GSTIN ${business.gstin}` : ""}
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Grievance officer: {business.grievanceName} ({business.grievanceEmail}) ·{" "}
+              <Link href="/refund-policy" className="underline">
+                Returns and refunds
+              </Link>{" "}
+              ·{" "}
+              <Link href="/shipping-policy" className="underline">
+                Delivery
+              </Link>
+            </p>
+            <p className="text-muted-foreground mt-1">
+              Price includes all taxes (GST). Delivery charges, if any, are shown at checkout.
+            </p>
+          </section>
         </div>
       </div>
       <script
@@ -278,12 +359,17 @@ export default async function ProductPage({
           ],
         }}
       />
+      {/* Recommendations (Phase 25): each streams in on its own, so the page never waits. */}
+      <ViewTracker slug={product.slug} />
+      <RecoRow widget="bought_together" query={`w=bought_together&id=${product.id}`} />
+      <RecoRow widget="similar" query={`w=similar&id=${product.id}`} />
       <ReviewSection
         product={product}
         viewerId={viewer?.id ?? null}
         sort={reviewSort}
         page={reviewPage}
       />
+      <RecentlyViewedRow excludeSlug={product.slug} />
     </div>
   );
 }

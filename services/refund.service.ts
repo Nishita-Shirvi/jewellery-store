@@ -18,7 +18,6 @@ type Tx = Prisma.TransactionClient;
  * Claim marker. While one caller is talking to Razorpay about a refund, the row is
  * status PENDING + razorpayRefundId null + failureReason = REFUND_SENDING. Only the caller whose
  * conditional update set it may call Razorpay, so concurrent retries can't pay twice.
- * (Works without a schema change; a cleaner option is a SENDING enum value + attempt column.)
  */
 export const REFUND_SENDING = "Sending to Razorpay…";
 
@@ -166,6 +165,9 @@ export async function sendUnsentRefunds(paymentRowId: string): Promise<void> {
   for (const r of unsent) await issueRefund(r.id);
 }
 
+export const COD_REFUND_NOTE =
+  "Cash on delivery: pay the customer back by bank transfer or UPI, then press “Mark as refunded”.";
+
 /**
  * Sends a PENDING/FAILED refund to Razorpay. Safe to call again and concurrently:
  *  1. a conditional update CLAIMS the refund (only one caller goes on);
@@ -176,11 +178,20 @@ export async function sendUnsentRefunds(paymentRowId: string): Promise<void> {
  */
 export async function issueRefund(
   refundId: string,
-): Promise<"sent" | "processed" | "failed" | "skipped"> {
+): Promise<"sent" | "processed" | "failed" | "skipped" | "manual"> {
   const refund = await db.refund.findUnique({
     where: { id: refundId },
-    include: { payment: { select: { providerPaymentId: true } } },
+    include: { payment: { select: { providerPaymentId: true, provider: true } } },
   });
+  // Razorpay can't refund cash: COD refunds stay PENDING until an admin pays and marks them.
+  if (refund?.payment.provider === "COD") {
+    if (refund.status !== "PROCESSED")
+      await db.refund.update({
+        where: { id: refund.id },
+        data: { status: "PENDING", failureReason: COD_REFUND_NOTE },
+      });
+    return "manual";
+  }
   if (!refund || refund.status === "PROCESSED" || !refund.payment.providerPaymentId)
     return "skipped";
   if (refund.status === "PENDING" && refund.razorpayRefundId) return "skipped"; // with Razorpay already
@@ -380,7 +391,7 @@ export async function markRefundFailed(input: {
     refund.failureReason === REFUND_SENDING
   ) {
     // A retry is talking to Razorpay right now, so we can't tell whether this is about the old
-    // attempt or the new one. Throwing → the webhook answers 500 → Razorpay redelivers later.
+    // attempt or the new one. Throwing → the webhook job fails and is retried later.
     throw new Error("Refund is being sent right now; retry this webhook later");
   }
   const res = await db.refund.updateMany({
@@ -405,6 +416,25 @@ export async function markRefundFailed(input: {
   return res.count > 0 ? ("failed" as const) : ("ignored" as const);
 }
 
+/**
+ * A cash-on-delivery refund the store paid by bank transfer / UPI. Only for COD payments
+ * (Razorpay refunds are confirmed by Razorpay itself). Idempotent, like markRefundProcessed.
+ */
+export async function markManualRefundPaid(refundId: string, adminId: string, reference: string) {
+  const refund = await db.refund.findUnique({
+    where: { id: refundId },
+    include: { payment: { select: { provider: true } } },
+  });
+  if (!refund) return "unknown" as const;
+  if (refund.payment.provider !== "COD") return "not_cod" as const;
+  logger.info("refund.manual_paid", { refundId, adminId });
+  return markRefundProcessed({
+    razorpayRefundId: `manual_${refund.id}`,
+    refundRef: refund.id,
+    raw: { manual: true, adminId, reference: reference.slice(0, 120) },
+  });
+}
+
 /** Admin "Retry refund": FAILED refunds, or PENDING ones that never reached Razorpay (stuck). */
 export async function retryRefund(refundId: string, adminId: string) {
   const refund = await db.refund.findUnique({
@@ -420,8 +450,9 @@ export async function retryRefund(refundId: string, adminId: string) {
 }
 
 /**
- * Cron sweep: refunds created but never sent to Razorpay (crash between the database commit
- * and the Razorpay call) and untouched for STUCK_REFUND_MS. FAILED refunds are left to the admin.
+ * Cron sweep: Razorpay refunds created but never sent (crash between the database commit and
+ * the Razorpay call) and untouched for STUCK_REFUND_MS. FAILED refunds are left to the admin;
+ * cash-on-delivery refunds are paid by hand.
  */
 export async function sendStuckRefunds(now = new Date(), limit = 20) {
   const stuck = await db.refund.findMany({
@@ -429,6 +460,7 @@ export async function sendStuckRefunds(now = new Date(), limit = 20) {
       status: "PENDING",
       razorpayRefundId: null,
       updatedAt: { lt: new Date(now.getTime() - STUCK_REFUND_MS) },
+      payment: { provider: "RAZORPAY" },
     },
     orderBy: { updatedAt: "asc" },
     take: limit,

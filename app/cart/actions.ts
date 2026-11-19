@@ -6,6 +6,10 @@ import { addToCartSchema, removeItemSchema, updateQuantitySchema } from "@/lib/v
 import { addItem, clearCart, removeItem, setItemQuantity } from "@/services/cart.service";
 import type { CartActionResult } from "@/types/cart";
 import { countFunnel } from "@/services/report.service";
+import { cookies } from "next/headers";
+import { after } from "next/server";
+import { ATTRIBUTION_COOKIE, parseAttribution } from "@/lib/reco";
+import { recordRecoEvent } from "@/services/reco.service";
 
 const INVALID: CartActionResult = { ok: false, error: "Something was wrong with that request." };
 
@@ -16,8 +20,8 @@ function refresh() {
 
 export async function addToCartAction(input: {
   productId: string;
+  variantId?: string;
   quantity: number;
-  size?: string;
 }): Promise<CartActionResult> {
   const parsed = addToCartSchema.safeParse(input);
   if (!parsed.success) return INVALID;
@@ -26,41 +30,41 @@ export async function addToCartAction(input: {
     user?.id ?? null,
     parsed.data.productId,
     parsed.data.quantity,
-    parsed.data.size,
+    parsed.data.variantId,
   );
   if (result.ok) {
     refresh();
     await countFunnel("add_to_cart");
+    // Phase 25: credit the recommendation that led here (counted after the response).
+    const widget = parseAttribution((await cookies()).get(ATTRIBUTION_COOKIE)?.value)[
+      parsed.data.productId
+    ];
+    if (widget) after(() => recordRecoEvent(widget, "add_to_cart"));
   }
   return result;
 }
 
 export async function updateQuantityAction(input: {
-  productId: string;
+  variantId: string;
   quantity: number;
-  size?: string;
 }): Promise<CartActionResult> {
   const parsed = updateQuantitySchema.safeParse(input);
   if (!parsed.success) return INVALID;
   const user = await getCurrentUser();
   const result = await setItemQuantity(
     user?.id ?? null,
-    parsed.data.productId,
+    parsed.data.variantId,
     parsed.data.quantity,
-    parsed.data.size,
   );
   refresh();
   return result;
 }
 
-export async function removeItemAction(input: {
-  productId: string;
-  size?: string;
-}): Promise<CartActionResult> {
+export async function removeItemAction(input: { variantId: string }): Promise<CartActionResult> {
   const parsed = removeItemSchema.safeParse(input);
   if (!parsed.success) return INVALID;
   const user = await getCurrentUser();
-  const result = await removeItem(user?.id ?? null, parsed.data.productId, parsed.data.size);
+  const result = await removeItem(user?.id ?? null, parsed.data.variantId);
   refresh();
   return result;
 }

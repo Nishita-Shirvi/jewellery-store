@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { colourLabel, purityLabel } from "@/lib/jewellery";
-import { OCCASIONS, occasionLabel, occasionSlug } from "@/lib/storefront";
+import { OCCASIONS } from "@/lib/storefront";
 import type { ProductListQuery } from "@/lib/validation/catalog";
 import type { CategorySummary } from "@/types/catalog";
 
@@ -49,13 +49,13 @@ export function CatalogFilters({
         <select
           id="filter-occasion"
           name="occasion"
-          defaultValue={query.occasion ? occasionSlug(query.occasion) : ""}
+          defaultValue={query.occasion ?? ""}
           className={selectClass}
         >
           <option value="">Any occasion</option>
           {OCCASIONS.map((o) => (
-            <option key={o} value={occasionSlug(o)}>
-              {occasionLabel[o]}
+            <option key={o.tag} value={o.tag}>
+              {o.label}
             </option>
           ))}
         </select>

@@ -6,10 +6,9 @@ import { formatRate } from "@/lib/gst";
 import { mgToGramsInput, paiseToRupeesInput } from "@/lib/money";
 import { listPlaceholderImages } from "@/lib/placeholder-images";
 import { getProductAdmin } from "@/services/admin/product-admin.service";
-import { getCurrentRates } from "@/services/metal-rate.service";
 import { isUploadConfigured } from "@/services/upload.service";
+import { requirePermissionPage } from "@/lib/auth-guards";
 import { DeleteProductForm } from "@/components/admin/delete-product-form";
-import { db } from "@/lib/db";
 
 export default async function EditProductPage({
   params,
@@ -18,14 +17,13 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ created?: string }>;
 }) {
+  await requirePermissionPage("products.edit", "/admin/products");
   const { id } = await params;
   const { created } = await searchParams;
-  const [product, categories, placeholderImages, rates, orderCount] = await Promise.all([
+  const [product, categories, placeholderImages] = await Promise.all([
     getProductAdmin(id),
     listCategoryOptions(),
     listPlaceholderImages(),
-    getCurrentRates(),
-    db.orderItem.count({ where: { productId: id } }),
   ]);
   if (!product) notFound();
 
@@ -33,15 +31,23 @@ export default async function EditProductPage({
     <div>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Edit: {product.name}</h1>
-        {product.isActive && (
+        <div className="flex gap-4 text-sm">
           <Link
-            href={`/products/${product.slug}`}
-            className="text-sm underline underline-offset-4"
-            target="_blank"
+            href={`/admin/products/${product.id}/variants`}
+            className="underline underline-offset-4"
           >
-            View in store
+            {product.hasOptions ? "Variants (sizes, colours…)" : "Add sizes / colours"}
           </Link>
-        )}
+          {product.isActive && (
+            <Link
+              href={`/products/${product.slug}`}
+              className="underline underline-offset-4"
+              target="_blank"
+            >
+              View in store
+            </Link>
+          )}
+        </div>
       </div>
       {created && (
         <p
@@ -56,7 +62,6 @@ export default async function EditProductPage({
           categories={categories}
           placeholderImages={placeholderImages}
           uploadEnabled={isUploadConfigured()}
-          ratesAvailable={Object.keys(rates)}
           values={{
             id: product.id,
             name: product.name,
@@ -65,15 +70,13 @@ export default async function EditProductPage({
             categoryId: product.categoryId,
             pricingMode: product.pricingMode,
             price: paiseToRupeesInput(product.priceInPaise),
-            makingCharge: product.makingChargeInPaise
-              ? paiseToRupeesInput(product.makingChargeInPaise)
-              : "",
             stoneCharge: product.stoneChargeInPaise
               ? paiseToRupeesInput(product.stoneChargeInPaise)
               : "",
-            occasions: product.occasions,
-            sizes: product.sizes.join(", "),
             spinVideoUrl: product.spinVideoUrl ?? "",
+            makingCharge: product.makingChargeInPaise
+              ? paiseToRupeesInput(product.makingChargeInPaise)
+              : "",
             stock: String(product.stock),
             metalType: product.metalType,
             purity: product.purity,
@@ -81,6 +84,8 @@ export default async function EditProductPage({
             netWeight: mgToGramsInput(product.netWeightMg),
             grossWeight: product.grossWeightMg ? mgToGramsInput(product.grossWeightMg) : "",
             gemstone: product.gemstone ?? "",
+            tags: product.tags.join(", "),
+            countryOfOrigin: product.countryOfOrigin,
             huid: product.huid ?? "",
             hsnCode: product.hsnCode,
             gstRate: formatRate(product.gstRateBps).replace("%", ""),
@@ -88,10 +93,11 @@ export default async function EditProductPage({
             isActive: product.isActive,
             isFeatured: product.isFeatured,
             isReturnable: product.isReturnable,
+            hasOptions: product.hasOptions,
           }}
         />
       </div>
-      {orderCount === 0 && (
+      {product.orderCount === 0 && (
         <details className="border-border mt-10 rounded-md border p-4">
           <summary className="cursor-pointer text-sm font-semibold text-red-800">
             Delete this product

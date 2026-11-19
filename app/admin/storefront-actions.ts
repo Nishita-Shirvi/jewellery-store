@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { Purity } from "@prisma/client";
-import { requireAdmin } from "@/lib/auth-guards";
+import { requirePermission } from "@/lib/auth-guards";
 import { logger } from "@/lib/logger";
 import { PURITIES } from "@/lib/metal-pricing";
 import {
@@ -16,7 +16,7 @@ import { saveStorefrontSettings } from "@/services/storefront.service";
 import { VisitError, updateVisitStatus } from "@/services/visit.service";
 import type { AdminFormState } from "./actions";
 
-/** Admin actions for gold rates, showroom settings and visit requests. Each re-checks the role. */
+/** Admin actions for gold rates, showroom settings and visit requests. Each re-checks the staff member's permission. */
 
 function typed(formData: FormData): Record<string, string> {
   const out: Record<string, string> = {};
@@ -29,7 +29,7 @@ export async function saveRatesAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("products.edit");
   const parsed = metalRateFormSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return {
@@ -73,7 +73,7 @@ export async function saveStorefrontSettingsAction(
   _prev: AdminFormState,
   formData: FormData,
 ): Promise<AdminFormState> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("content.manage");
   const parsed = storefrontSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return {
@@ -94,7 +94,7 @@ export async function saveStorefrontSettingsAction(
 }
 
 export async function updateVisitStatusAction(formData: FormData): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requirePermission("support.manage");
   const parsed = visitStatusSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   try {

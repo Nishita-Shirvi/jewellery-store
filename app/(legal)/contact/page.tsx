@@ -2,18 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getBusiness } from "@/lib/business";
 import { config } from "@/lib/config";
-import { whatsappLink } from "@/lib/storefront";
-import { getStorefrontSettings } from "@/services/storefront.service";
+import { whatsappLink } from "@/lib/support";
+import { getStorefrontSettings, whatsappNumber } from "@/services/storefront.service";
 
 export const metadata: Metadata = { title: "Contact us" };
 
 export default async function ContactPage() {
   const b = getBusiness();
   const s = await getStorefrontSettings();
-  const whatsapp =
-    config.features.whatsapp_button && s.whatsapp
-      ? whatsappLink(s.whatsapp, "Hello, I have a question.")
-      : null;
+  const whatsapp = whatsappLink(await whatsappNumber(), "Hello, I have a question.");
   return (
     <>
       <h1>Contact us</h1>
