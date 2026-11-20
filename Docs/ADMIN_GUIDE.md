@@ -125,6 +125,21 @@ Admin → **Showroom** (needs the Content permission):
 
 Press **Save**. The website changes at once. The box **Set by the developer** below shows what you can't change here (which features are on, image storage, return days, shipping fee).
 
+## Appearance: festival themes, colours and the top of the home page
+
+Admin → **Appearance** (needs the Content permission). Admin pages never change; only the shop.
+
+- **Everyday** is always on. A **festival theme** (Diwali, wedding season…) takes over between its **Live from** and **Live until** dates (both included, India time) and switches off by itself. If two overlap, the one that started later shows. The list shows each theme as Default, Live now, Scheduled, Hidden by a later theme or Ended.
+- **Add a theme** starts from Diwali, Wedding season or a copy of Everyday; change anything, then **Save theme**. The **Festival dates** buttons fill in the dates from `config/marketing.ini`.
+- **Colours**: main, gold, background, second background, text, secondary text and a festive accent. Dark mode is worked out from the same colours. A preview shows both modes, and a warning appears if text would be hard to read. **Default colours** puts back Vineet maroon, gold and ivory.
+- **Festive decoration**: none, a marigold toran under the header, or scattered petals behind the top of the home page.
+- **Top of the home page**: a photo in an arch with the text beside it, or a full-width background video. Upload a photo (or pick one of ours) and describe it. For a video, upload an MP4 or WebM (up to `[images] max_video_mb`, 25 MB; it goes straight to Cloudinary) or paste a link to one on our storage. The video plays muted on a loop; shoppers who ask for less motion or save data see the photo. Then the small line, heading (_stars_ make words italic), text, button label and the page the button opens (a page on this site, starting with `/`).
+- **Offer bar**: a line above the header while the theme is live (_stars_ show words in gold). An announcement from Content → Announcements shows instead whenever one is live.
+- **Preview on the site** opens the home page with that theme's colours and top section, even before its dates (the link works for 48 hours).
+- **Light or dark for new visitors**: follow the phone's setting (default), light or dark. Shoppers can always switch with the sun/moon button in the header; the shop remembers their choice.
+
+A home-page hero section in Content → Home sections, when one is live, replaces the theme's top section.
+
 ## Money and tax
 
 - **Admin → Accounting → GST reports:** pick the month → download the sales register, B2CS summary, HSN summary and refunds (credit notes) for your CA. The page says whether the totals match the invoices.

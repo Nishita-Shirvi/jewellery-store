@@ -116,6 +116,8 @@ const configSchema = z.object({
     /** cloudinary | r2 | none. "none" = admins pick from built-in placeholder images. */
     provider: z.enum(["cloudinary", "r2", "none"]).default("cloudinary"),
     max_upload_mb: z.coerce.number().int().min(1).max(20).default(5),
+    /** Largest home-page video (Admin → Appearance), in MB. Sent straight to Cloudinary. */
+    max_video_mb: z.coerce.number().int().min(1).max(100).default(25),
     /** Public base URL of the R2 bucket (custom domain or r2.dev), e.g. https://images.example.com */
     r2_public_url: z
       .union([z.literal(""), z.url().refine((u) => u.startsWith("https://"), "must be https")])
