@@ -31,7 +31,7 @@ export function AccountNav() {
                 className={cn(
                   "block rounded-full border px-4 py-1.5 text-sm transition-colors md:rounded-md md:border-0 md:border-l-2 md:px-3 md:py-2",
                   active
-                    ? "bg-primary text-primary-foreground border-primary md:border-l-[#c9a45c] md:bg-[#f3e9e4] md:text-[var(--primary)]"
+                    ? "bg-primary text-primary-foreground border-primary md:border-l-gilt md:bg-alt md:text-eyebrow"
                     : "border-border hover:bg-accent md:border-l-transparent",
                 )}
               >

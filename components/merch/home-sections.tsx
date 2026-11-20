@@ -45,7 +45,7 @@ function CallToAction({ s, variant }: { s: LiveSection; variant?: "light" }) {
     <Button
       asChild
       size="lg"
-      className={variant === "light" ? "text-primary bg-[#fbf7f4] hover:bg-white" : undefined}
+      className={variant === "light" ? "bg-btn2 text-btn2fg hover:bg-btn2/90" : undefined}
     >
       <Link href={s.linkUrl}>{s.linkLabel ?? "Shop now"}</Link>
     </Button>
@@ -65,7 +65,7 @@ export function HomeSections({ sections }: { sections: LiveSection[] }) {
         switch (s.kind) {
           case "HERO":
             return (
-              <section key={s.id} className="bg-primary text-primary-foreground relative">
+              <section key={s.id} className="bg-brand text-on relative">
                 {s.imageDesktop && (
                   <ResponsiveImage
                     desktop={s.imageDesktop}
@@ -77,7 +77,7 @@ export function HomeSections({ sections }: { sections: LiveSection[] }) {
                 <div className="mx-auto max-w-6xl px-4 py-10 md:py-14">
                   <Heading className="text-4xl leading-[1.1] md:text-5xl">{s.title}</Heading>
                   {s.subtitle && (
-                    <p className="mt-4 max-w-xl text-base leading-relaxed text-[#ead9dd]">
+                    <p className="text-on/85 mt-4 max-w-xl text-base leading-relaxed">
                       {s.subtitle}
                     </p>
                   )}

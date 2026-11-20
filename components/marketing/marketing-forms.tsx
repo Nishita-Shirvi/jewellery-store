@@ -69,7 +69,7 @@ export function NewsletterForm({ consentText }: { consentText: string }) {
           Subscribe
         </Button>
       </div>
-      <label className="flex items-start gap-2 text-xs text-[#e9d9dc]">
+      <label className="flex items-start gap-2 text-xs opacity-90">
         <input
           type="checkbox"
           checked={consent}

@@ -46,6 +46,8 @@ export interface ProductCardData {
   inStock: boolean;
   reviewCount: number;
   ratingAvgX100: number;
+  /** Has a BIS hallmark (HUID recorded). */
+  hallmarked?: boolean;
 }
 
 export interface CategorySummary {

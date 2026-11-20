@@ -89,29 +89,29 @@ async function DefaultHome() {
   return (
     <div>
       {/* Hero: velvet band, headline left, kundan necklace framed in a jharokha arch */}
-      <section className="bg-primary text-primary-foreground">
+      <section className="bg-brand text-on">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-[1.1fr_1fr] md:py-20">
           <div className="max-w-xl">
             <h1 className="text-4xl leading-[1.1] md:text-6xl">Jewellery made to be handed down</h1>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-[#ead9dd]">
+            <p className="text-on/85 mt-5 max-w-md text-base leading-relaxed">
               Temple, kundan and diamond pieces in hallmarked gold and sterling silver. Bought
               online, delivered insured, kept for generations.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="text-primary bg-[#fbf7f4] hover:bg-white">
+              <Button asChild size="lg" className="bg-btn2 text-btn2fg hover:bg-btn2/90">
                 <Link href="/products">Browse jewellery</Link>
               </Button>
               <Button
                 asChild
                 size="lg"
                 variant="outline"
-                className="border-[#c9a45c] bg-transparent text-[#fbf7f4] hover:bg-white/10 hover:text-white"
+                className="border-gilt text-on bg-transparent hover:bg-white/10 hover:text-white"
               >
                 <Link href="/products?category=necklaces-pendants">See bridal necklaces</Link>
               </Button>
             </div>
           </div>
-          <div className="arch relative mx-auto aspect-[4/5] w-full max-w-sm border border-[#c9a45c]/60 bg-black">
+          <div className="arch border-gilt/60 relative mx-auto aspect-[4/5] w-full max-w-sm border bg-black">
             <Image
               src="/images/editorial/kundan-necklace.jpg"
               alt="Kundan necklace with matching jhumka earrings"
@@ -304,14 +304,14 @@ async function DefaultHome() {
 
       {config.features.visit_booking && (
         <section className="mx-auto max-w-6xl px-4 pt-16">
-          <div className="bg-primary text-primary-foreground flex flex-col items-start gap-5 rounded-md p-8 md:flex-row md:items-center md:justify-between md:p-10">
+          <div className="bg-brand text-on flex flex-col items-start gap-5 rounded-md p-8 md:flex-row md:items-center md:justify-between md:p-10">
             <div>
               <h2 className="text-3xl">See it before you buy</h2>
-              <p className="mt-2 max-w-lg text-sm text-[#ead9dd]">
+              <p className="text-on/85 mt-2 max-w-lg text-sm">
                 Book a time at our showroom to try pieces on and get sized — no obligation.
               </p>
             </div>
-            <Button asChild size="lg" className="text-primary bg-[#fbf7f4] hover:bg-white">
+            <Button asChild size="lg" className="bg-btn2 text-btn2fg hover:bg-btn2/90">
               <Link href="/visit">
                 <CalendarDays aria-hidden="true" /> Book a visit
               </Link>
@@ -322,7 +322,7 @@ async function DefaultHome() {
 
       {/* Diamonds band */}
       <section className="mx-auto max-w-6xl px-4 py-16">
-        <div className="grid items-center gap-8 overflow-hidden rounded-md bg-[#f1e9e6] md:grid-cols-2">
+        <div className="bg-alt grid items-center gap-8 overflow-hidden rounded-md md:grid-cols-2">
           <Image
             src="/images/editorial/solitaire-rings.jpg"
             alt="Two diamond solitaire rings"
