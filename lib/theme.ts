@@ -158,6 +158,7 @@ function uiTokens(s: ReturnType<typeof shopTokens>): Record<string, string> {
     primary: s.btn,
     "primary-foreground": s.btnfg,
     gold: s.icon,
+    emerald: s.up,
     border: s.line,
     input: s.field,
     ring: s.gold,
