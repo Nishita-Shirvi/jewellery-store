@@ -2,7 +2,11 @@ import { CategoryForm } from "@/components/admin/category-form";
 import { ConfirmSubmit } from "@/components/admin/confirm-submit";
 import { listCategoriesAdmin } from "@/services/admin/category-admin.service";
 import { deleteCategoryAction } from "../actions";
+import { CategoryTileEditor } from "@/components/admin/category-tile-editor";
 import { requirePermissionPage } from "@/lib/auth-guards";
+import { sampleTile } from "@/lib/tiles";
+import { readTile } from "@/lib/validation/tiles";
+import { isUploadConfigured } from "@/services/upload.service";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +18,7 @@ export default async function AdminCategoriesPage({
   await requirePermissionPage("products.view", "/admin/categories");
   const { error } = await searchParams;
   const categories = await listCategoriesAdmin();
+  const uploadEnabled = isUploadConfigured();
 
   return (
     <div className="space-y-8">
@@ -56,6 +61,23 @@ export default async function AdminCategoriesPage({
                   />
                 </form>
               </div>
+              <details className="w-full">
+                <summary className="text-muted-foreground cursor-pointer text-xs underline-offset-4 hover:underline">
+                  Home-page tile: the piece on a display model
+                </summary>
+                <div className="pt-4">
+                  <CategoryTileEditor
+                    category={{
+                      id: c.id,
+                      name: c.name,
+                      image: c.image ?? "/images/products/classic-solitaire-ring.svg",
+                    }}
+                    saved={c.tile === null ? null : readTile(c.tile)}
+                    sample={sampleTile(c)}
+                    uploadEnabled={uploadEnabled}
+                  />
+                </div>
+              </details>
             </li>
           ))}
         </ul>

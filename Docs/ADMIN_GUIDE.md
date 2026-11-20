@@ -140,6 +140,20 @@ Admin → **Appearance** (needs the Content permission). Admin pages never chang
 
 A home-page hero section in Content → Home sections, when one is live, replaces the theme's top section.
 
+## Home-page category tiles
+
+The home page shows each category as a piece "worn" on a velvet display model (a bust, a head or a hand, drawn in the shop's colours). Hovering, or tapping on a phone, brings the full product photo up from where the piece sits. Until you set your own, categories whose names mention earrings, rings, necklaces, chains, mangalsutra or bangles show a sample tile made from stock photos; any other category shows its plain photo.
+
+Admin → **Categories** → open **Home-page tile** under a category (needs the product edit permission):
+
+1. Choose the **Display model**: bust (necklaces, chains, mangalsutra), head (earrings, shown on both ears), hand (rings, bangles), **our own model photo**, or **no model** (just the category photo).
+2. **Product photo**: upload one photo of the piece. Its background is removed in your browser, so it works best for a single piece photographed from the front on a plain, even background. If you already have a PNG with a transparent background, tick the box first. The photo itself becomes the hover photo.
+3. **Drag** the piece on the model to place it (or click it and use the arrow keys; hold Shift for bigger steps). Use **Size** and **Turn** to fit it.
+4. **Show the hover photo** previews the zoom. You can upload a different **Hover photo** and describe it for screen readers.
+5. **Save tile**. **Back to the sample tile** undoes your tile.
+
+With **our own model photo**, upload a portrait (3:4) photo of a model wearing the piece; no cut-out is drawn on it.
+
 ## Money and tax
 
 - **Admin → Accounting → GST reports:** pick the month → download the sales register, B2CS summary, HSN summary and refunds (credit notes) for your CA. The page says whether the totals match the invoices.

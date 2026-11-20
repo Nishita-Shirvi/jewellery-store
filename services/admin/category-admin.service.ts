@@ -1,6 +1,8 @@
 import "server-only";
 import { revalidateTag } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { CategoryTile } from "@/lib/tiles";
 import { logger } from "@/lib/logger";
 import { slugify, type CategoryFormInput } from "@/lib/validation/admin";
 import { AdminInputError } from "@/services/admin/product-admin.service";
@@ -78,6 +80,20 @@ export async function deleteCategory(id: string, adminId: string) {
   if (result.count === 0) throw new AdminInputError("Category not found.");
   revalidateTag(CATALOG_TAG);
   logger.info("admin.category_deleted", { adminId, categoryId: id });
+}
+
+/**
+ * The category's home-page tile (Admin → Categories → Tile). null = back to the sample tile
+ * for its name (or the plain photo). The tile must already be validated (categoryTileSchema).
+ */
+export async function saveCategoryTile(id: string, tile: CategoryTile | null, adminId: string) {
+  const result = await db.category.updateMany({
+    where: { id },
+    data: { tile: tile === null ? Prisma.DbNull : (tile as unknown as Prisma.InputJsonObject) },
+  });
+  if (result.count === 0) throw new AdminInputError("Category not found.");
+  revalidateTag(CATALOG_TAG);
+  logger.info("admin.category_tile_saved", { adminId, categoryId: id, reset: tile === null });
 }
 
 /** id + name for dropdowns. */

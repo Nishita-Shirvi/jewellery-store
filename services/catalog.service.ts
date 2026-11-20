@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
 import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
+import { sampleTile } from "@/lib/tiles";
+import { readTile } from "@/lib/validation/tiles";
 import { variantJewellery } from "@/lib/variants";
 import { percentOff } from "@/lib/merch";
 import { occasionFromSlug } from "@/lib/storefront";
@@ -170,17 +172,24 @@ export const getCategories = unstable_cache(
         name: true,
         slug: true,
         image: true,
+        tile: true,
         _count: { select: { products: { where: { isActive: true } } } },
       },
     });
-    return rows.map((row) => ({
-      name: row.name,
-      slug: row.slug,
-      image: row.image ?? FALLBACK_IMAGE,
-      productCount: row._count.products,
-    }));
+    return rows.map((row) => {
+      // The admin's own tile; else the sample tile for its name; "No model" = the plain photo.
+      const own = row.tile === null ? null : readTile(row.tile);
+      const tile = own ? (own.model === "none" ? null : own) : sampleTile(row);
+      return {
+        name: row.name,
+        slug: row.slug,
+        image: row.image ?? FALLBACK_IMAGE,
+        productCount: row._count.products,
+        tile,
+      };
+    });
   },
-  ["catalog:categories"],
+  ["catalog:categories:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
