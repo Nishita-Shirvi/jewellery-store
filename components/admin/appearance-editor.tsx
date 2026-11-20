@@ -102,13 +102,21 @@ export function AppearanceEditor(props: Props) {
   const [preset, setPreset] = useState(THEME_PRESETS[0]!.key);
   const isNew = !appearance.themes.some((t) => t.id === draft.id);
 
+  // Always merge into the latest draft (uploads finish later, while the admin keeps typing).
   function edit(patch: Partial<Theme>) {
     setDraft((d) => ({ ...d, ...patch }));
     setDirty(true);
   }
-  const editHero = (patch: Partial<ThemeHero>) => edit({ hero: { ...draft.hero, ...patch } });
-  const editColor = (key: keyof ThemeColors, value: string) =>
-    edit({ colors: { ...draft.colors, [key]: value } });
+  /** Hero changes for one theme; dropped if the admin has opened another theme since. */
+  function editHeroOf(themeId: string, patch: Partial<ThemeHero>) {
+    setDraft((d) => (d.id === themeId ? { ...d, hero: { ...d.hero, ...patch } } : d));
+    setDirty(true);
+  }
+  const editHero = (patch: Partial<ThemeHero>) => editHeroOf(draft.id, patch);
+  const editColor = (key: keyof ThemeColors, value: string) => {
+    setDraft((d) => ({ ...d, colors: { ...d.colors, [key]: value } }));
+    setDirty(true);
+  };
 
   function open(id: string) {
     if (dirty && id !== selectedId) {
@@ -436,6 +444,7 @@ export function AppearanceEditor(props: Props) {
           <HeroFields
             hero={draft.hero}
             edit={editHero}
+            editLater={(patch) => editHeroOf(draft.id, patch)}
             err={err}
             imageUpload={props.imageUpload}
             videoUpload={props.videoUpload}
@@ -523,6 +532,7 @@ export function AppearanceEditor(props: Props) {
 function HeroFields({
   hero,
   edit,
+  editLater,
   err,
   imageUpload,
   videoUpload,
@@ -531,6 +541,8 @@ function HeroFields({
 }: {
   hero: ThemeHero;
   edit: (patch: Partial<ThemeHero>) => void;
+  /** For upload results: bound to the theme the upload started on. */
+  editLater: (patch: Partial<ThemeHero>) => void;
   err: (key: string) => React.ReactNode;
   imageUpload: boolean;
   videoUpload: boolean;
@@ -540,54 +552,69 @@ function HeroFields({
   const [uploading, setUploading] = useState<string | null>(null);
 
   async function uploadPhoto(file: File) {
+    const apply = editLater;
     setUploading("Uploading photo…");
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await uploadAppearanceImageAction(fd);
-    setUploading(null);
-    if (res.ok) edit({ image: res.url });
-    else onNotice({ ok: false, text: res.error });
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await uploadAppearanceImageAction(fd);
+      if (res.ok) apply({ image: res.url });
+      else onNotice({ ok: false, text: res.error });
+    } catch {
+      onNotice({
+        ok: false,
+        text: "The photo didn't upload. Check it's a JPG, PNG or WebP under the size limit.",
+      });
+    } finally {
+      setUploading(null);
+    }
   }
 
   async function uploadVideo(file: File) {
+    const apply = editLater;
     if (!/^video\/(mp4|webm)$/.test(file.type) && !/\.(mp4|webm)$/i.test(file.name)) {
       onNotice({ ok: false, text: "Choose an MP4 or WebM video." });
       return;
     }
-    const ticket = await videoUploadTicketAction();
-    if (!ticket.ok) {
-      onNotice({ ok: false, text: ticket.error });
-      return;
+    setUploading("Uploading video…");
+    try {
+      const ticket = await videoUploadTicketAction();
+      if (!ticket.ok) {
+        onNotice({ ok: false, text: ticket.error });
+        return;
+      }
+      if (file.size > ticket.maxBytes) {
+        onNotice({ ok: false, text: `Videos must be ${maxVideoMb} MB or smaller.` });
+        return;
+      }
+      const fd = new FormData();
+      for (const [k, v] of Object.entries(ticket.fields)) fd.append(k, v);
+      fd.append("file", file);
+      const url = await new Promise<string | null>((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", ticket.url);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable)
+            setUploading(`Uploading video… ${Math.round((e.loaded / e.total) * 100)}%`);
+        };
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText) as { secure_url?: string };
+            resolve(xhr.status < 300 && json.secure_url ? json.secure_url : null);
+          } catch {
+            resolve(null);
+          }
+        };
+        xhr.onerror = () => resolve(null);
+        xhr.send(fd);
+      });
+      if (url) apply({ video: url, layout: "video" });
+      else onNotice({ ok: false, text: "The video didn't upload. Please try again." });
+    } catch {
+      onNotice({ ok: false, text: "The video didn't upload. Please try again." });
+    } finally {
+      setUploading(null);
     }
-    if (file.size > ticket.maxBytes) {
-      onNotice({ ok: false, text: `Videos must be ${maxVideoMb} MB or smaller.` });
-      return;
-    }
-    const fd = new FormData();
-    for (const [k, v] of Object.entries(ticket.fields)) fd.append(k, v);
-    fd.append("file", file);
-    setUploading("Uploading video… 0%");
-    const url = await new Promise<string | null>((resolve) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", ticket.url);
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable)
-          setUploading(`Uploading video… ${Math.round((e.loaded / e.total) * 100)}%`);
-      };
-      xhr.onload = () => {
-        try {
-          const json = JSON.parse(xhr.responseText) as { secure_url?: string };
-          resolve(xhr.status < 300 && json.secure_url ? json.secure_url : null);
-        } catch {
-          resolve(null);
-        }
-      };
-      xhr.onerror = () => resolve(null);
-      xhr.send(fd);
-    });
-    setUploading(null);
-    if (url) edit({ video: url, layout: "video" });
-    else onNotice({ ok: false, text: "The video didn't upload. Please try again." });
   }
 
   return (
@@ -784,26 +811,29 @@ function HeroFields({
   );
 }
 
-/** Warns when the chosen colours would make text hard to read (WCAG AA, 4.5:1). */
+/** Warns when the chosen colours would make text hard to read (WCAG AA, 4.5:1), in either mode. */
 function ContrastWarning({ colors }: { colors: ThemeColors }) {
   const hex = /^#[0-9a-f]{6}$/i;
   if (!Object.values(colors).every((c) => hex.test(c))) return null;
-  const t = shopTokens(colors, "light");
-  const pairs: [string, string, string][] = [
-    ["Text on the background", t.ink, t.bg],
-    ["Secondary text on the background", t.muted, t.bg],
-    ["Button text on the main colour", t.btnfg, t.btn],
-    ["Header text on the main colour", t.on, t.brand],
-  ];
-  const low = pairs.filter(([, a, b]) => contrast(a, b) < 4.5);
+  const low = (["light", "dark"] as const).flatMap((mode) => {
+    const t = shopTokens(colors, mode);
+    const pairs: [string, string, string][] = [
+      ["text on the background", t.ink, t.bg],
+      ["secondary text on the background", t.muted, t.bg],
+      ["headings on the background", t.head, t.bg],
+      ["button text on buttons", t.btnfg, t.btn],
+      ["header text on the main colour", t.on, t.brand],
+    ];
+    return pairs.filter(([, a, b]) => contrast(a, b) < 4.5).map(([name]) => `${name} (${mode})`);
+  });
   if (low.length === 0) return null;
   return (
     <p
       role="alert"
       className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"
     >
-      Hard to read: {low.map(([name]) => name.toLowerCase()).join("; ")}. Choose a darker text
-      colour or a lighter background.
+      Hard to read: {low.join("; ")}. Choose a darker text colour, a lighter background or a
+      different main colour.
     </p>
   );
 }

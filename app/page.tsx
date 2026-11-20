@@ -86,7 +86,14 @@ export default async function HomePage({
     <>
       {previewTheme && (
         <>
-          <style dangerouslySetInnerHTML={{ __html: themeCss(previewTheme.colors) }} />
+          <style
+            dangerouslySetInnerHTML={{
+              // The previewed theme's colours and decoration replace today's on this page.
+              __html:
+                themeCss(previewTheme.colors) +
+                `html[data-area="shop"] .vj-toran{display:${previewTheme.decor === "toran" ? "block" : "none"}}`,
+            }}
+          />
           <p role="status" className="bg-amber-50 p-3 text-center text-sm text-amber-900">
             Preview of the &ldquo;{previewTheme.name}&rdquo; theme (colours and the top of this
             page). Customers see it{" "}
@@ -95,9 +102,6 @@ export default async function HomePage({
               : `from ${previewTheme.from} to ${previewTheme.until}`}
             .
           </p>
-          {previewTheme.decor === "toran" && (
-            <div className="vj-toran" style={{ display: "block" }} aria-hidden="true" />
-          )}
         </>
       )}
       {preview && (

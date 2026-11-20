@@ -22,7 +22,7 @@ const access = vi.hoisted(() => ({
 const twoFA = vi.hoisted(() => ({ passed: true }));
 const touched = vi.hoisted(() => [] as string[]);
 const auditMock = vi.hoisted(() => vi.fn());
-const stored = vi.hoisted(() => ({ value: null as unknown }));
+const stored = vi.hoisted(() => ({ value: null as unknown, unreadable: false }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({
@@ -48,9 +48,12 @@ vi.mock("@/services/staff.service", () => ({
 }));
 vi.mock("@/services/appearance.service", async () => {
   const { DEFAULT_APPEARANCE } = await import("@/lib/appearance");
+  class AppearanceReadError extends Error {}
   return {
+    AppearanceReadError,
     loadAppearance: vi.fn(async () => {
       touched.push("loadAppearance");
+      if (stored.unreadable) throw new AppearanceReadError("unreadable");
       return structuredClone(DEFAULT_APPEARANCE);
     }),
     saveAppearance: vi.fn(async (value: unknown) => {
@@ -153,6 +156,24 @@ describe("Admin → Appearance actions are protected on the server", () => {
     expect(added.id).toMatch(/^diwali-[0-9a-f]{6}$/);
     expect(res.appearance.themes.filter((t) => t.isDefault)).toHaveLength(1);
     expect(auditMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("never saves over a stored row it can't read", async () => {
+    signedInAs(["content.manage"]);
+    stored.unreadable = true;
+    try {
+      for (const run of [
+        () => actions.saveThemeAction(newTheme),
+        () => actions.deleteThemeAction("x"),
+        () => actions.saveDefaultModeAction("dark"),
+      ]) {
+        const res = (await run()) as { ok: boolean };
+        expect(res.ok).toBe(false);
+      }
+      expect(touched).not.toContain("saveAppearance");
+    } finally {
+      stored.unreadable = false;
+    }
   });
 
   it("never deletes the Everyday theme", async () => {

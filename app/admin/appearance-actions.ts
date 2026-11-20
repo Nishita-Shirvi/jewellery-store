@@ -9,7 +9,7 @@ import { makePreviewToken } from "@/lib/preview";
 import type { Appearance, Theme } from "@/lib/appearance";
 import { COLOR_MODES, type ColorMode } from "@/lib/theme";
 import { themeSchema } from "@/lib/validation/appearance";
-import { loadAppearance, saveAppearance } from "@/services/appearance.service";
+import { AppearanceReadError, loadAppearance, saveAppearance } from "@/services/appearance.service";
 import { audit } from "@/services/audit.service";
 import { UploadError, isUploadConfigured, uploadImage } from "@/services/upload.service";
 
@@ -29,6 +29,16 @@ function previewTokens(appearance: Appearance): Record<string, string> {
   return Object.fromEntries(appearance.themes.map((t) => [t.id, makePreviewToken("theme", t.id)]));
 }
 
+/** The stored appearance, or the reason it can't be edited (never overwrite an unreadable row). */
+async function readCurrent(): Promise<Appearance | string> {
+  try {
+    return await loadAppearance();
+  } catch (error) {
+    if (error instanceof AppearanceReadError) return error.message;
+    throw error;
+  }
+}
+
 function slug(name: string): string {
   const base = name
     .toLowerCase()
@@ -40,7 +50,8 @@ function slug(name: string): string {
 
 export async function saveThemeAction(input: unknown): Promise<ThemeSaveResult> {
   const admin = await requirePermission("content.manage");
-  const current = await loadAppearance();
+  const current = await readCurrent();
+  if (typeof current === "string") return { ok: false, error: current };
   const raw = (input ?? {}) as Partial<Theme>;
   const existing = current.themes.find((t) => t.id === raw.id);
   // Whether a theme is the always-on one is never up to the browser.
@@ -78,7 +89,8 @@ export async function saveThemeAction(input: unknown): Promise<ThemeSaveResult> 
 
 export async function deleteThemeAction(id: string): Promise<ThemeSaveResult> {
   const admin = await requirePermission("content.manage");
-  const current = await loadAppearance();
+  const current = await readCurrent();
+  if (typeof current === "string") return { ok: false, error: current };
   const theme = current.themes.find((t) => t.id === id);
   if (!theme) return { ok: false, error: "That theme was already deleted." };
   if (theme.isDefault) return { ok: false, error: "The Everyday theme can't be deleted." };
@@ -104,7 +116,8 @@ export async function saveDefaultModeAction(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const admin = await requirePermission("content.manage");
   if (!COLOR_MODES.includes(mode as ColorMode)) return { ok: false, error: "Choose a mode." };
-  const current = await loadAppearance();
+  const current = await readCurrent();
+  if (typeof current === "string") return { ok: false, error: current };
   await saveAppearance({ ...current, defaultMode: mode as ColorMode });
   await audit(admin, {
     action: "settings.appearance",
@@ -148,8 +161,10 @@ export type VideoUploadTicket =
 
 /**
  * Videos are too big to pass through our server, so the browser sends them straight to our
- * Cloudinary account with a signed, short-lived ticket: only into the appearance folder and only
- * MP4 or WebM. Saving a theme still checks the resulting link is on our account.
+ * Cloudinary account with a signed, short-lived ticket (Cloudinary refuses it after an hour):
+ * only into the appearance folder and only MP4 or WebM. Saving a theme still checks the link is
+ * on our account. The size limit is checked in the browser only (a signed upload can't carry
+ * one), so it guards against mistakes; only staff with content.manage ever get a ticket.
  */
 export async function videoUploadTicketAction(): Promise<VideoUploadTicket> {
   await requirePermission("content.manage");

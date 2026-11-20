@@ -10,7 +10,12 @@ import {
   type Appearance,
   type Theme,
 } from "@/lib/appearance";
-import { appearanceSchema, internalPath, themeSchema } from "@/lib/validation/appearance";
+import {
+  appearanceSchema,
+  internalPath,
+  storedAppearanceSchema,
+  themeSchema,
+} from "@/lib/validation/appearance";
 
 function dated(id: string, from: string, until: string): Theme {
   return { ...EVERYDAY_THEME, id, name: id, isDefault: false, from, until };
@@ -100,6 +105,16 @@ describe("Admin → Appearance input", () => {
       hero: { ...EVERYDAY_THEME.hero, layout: "video", video: "https://evil.example/a.mp4" },
     };
     expect(themeSchema.safeParse(video).success).toBe(false);
+  });
+
+  it("keeps a stored theme whose photo link stopped passing (so it can be fixed, not lost)", () => {
+    const moved = {
+      ...dated("diwali", "2026-11-01", "2026-11-12"),
+      hero: { ...EVERYDAY_THEME.hero, image: "https://old-bucket.example/diwali.jpg" },
+    };
+    const stored = { defaultMode: "system", themes: [EVERYDAY_THEME, moved] };
+    expect(storedAppearanceSchema.safeParse(stored).success).toBe(true);
+    expect(themeSchema.safeParse(moved).success).toBe(false);
   });
 
   it("needs a video for the video layout", () => {
