@@ -28,6 +28,7 @@ describe("theme colours", () => {
     ["on", "deep"],
     ["goldtext", "card"],
     ["goldlight", "deep"],
+    ["up", "bg"],
   ];
   for (const mode of ["light", "dark"] as const) {
     it(`default ${mode} colours are readable (AA)`, () => {
