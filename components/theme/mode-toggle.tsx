@@ -54,7 +54,7 @@ export function ModeToggle({ className }: { className?: string }) {
       aria-label="Dark mode"
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "border-gilt/55 hover:bg-on/10 focus-visible:ring-gilt grid size-9 place-items-center rounded-full border outline-none focus-visible:ring-2 [html[data-area=admin]_&]:hidden",
+        "border-gilt/55 hover:bg-on/10 focus-visible:ring-gilt grid size-8 place-items-center rounded-full border outline-none focus-visible:ring-2 sm:size-9 [html[data-area=admin]_&]:hidden",
         className,
       )}
     >

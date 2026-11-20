@@ -38,7 +38,7 @@ export function Wordmark({
     "text-wordmark flex flex-col items-start leading-none uppercase",
     size === "sm"
       ? "text-[22px] tracking-[0.2em]"
-      : "text-2xl tracking-[0.14em] sm:text-[30px] sm:tracking-[0.2em]",
+      : "text-xl tracking-[0.1em] min-[400px]:text-2xl min-[400px]:tracking-[0.14em] sm:text-[30px] sm:tracking-[0.2em]",
     className,
   );
   const style = { fontFamily: "var(--font-display)", fontWeight: 500 };

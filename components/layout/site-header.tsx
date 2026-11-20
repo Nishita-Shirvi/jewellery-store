@@ -10,7 +10,7 @@ import { getCategories } from "@/services/catalog.service";
 import { getCartView } from "@/services/cart.service";
 
 const iconLink =
-  "hover:bg-on/10 focus-visible:ring-gilt relative grid size-9 place-items-center rounded-full outline-none focus-visible:ring-2";
+  "hover:bg-on/10 focus-visible:ring-gilt relative grid size-8 place-items-center sm:size-9 rounded-full outline-none focus-visible:ring-2";
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
@@ -20,13 +20,16 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40">
       <div className="bg-brand text-on border-gilt/45 border-b">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:gap-6 md:py-4">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 sm:gap-6 md:py-4">
           <Wordmark href="/" className="shrink-0" />
 
           <SearchForm className="ml-auto hidden w-64 md:block" />
 
-          <nav aria-label="Account and cart" className="ml-auto flex items-center gap-1 md:ml-0">
-            <ModeToggle className="mr-1" />
+          <nav
+            aria-label="Account and cart"
+            className="ml-auto flex items-center gap-0.5 sm:gap-1 md:ml-0"
+          >
+            <ModeToggle className="sm:mr-1" />
             <Link href="/account/wishlist" aria-label="Wishlist" className={iconLink}>
               <Heart className="size-5" />
             </Link>
