@@ -140,6 +140,19 @@ Admin → **Appearance** (needs the Content permission). Admin pages never chang
 
 A home-page hero section in Content → Home sections, when one is live, replaces the theme's top section.
 
+## Popup
+
+Admin → **Appearance** → **Popup** (needs the Content permission). A popup with a picture, a few words and one thing to do. It is **off** until you tick **Show the popup**.
+
+- **When**: optional From/Until dates (India time), the home page only or every shop page, when it opens (after 4, 8 or 20 seconds, or when someone on a computer heads for the address bar), and how often the same shopper sees it again (once a day, week, month, or only once). It never opens on cart, checkout, sign-in, account or admin pages. Every save counts as a new popup, so shoppers who closed the old one see the new one.
+- **Picture and words**: upload a picture (or pick one of ours) and describe it, then the small line, heading (_stars_ make words italic) and text.
+- **What it asks for**:
+  - **Book a showroom visit**: name, mobile, one of the next five days and a time. Requests appear in Admin → **Visits**, like the visit page.
+  - **Join the newsletter**: email and consent; the usual confirmation email is sent (double opt-in).
+  - **Sign in or create an account**: not shown to shoppers who are already signed in.
+  - **Just a button** to a page on this site.
+- The preview on the right updates as you type (tick **Phone width** for the phone layout).
+
 ## Home-page category tiles
 
 The home page shows each category as a piece "worn" on a velvet display model (a bust, a head or a hand, drawn in the shop's colours). Hovering, or tapping on a phone, brings the full product photo up from where the piece sits. Until you set your own, categories whose names mention earrings, rings, necklaces, chains, mangalsutra or bangles show a sample tile made from stock photos; any other category shows its plain photo.

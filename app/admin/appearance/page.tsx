@@ -1,4 +1,5 @@
 import { AppearanceEditor } from "@/components/admin/appearance-editor";
+import { AppearanceTabs } from "@/components/admin/appearance-tabs";
 import { requirePermissionPage } from "@/lib/auth-guards";
 import { liveTheme, todayInIndia } from "@/lib/appearance";
 import { config } from "@/lib/config";
@@ -42,6 +43,7 @@ export default async function AdminAppearancePage() {
           themselves on their dates (India time) — no deploy needed. Admin pages don&apos;t change.
         </p>
       </div>
+      <AppearanceTabs current="themes" />
       <AppearanceEditor
         initial={appearance}
         initialSelected={liveTheme(appearance, today).id}

@@ -29,13 +29,15 @@ async function limited(key: string, max: number): Promise<boolean> {
 export async function subscribeNewsletterAction(input: {
   email: string;
   consent: boolean;
+  /** Where they signed up (kept with the consent record). */
+  source?: "footer" | "popup";
 }): Promise<SimpleResult> {
   const email = emailSchema.safeParse(String(input.email ?? "").trim());
   if (!email.success) return { ok: false, error: "Enter a valid email address." };
   if (input.consent !== true) return { ok: false, error: "Please tick the box to agree." };
   if (await limited("newsletter", 10))
     return { ok: false, error: "Too many attempts. Please try again later." };
-  await subscribeNewsletter(email.data, "footer");
+  await subscribeNewsletter(email.data, input.source === "popup" ? "popup" : "footer");
   return { ok: true, message: "Almost done — check your inbox and click the link to confirm." };
 }
 
