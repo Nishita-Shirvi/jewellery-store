@@ -11,6 +11,7 @@ import {
   TILE_BOX,
   TILE_MODELS,
   ownModelPhoto,
+  clampAr,
   placeDefault,
   type CategoryTile,
   type TileModel,
@@ -153,15 +154,13 @@ export function CategoryTileEditor({
         upload(cut.blob, "piece.png"),
         alreadyCut ? Promise.resolve("") : upload(file, file.name),
       ]);
-      const model: TileModel =
-        tile.model === "photo" || tile.model === "none" ? "bust" : tile.model;
-      change({
-        piece,
-        ar: cut.ar,
-        model,
-        ...placeDefault(model, cut.ar),
-        ...(zoom ? { zoom, zoomAlt: tile.zoomAlt || category.name } : {}),
+      const ar = clampAr(cut.ar);
+      // A new piece gets its own hover photo and description (never the sample's).
+      setTile((t) => {
+        const model: TileModel = t.model === "photo" || t.model === "none" ? "bust" : t.model;
+        return { ...t, piece, ar, model, ...placeDefault(model, ar), zoom, zoomAlt: category.name };
       });
+      setDirty(true);
       setMessage({
         ok: true,
         text: "Placed on the model. Drag it into position, then press Save tile.",
@@ -193,7 +192,7 @@ export function CategoryTileEditor({
 
   function save(next: CategoryTile | null) {
     start(async () => {
-      const res = await saveCategoryTileAction(category.id, next, category.name);
+      const res = await saveCategoryTileAction(category.id, next);
       if (!res.ok) {
         setErrors(res.fieldErrors ?? {});
         setMessage({ ok: false, text: res.error });
@@ -217,6 +216,9 @@ export function CategoryTileEditor({
 
   const err = (k: string) =>
     errors[k] ? <p className="text-xs text-red-700">{errors[k]}</p> : null;
+  const shownFields = ["piece", "modelPhoto", "zoom"];
+  const otherErrors = Object.entries(errors).filter(([k]) => !shownFields.includes(k));
+  const needsPiece = ["bust", "head", "hand"].includes(tile.model) && tile.piece === "";
   const shown = tile.model === "none" ? null : tile;
 
   return (
@@ -256,6 +258,7 @@ export function CategoryTileEditor({
           <select
             id={`tm-${category.id}`}
             value={tile.model}
+            disabled={!!busy}
             onChange={(e) => {
               const model = e.target.value as TileModel;
               change({
@@ -425,11 +428,25 @@ export function CategoryTileEditor({
             {message.text}
           </p>
         )}
+        {otherErrors.length > 0 && (
+          <ul role="alert" className="list-disc pl-5 text-xs text-red-700">
+            {otherErrors.map(([k, m]) => (
+              <li key={k}>
+                {k}: {m}
+              </li>
+            ))}
+          </ul>
+        )}
+        {needsPiece && (
+          <p className="text-muted-foreground text-xs">
+            Upload a product photo to put on the model, or choose No model.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             size="sm"
-            disabled={pending || !!busy || (!dirty && isOwn)}
+            disabled={pending || !!busy || needsPiece || (!dirty && isOwn)}
             onClick={() => save(tile)}
           >
             {pending ? "Saving…" : "Save tile"}

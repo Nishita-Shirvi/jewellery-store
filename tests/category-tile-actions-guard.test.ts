@@ -46,7 +46,10 @@ vi.mock("@/services/staff.service", () => ({
   twoFactorCookieValid: () => twoFA.passed,
 }));
 vi.mock("@/services/admin/category-admin.service", () => ({
-  saveCategoryTile: vi.fn(async () => void touched.push("saveCategoryTile")),
+  saveCategoryTile: vi.fn(async () => {
+    touched.push("saveCategoryTile");
+    return { name: "Rings" };
+  }),
 }));
 vi.mock("@/services/admin/product-admin.service", () => ({
   AdminInputError: class extends Error {},
@@ -73,7 +76,7 @@ function fileForm() {
 
 const tile = sampleTile({ slug: "rings", name: "Rings" });
 const CASES: Record<string, () => Promise<unknown>> = {
-  saveCategoryTileAction: () => actions.saveCategoryTileAction("cat1", tile, "Rings"),
+  saveCategoryTileAction: () => actions.saveCategoryTileAction("cat1", tile),
   uploadTileImageAction: () => actions.uploadTileImageAction(fileForm()),
 };
 const names = Object.keys(CASES);

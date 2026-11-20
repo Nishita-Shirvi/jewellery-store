@@ -19,11 +19,7 @@ export type TileSaveResult =
   | { ok: false; error: string; fieldErrors?: Record<string, string> };
 
 /** Saves the tile, or `null` to go back to the sample tile for the category's name. */
-export async function saveCategoryTileAction(
-  id: string,
-  input: unknown,
-  name = "",
-): Promise<TileSaveResult> {
+export async function saveCategoryTileAction(id: string, input: unknown): Promise<TileSaveResult> {
   const admin = await requirePermission("products.edit");
   if (!categoryId.safeParse(id).success) return { ok: false, error: "Category not found." };
   let tile: CategoryTile | null = null;
@@ -36,8 +32,9 @@ export async function saveCategoryTileAction(
     }
     tile = parsed.data as CategoryTile;
   }
+  let name: string;
   try {
-    await saveCategoryTile(id, tile, admin.id);
+    ({ name } = await saveCategoryTile(id, tile, admin.id));
   } catch (error) {
     if (error instanceof AdminInputError) return { ok: false, error: error.message };
     throw error;
@@ -46,9 +43,7 @@ export async function saveCategoryTileAction(
     action: "category.update",
     entityType: "category",
     entityId: id,
-    summary: tile
-      ? `Updated the home-page tile${name ? ` of ${name.slice(0, 80)}` : ""}`
-      : `Reset the home-page tile${name ? ` of ${name.slice(0, 80)}` : ""}`,
+    summary: `${tile ? "Updated" : "Reset"} the home-page tile of ${name.slice(0, 80)}`,
   });
   revalidatePath("/admin/categories");
   revalidatePath("/");

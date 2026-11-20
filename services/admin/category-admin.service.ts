@@ -86,14 +86,20 @@ export async function deleteCategory(id: string, adminId: string) {
  * The category's home-page tile (Admin → Categories → Tile). null = back to the sample tile
  * for its name (or the plain photo). The tile must already be validated (categoryTileSchema).
  */
-export async function saveCategoryTile(id: string, tile: CategoryTile | null, adminId: string) {
-  const result = await db.category.updateMany({
+export async function saveCategoryTile(
+  id: string,
+  tile: CategoryTile | null,
+  adminId: string,
+): Promise<{ name: string }> {
+  const category = await db.category.findUnique({ where: { id }, select: { name: true } });
+  if (!category) throw new AdminInputError("Category not found.");
+  await db.category.update({
     where: { id },
     data: { tile: tile === null ? Prisma.DbNull : (tile as unknown as Prisma.InputJsonObject) },
   });
-  if (result.count === 0) throw new AdminInputError("Category not found.");
   revalidateTag(CATALOG_TAG);
   logger.info("admin.category_tile_saved", { adminId, categoryId: id, reset: tile === null });
+  return category;
 }
 
 /** id + name for dropdowns. */

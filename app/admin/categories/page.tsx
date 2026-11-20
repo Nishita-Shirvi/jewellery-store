@@ -5,7 +5,7 @@ import { deleteCategoryAction } from "../actions";
 import { CategoryTileEditor } from "@/components/admin/category-tile-editor";
 import { requirePermissionPage } from "@/lib/auth-guards";
 import { sampleTile } from "@/lib/tiles";
-import { readTile } from "@/lib/validation/tiles";
+import { readStoredTile } from "@/lib/validation/tiles";
 import { isUploadConfigured } from "@/services/upload.service";
 
 export const dynamic = "force-dynamic";
@@ -72,7 +72,7 @@ export default async function AdminCategoriesPage({
                       name: c.name,
                       image: c.image ?? "/images/products/classic-solitaire-ring.svg",
                     }}
-                    saved={c.tile === null ? null : readTile(c.tile)}
+                    saved={c.tile === null ? null : readStoredTile(c.tile)}
                     sample={sampleTile(c)}
                     uploadEnabled={uploadEnabled}
                   />

@@ -39,9 +39,18 @@ export function placeDefault(
   model: TileModel,
   ar: number,
 ): Pick<CategoryTile, "cx" | "cy" | "w" | "rot"> {
-  if (model === "head") return { w: 30, cx: 76, cy: Math.round(196 + (30 * ar) / 2), rot: 0 };
-  if (model === "hand") return { w: 50, cx: 168, cy: Math.round(194 + (50 * ar) / 2), rot: 0 };
-  return { w: 130, cx: 150, cy: Math.round(134 + Math.min(130 * ar, 240) / 2), rot: 0 };
+  const a = clampAr(ar);
+  const onModel = (cy: number) => Math.min(TILE_BOX.height - 20, Math.round(cy));
+  if (model === "head")
+    return { w: 30, cx: 76, cy: onModel(196 + Math.min(30 * a, 180) / 2), rot: 0 };
+  if (model === "hand")
+    return { w: 50, cx: 168, cy: onModel(194 + Math.min(50 * a, 180) / 2), rot: 0 };
+  return { w: 130, cx: 150, cy: onModel(134 + Math.min(130 * a, 240) / 2), rot: 0 };
+}
+
+/** Height ÷ width of a cut-out, kept within what can be saved. */
+export function clampAr(ar: number): number {
+  return Math.min(20, Math.max(0.05, Number.isFinite(ar) ? ar : 1));
 }
 
 const SAMPLE = "/images/tiles";
@@ -49,7 +58,7 @@ const SAMPLE = "/images/tiles";
 /** Sample tiles shipped with the shop (stock photos), used until the admin sets their own. */
 const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
   {
-    match: /earring|jhumk|stud|bali/,
+    match: /\bear-?rings?\b|\bjhumk|\bstuds?\b|\bbalis?\b/,
     tile: {
       model: "head",
       piece: `${SAMPLE}/piece-earrings.png`,
@@ -64,7 +73,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
     },
   },
   {
-    match: /mangalsutra/,
+    match: /\bmangalsutras?\b/,
     tile: {
       model: "bust",
       piece: `${SAMPLE}/piece-mangalsutra.png`,
@@ -79,7 +88,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
     },
   },
   {
-    match: /chain/,
+    match: /\bchains?\b/,
     tile: {
       model: "bust",
       piece: `${SAMPLE}/piece-chain.png`,
@@ -94,7 +103,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
     },
   },
   {
-    match: /necklace|pendant|choker|haar|set/,
+    match: /\bnecklaces?\b|\bpendants?\b|\bchokers?\b|\bhaar\b/,
     tile: {
       model: "bust",
       piece: `${SAMPLE}/piece-necklace.png`,
@@ -109,7 +118,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
     },
   },
   {
-    match: /bangle|bracelet|kada|kangan/,
+    match: /\bbangles?\b|\bbracelets?\b|\bkadas?\b|\bkangan\b/,
     tile: {
       model: "hand",
       piece: `${SAMPLE}/piece-bangles.png`,
@@ -124,7 +133,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
     },
   },
   {
-    match: /ring/,
+    match: /(?<!nose[- ])(?<!toe[- ])\brings?\b/,
     tile: {
       model: "hand",
       piece: `${SAMPLE}/piece-ring.png`,
@@ -142,7 +151,7 @@ const SAMPLES: { match: RegExp; tile: CategoryTile }[] = [
 
 /** The sample tile for a category, from words in its URL name or name (earrings before rings). */
 export function sampleTile(category: { slug: string; name: string }): CategoryTile | null {
-  const text = `${category.slug} ${category.name}`.toLowerCase();
+  const text = `${category.slug.replace(/-/g, " ")} ${category.name}`.toLowerCase();
   return SAMPLES.find((s) => s.match.test(text))?.tile ?? null;
 }
 

@@ -255,6 +255,7 @@ html[data-area="shop"][data-decor="toran"] .vj-toran {
 }
 /* The product photo starts as a speck where the piece sits and grows to fill the tile. */
 .vj-tile .vj-zoom {
+  pointer-events: none;
   object-fit: cover;
   opacity: 0;
   transform: scale(0.14);
