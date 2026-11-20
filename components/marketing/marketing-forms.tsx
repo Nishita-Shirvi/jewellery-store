@@ -19,10 +19,10 @@ function Message({ result, dark }: { result: SimpleResult | null; dark?: boolean
       className={
         result.ok
           ? dark
-            ? "text-sm text-emerald-200"
+            ? "text-sm text-[#a7f3d0]"
             : "text-sm text-emerald-700"
           : dark
-            ? "text-sm text-red-200"
+            ? "text-sm text-[#fecaca]"
             : "text-sm text-red-700"
       }
     >

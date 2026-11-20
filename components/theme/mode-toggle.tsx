@@ -26,16 +26,24 @@ function isDark() {
 
 /**
  * Sun/moon button in the shop header. Switches light/dark at once and remembers the choice in a
- * cookie for a year, so the next page arrives in the right mode (no flash).
+ * cookie for a year, so the next page arrives in the right mode (no flash). Switching back to
+ * what the device shows clears the cookie, so the shop follows the device again. Hidden on admin
+ * pages (admin has no dark mode).
  */
 export function ModeToggle({ className }: { className?: string }) {
   const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
   function toggle() {
     const next = isDark() ? "light" : "dark";
-    document.documentElement.dataset.mode = next;
+    const device = window.matchMedia(DARK_QUERY).matches ? "dark" : "light";
+    // Choosing what the device already shows means "follow the device" again (no cookie).
+    const mode = next === device ? "system" : next;
+    document.documentElement.dataset.mode = mode;
     const secure = window.location.protocol === "https:" ? "; secure" : "";
-    document.cookie = `${MODE_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax${secure}`;
+    document.cookie =
+      mode === "system"
+        ? `${MODE_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`
+        : `${MODE_COOKIE}=${mode}; path=/; max-age=31536000; samesite=lax${secure}`;
   }
 
   return (
@@ -46,7 +54,7 @@ export function ModeToggle({ className }: { className?: string }) {
       aria-label="Dark mode"
       title={dark ? "Switch to light mode" : "Switch to dark mode"}
       className={cn(
-        "border-gilt/55 hover:bg-on/10 focus-visible:ring-gilt grid size-9 place-items-center rounded-full border outline-none focus-visible:ring-2",
+        "border-gilt/55 hover:bg-on/10 focus-visible:ring-gilt grid size-9 place-items-center rounded-full border outline-none focus-visible:ring-2 [html[data-area=admin]_&]:hidden",
         className,
       )}
     >

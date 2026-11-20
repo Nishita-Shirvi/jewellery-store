@@ -70,7 +70,7 @@ export function DeleteAccountForm({ hasPassword }: { hasPassword: boolean }) {
           </div>
         )}
       </div>
-      <Button type="submit" className="bg-red-700 text-white hover:bg-red-800" disabled={pending}>
+      <Button type="submit" variant="destructive" disabled={pending}>
         {pending ? "Deleting…" : "Delete my account"}
       </Button>
     </form>

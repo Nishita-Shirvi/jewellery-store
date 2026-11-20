@@ -268,7 +268,7 @@ const collectionProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / pageSize)),
     };
   },
-  ["content:collection-products:v1"],
+  ["content:collection-products:v2"],
   { tags: [CONTENT_TAG, CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 

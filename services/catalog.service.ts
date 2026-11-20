@@ -143,7 +143,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v4"],
+  ["catalog:list:v5"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -157,7 +157,7 @@ export const getFeaturedProducts = unstable_cache(
     });
     return rows.map(toCard);
   },
-  ["catalog:featured:v2"],
+  ["catalog:featured:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 

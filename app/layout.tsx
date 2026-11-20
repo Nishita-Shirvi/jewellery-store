@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Analytics } from "@/components/analytics/analytics";
 import { publicEnv } from "@/lib/env";
-import { DEFAULT_COLORS, MODE_COOKIE, parseMode, themeCss } from "@/lib/theme";
+import { DEFAULT_COLORS, MODE_COOKIE, parseMode, shopTokens, themeCss } from "@/lib/theme";
 import "@fontsource/marcellus/400.css";
 import "@fontsource-variable/figtree";
 import "@fontsource/cormorant-garamond/latin-500.css";
@@ -34,7 +34,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#4a1528",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: shopTokens(DEFAULT_COLORS, "light").brand },
+    { media: "(prefers-color-scheme: dark)", color: shopTokens(DEFAULT_COLORS, "dark").brand },
+  ],
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

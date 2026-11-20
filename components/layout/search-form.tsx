@@ -91,7 +91,7 @@ export function SearchForm({ className }: { className?: string }) {
         type="search"
         autoComplete="off"
         placeholder="Search rings, earrings, bangles…"
-        className="pl-9"
+        className="text-foreground pl-9"
         maxLength={100}
         value={q}
         onChange={(e) => setQ(e.target.value)}
@@ -110,7 +110,7 @@ export function SearchForm({ className }: { className?: string }) {
           id={listId}
           role="listbox"
           aria-label="Suggestions"
-          className="border-border bg-background absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border shadow-lg"
+          className="border-border bg-background text-foreground absolute top-full right-0 left-0 z-50 mt-1 overflow-hidden rounded-md border shadow-lg"
         >
           {items.map((s, i) => (
             <li key={s.slug} id={`${listId}-${i}`} role="option" aria-selected={i === active}>

@@ -169,9 +169,13 @@ function uiTokens(s: ReturnType<typeof shopTokens>): Record<string, string> {
  * boxes) are lightened so they stay readable on the dark background.
  */
 const DARK_STATUS =
-  "--color-red-50:rgb(239 68 68/.14);--color-red-600:#f87171;--color-red-700:#fca5a5;--color-red-800:#fecaca;" +
-  "--color-emerald-50:rgb(16 185 129/.14);--color-emerald-700:#6ee7b7;--color-emerald-800:#a7f3d0;--color-emerald-900:#d1fae5;" +
-  "--color-amber-50:rgb(245 158 11/.14);--color-amber-700:#fcd34d;--color-amber-800:#fde68a;--color-amber-900:#fef3c7;";
+  "--color-red-50:rgb(239 68 68/.14);--color-red-200:rgb(248 113 113/.45);--color-red-600:#f87171;" +
+  "--color-red-700:#fca5a5;--color-red-800:#fecaca;" +
+  "--color-emerald-50:rgb(16 185 129/.14);--color-emerald-200:rgb(52 211 153/.45);" +
+  "--color-emerald-700:#6ee7b7;--color-emerald-800:#a7f3d0;--color-emerald-900:#d1fae5;" +
+  "--color-amber-50:rgb(245 158 11/.14);--color-amber-200:rgb(251 191 36/.45);" +
+  "--color-amber-300:rgb(251 191 36/.55);--color-amber-700:#fcd34d;--color-amber-800:#fde68a;" +
+  "--color-amber-900:#fef3c7;--color-amber-950:#fffbeb;";
 
 function declarations(tokens: Record<string, string>, prefix: string): string {
   return Object.entries(tokens)
