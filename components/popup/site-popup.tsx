@@ -72,7 +72,7 @@ export function PopupCard({
   popup: PopupSettings;
   siteName: string;
   days: { value: string; label: string }[];
-  onClose?: (reason: "done" | "dismiss") => void;
+  onClose?: (reason: "submitted" | "navigate" | "dismiss") => void;
   preview?: boolean;
   headingId?: string;
 }) {
@@ -93,7 +93,7 @@ export function PopupCard({
           title: "Request sent",
           text: "Thank you. We'll call you to confirm the day and time.",
         });
-        onClose?.("done");
+        onClose?.("submitted");
       } else {
         const fe = res.fieldErrors ?? {};
         setError(
@@ -118,7 +118,7 @@ export function PopupCard({
       });
       if (res.ok) {
         setDone({ title: "Almost done", text: res.message });
-        onClose?.("done");
+        onClose?.("submitted");
       } else setError(res.error);
     });
   }
@@ -266,7 +266,7 @@ export function PopupCard({
         <Link
           href={`/login?callbackUrl=${encodeURIComponent(path || "/")}`}
           className={go}
-          onClick={() => onClose?.("done")}
+          onClick={() => onClose?.("navigate")}
           tabIndex={preview ? -1 : undefined}
         >
           {popup.cta} <ArrowRight aria-hidden="true" />
@@ -274,7 +274,7 @@ export function PopupCard({
         <Link
           href="/register"
           className="text-eyebrow text-center text-sm underline underline-offset-4"
-          onClick={() => onClose?.("done")}
+          onClick={() => onClose?.("navigate")}
           tabIndex={preview ? -1 : undefined}
         >
           New here? Create an account
@@ -286,7 +286,7 @@ export function PopupCard({
       <Link
         href={popup.link}
         className={go}
-        onClick={() => onClose?.("done")}
+        onClick={() => onClose?.("navigate")}
         tabIndex={preview ? -1 : undefined}
       >
         {popup.cta} <ArrowRight aria-hidden="true" />
@@ -399,11 +399,20 @@ export function SitePopup({
     const seconds = popup.delay === "exit" ? 20 : Number(popup.delay);
     const timer = window.setTimeout(open, seconds * 1000);
     return () => window.clearTimeout(timer);
-  }, [pathname, popup, skip]);
+    // Stable values only: the layout can re-render (cart updates…) without restarting the delay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, popup.version, popup.delay, popup.where, popup.againDays, skip]);
 
-  function close(reason: "done" | "dismiss") {
+  // Moving to a page where it may not show (Back to the cart, a link…) closes it.
+  useEffect(() => {
+    const dialog = ref.current;
+    if (dialog?.open && !popupAllowedOn(pathname, popup.where)) dialog.close();
+  }, [pathname, popup.where]);
+
+  function close(reason: "submitted" | "navigate" | "dismiss") {
     markSeen(popup.version);
-    if (reason === "dismiss") ref.current?.close();
+    // After sending a form the thank-you stays until they close it; otherwise close now.
+    if (reason !== "submitted") ref.current?.close();
   }
 
   if (skip) return null;

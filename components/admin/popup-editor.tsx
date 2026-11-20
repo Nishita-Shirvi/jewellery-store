@@ -101,11 +101,13 @@ export function PopupEditor({
 
   const status = !saved.on
     ? { label: "Off", tone: "bg-zinc-200 text-zinc-700" }
-    : popupLive(saved, today)
-      ? { label: "Live now", tone: "bg-emerald-100 text-emerald-900" }
-      : saved.until && saved.until < today
-        ? { label: "Ended", tone: "bg-zinc-200 text-zinc-700" }
-        : { label: `Starts ${saved.from}`, tone: "bg-sky-100 text-sky-900" };
+    : saved.action === "visit" && !visitBooking
+      ? { label: "Hidden: visit booking is switched off", tone: "bg-amber-100 text-amber-900" }
+      : popupLive(saved, today)
+        ? { label: "Live now", tone: "bg-emerald-100 text-emerald-900" }
+        : saved.until && saved.until < today
+          ? { label: "Ended", tone: "bg-zinc-200 text-zinc-700" }
+          : { label: `Starts ${saved.from}`, tone: "bg-sky-100 text-sky-900" };
 
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -154,6 +156,7 @@ export function PopupEditor({
               value={popup.from}
               onChange={(e) => edit({ from: e.target.value })}
             />
+            {err("from")}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="p-until">Until (optional)</Label>
@@ -358,14 +361,26 @@ export function PopupEditor({
             type="button"
             variant="outline"
             disabled={!dirty || pending}
-            onClick={() => setPopup(saved)}
+            onClick={() => {
+              setPopup(saved);
+              setErrors({});
+              setNotice(null);
+            }}
           >
             Discard changes
           </Button>
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setPopup({ ...DEFAULT_POPUP, on: popup.on, version: saved.version })}
+            onClick={() =>
+              setPopup({
+                ...DEFAULT_POPUP,
+                // Without visit booking the example asks for the newsletter instead.
+                ...(visitBooking ? {} : { action: "news" as const, cta: "Keep me posted" }),
+                on: popup.on,
+                version: saved.version,
+              })
+            }
           >
             Start from the private-viewing example
           </Button>
