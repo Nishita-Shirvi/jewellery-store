@@ -51,7 +51,7 @@ export function CheckoutClient({
     <div className="space-y-6">
       <section
         aria-labelledby="address-heading"
-        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+        className="border-border bg-card rounded-lg border p-5 md:p-6"
       >
         <h2 id="address-heading" className="text-2xl">
           <span
@@ -108,7 +108,7 @@ export function CheckoutClient({
 
       <section
         aria-labelledby="coupon-heading"
-        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+        className="border-border bg-card rounded-lg border p-5 md:p-6"
       >
         <h2 id="coupon-heading" className="text-2xl">
           <span
@@ -135,7 +135,7 @@ export function CheckoutClient({
 
       <section
         aria-labelledby="payment-heading"
-        className="border-border rounded-lg border bg-white/60 p-5 md:p-6"
+        className="border-border bg-card rounded-lg border p-5 md:p-6"
       >
         <h2 id="payment-heading" className="text-2xl">
           <span

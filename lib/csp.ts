@@ -5,7 +5,8 @@
  *  - scripts: this site, Razorpay Checkout, Google Analytics (only loaded after consent).
  *    'unsafe-inline' stays for scripts because Next.js and the GA snippet inject inline scripts;
  *    a nonce-based policy would force every page to render dynamically (no page cache).
- *  - connections: this site, Razorpay, Google Analytics, the Sentry ingest host from the DSN,
+ *  - connections: this site, Razorpay, Google Analytics, Cloudinary's upload API (theme videos
+ *    go straight there with a signed ticket), the Sentry ingest host from the DSN,
  *    and — in tests only — the local payment stand-in named by RAZORPAY_API_BASE.
  *  - frames: Razorpay's payment window only. Nobody may frame this site (frame-ancestors 'none').
  *  - forms: this site, plus Google's sign-in page (the Google login button posts here then
@@ -70,6 +71,7 @@ export function buildCsp(o: CspOptions): string {
       "https://*.google-analytics.com",
       "https://*.analytics.google.com",
       "https://www.googletagmanager.com",
+      "https://api.cloudinary.com", // Admin → Appearance sends videos straight to our Cloudinary
       ...(sentry ? [sentry] : []),
       ...(extra ? [extra] : []),
     ],

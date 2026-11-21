@@ -38,7 +38,7 @@ export function Price({
           </s>
           <span
             className={cn(
-              "rounded bg-emerald-700 px-1.5 py-0.5 font-medium text-white",
+              "rounded bg-[#047857] px-1.5 py-0.5 font-medium text-white",
               size === "lg" ? "text-sm" : "text-[11px]",
             )}
           >

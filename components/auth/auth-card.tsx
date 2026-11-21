@@ -8,17 +8,17 @@ import { Ornament } from "@/components/layout/page-header";
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mx-auto grid max-w-5xl gap-0 px-4 py-10 md:grid-cols-[1fr_1.1fr] md:py-16">
-      <div className="bg-primary text-primary-foreground relative hidden overflow-hidden rounded-l-lg p-10 md:flex md:flex-col md:justify-between">
+      <div className="bg-brand text-on relative hidden overflow-hidden rounded-l-lg p-10 md:flex md:flex-col md:justify-between">
         <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#e2c58a] uppercase">
+          <p className="text-goldlight text-xs font-semibold tracking-[0.18em] uppercase">
             Welcome
           </p>
           <p className="mt-2 text-3xl leading-tight" style={{ fontFamily: "var(--font-display)" }}>
             Jewellery made to be handed down
           </p>
-          <Ornament className="mt-4 text-[#c9a45c]" />
+          <Ornament className="text-gilt mt-4" />
         </div>
-        <div className="arch relative mx-auto mt-8 aspect-[4/5] w-full max-w-[15rem] border border-[#c9a45c]/60 bg-black">
+        <div className="arch border-gilt/60 relative mx-auto mt-8 aspect-[4/5] w-full max-w-[15rem] border bg-black">
           <Image
             src="/images/editorial/kundan-necklace.jpg"
             alt=""
@@ -27,13 +27,13 @@ export function AuthCard({ title, children }: { title: string; children: React.R
             className="object-cover opacity-90"
           />
         </div>
-        <ul className="mt-8 space-y-1.5 text-sm text-[#ead9dd]">
+        <ul className="mt-8 space-y-1.5 text-sm opacity-90">
           <li>BIS hallmarked gold · certified diamonds</li>
           <li>Insured shipping in tamper-proof boxes</li>
           <li>Your saved cart, wishlist and orders in one place</li>
         </ul>
       </div>
-      <div className="border-border rounded-lg border bg-white/70 p-6 sm:p-10 md:rounded-l-none md:border-l-0">
+      <div className="border-border bg-card rounded-lg border p-6 sm:p-10 md:rounded-l-none md:border-l-0">
         <h1 className="text-3xl md:text-4xl">{title}</h1>
         <Ornament className="mt-3" />
         <div className="mt-6 space-y-6">{children}</div>

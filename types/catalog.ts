@@ -1,5 +1,6 @@
 /** Catalogue types. These are the data contracts the final frontend design will build on. */
 import type { MetalColour, MetalType, PricingMode, Purity } from "@prisma/client";
+import type { CategoryTile } from "@/lib/tiles";
 
 export type { MetalColour, MetalType, PricingMode, Purity };
 
@@ -46,6 +47,8 @@ export interface ProductCardData {
   inStock: boolean;
   reviewCount: number;
   ratingAvgX100: number;
+  /** Has a BIS hallmark (HUID recorded). */
+  hallmarked?: boolean;
 }
 
 export interface CategorySummary {
@@ -53,6 +56,8 @@ export interface CategorySummary {
   slug: string;
   image: string;
   productCount: number;
+  /** Home-page tile: the piece on a display model; null = the plain category photo. */
+  tile: CategoryTile | null;
 }
 
 export interface ProductListResult {

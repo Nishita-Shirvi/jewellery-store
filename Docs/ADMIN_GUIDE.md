@@ -125,6 +125,48 @@ Admin → **Showroom** (needs the Content permission):
 
 Press **Save**. The website changes at once. The box **Set by the developer** below shows what you can't change here (which features are on, image storage, return days, shipping fee).
 
+## Appearance: festival themes, colours and the top of the home page
+
+Admin → **Appearance** (needs the Content permission). Admin pages never change; only the shop.
+
+- **Everyday** is always on. A **festival theme** (Diwali, wedding season…) takes over between its **Live from** and **Live until** dates (both included, India time) and switches off by itself. If two overlap, the one that started later shows. The list shows each theme as Default, Live now, Scheduled, Hidden by a later theme or Ended.
+- **Add a theme** starts from Diwali, Wedding season or a copy of Everyday; change anything, then **Save theme**. The **Festival dates** buttons fill in the dates from `config/marketing.ini`.
+- **Colours**: main, gold, background, second background, text, secondary text and a festive accent. Dark mode is worked out from the same colours. A preview shows both modes, and a warning appears if text would be hard to read. **Default colours** puts back Vineet maroon, gold and ivory.
+- **Festive decoration**: none, a marigold toran under the header, or scattered petals behind the top of the home page.
+- **Top of the home page**: a photo in an arch with the text beside it, or a full-width background video. Upload a photo (or pick one of ours) and describe it. For a video, upload an MP4 or WebM (up to `[images] max_video_mb`, 25 MB; it goes straight to Cloudinary) or paste a link to one on our storage. The video plays muted on a loop; shoppers who ask for less motion or save data see the photo. Then the small line, heading (_stars_ make words italic), text, button label and the page the button opens (a page on this site, starting with `/`).
+- **Offer bar**: a line above the header while the theme is live (_stars_ show words in gold). An announcement from Content → Announcements shows instead whenever one is live.
+- **Preview on the site** opens the home page with that theme's colours and top section, even before its dates (the link works for 48 hours).
+- **Light or dark for new visitors**: follow the phone's setting (default), light or dark. Shoppers can always switch with the sun/moon button in the header; the shop remembers their choice.
+
+A home-page hero section in Content → Home sections, when one is live, replaces the theme's top section.
+
+## Popup
+
+Admin → **Appearance** → **Popup** (needs the Content permission). A popup with a picture, a few words and one thing to do. It is **off** until you tick **Show the popup**.
+
+- **When**: optional From/Until dates (India time), the home page only or every shop page, when it opens (after 4, 8 or 20 seconds, or when someone on a computer heads for the address bar), and how often the same shopper sees it again (once a day, week, month, or only once). It never opens on cart, checkout, sign-in, account or admin pages. Every save counts as a new popup, so shoppers who closed the old one see the new one.
+- **Picture and words**: upload a picture (or pick one of ours) and describe it, then the small line, heading (_stars_ make words italic) and text.
+- **What it asks for**:
+  - **Book a showroom visit**: name, mobile, one of the next five days and a time. Requests appear in Admin → **Visits**, like the visit page.
+  - **Join the newsletter**: email and consent; the usual confirmation email is sent (double opt-in).
+  - **Sign in or create an account**: not shown to shoppers who are already signed in.
+  - **Just a button** to a page on this site.
+- The preview on the right updates as you type (tick **Phone width** for the phone layout).
+
+## Home-page category tiles
+
+The home page shows each category as a piece "worn" on a velvet display model (a bust, a head or a hand, drawn in the shop's colours). Hovering, or tapping on a phone, brings the full product photo up from where the piece sits. Until you set your own, categories whose names mention earrings, rings, necklaces, chains, mangalsutra or bangles show a sample tile made from stock photos; any other category shows its plain photo.
+
+Admin → **Categories** → open **Home-page tile** under a category (needs the product edit permission):
+
+1. Choose the **Display model**: bust (necklaces, chains, mangalsutra), head (earrings, shown on both ears), hand (rings, bangles), **our own model photo**, or **no model** (just the category photo).
+2. **Product photo**: upload one photo of the piece. Its background is removed in your browser, so it works best for a single piece photographed from the front on a plain, even background. If you already have a PNG with a transparent background, tick the box first. The photo itself becomes the hover photo.
+3. **Drag** the piece on the model to place it (or click it and use the arrow keys; hold Shift for bigger steps). Use **Size** and **Turn** to fit it.
+4. **Show the hover photo** previews the zoom. You can upload a different **Hover photo** and describe it for screen readers.
+5. **Save tile**. **Back to the sample tile** undoes your tile.
+
+With **our own model photo**, upload a portrait (3:4) photo of a model wearing the piece; no cut-out is drawn on it.
+
 ## Money and tax
 
 - **Admin → Accounting → GST reports:** pick the month → download the sales register, B2CS summary, HSN summary and refunds (credit notes) for your CA. The page says whether the totals match the invoices.

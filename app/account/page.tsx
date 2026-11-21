@@ -39,7 +39,7 @@ export default async function AccountPage() {
   return (
     <section>
       <h1 className="text-3xl md:text-4xl">My account</h1>
-      <dl className="border-border mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-6 gap-y-2 rounded-lg border bg-white/60 p-5 text-sm">
+      <dl className="border-border bg-card mt-6 grid max-w-md grid-cols-[auto_1fr] gap-x-6 gap-y-2 rounded-lg border p-5 text-sm">
         <dt className="text-muted-foreground">Name</dt>
         <dd>{user?.name ?? "—"}</dd>
         <dt className="text-muted-foreground">Email</dt>
@@ -52,7 +52,7 @@ export default async function AccountPage() {
           <li key={href}>
             <Link
               href={href}
-              className="group border-border hover:border-gold/60 flex h-full items-start gap-4 rounded-lg border bg-white/60 p-5 transition-colors"
+              className="group border-border hover:border-gold/60 bg-card flex h-full items-start gap-4 rounded-lg border p-5 transition-colors"
             >
               <span className="bg-accent text-primary flex size-10 shrink-0 items-center justify-center rounded-full">
                 <Icon aria-hidden="true" className="size-5" />
@@ -70,7 +70,7 @@ export default async function AccountPage() {
       {referral && (
         <section
           aria-labelledby="refer-h"
-          className="mt-8 max-w-xl rounded-lg border border-[#c9a45c]/50 bg-[#fbf3e6] p-5 text-sm"
+          className="border-gilt/50 bg-alt mt-8 max-w-xl rounded-lg border p-5 text-sm"
         >
           <h2 id="refer-h" className="font-medium">
             Refer a friend
