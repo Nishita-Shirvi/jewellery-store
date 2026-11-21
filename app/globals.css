@@ -134,3 +134,336 @@ html[data-area="shop"] :is(h1, h2) {
 :focus-visible {
   outline-color: var(--gold);
 }
+
+/* ───── Shop: home hero and festival decorations (Admin → Appearance) ───── */
+
+/* Marigold toran under the header: flowers, leaves and a gold thread. */
+.vj-toran {
+  display: none;
+  height: 16px;
+  background-color: var(--s-brand);
+  background-image:
+    radial-gradient(circle at 12px 7px, var(--s-festive) 0 4.5px, transparent 5px),
+    radial-gradient(2.5px 4px at 3px 9px, var(--s-leaf) 0 96%, transparent 100%),
+    radial-gradient(2.5px 4px at 21px 9px, var(--s-leaf) 0 96%, transparent 100%),
+    linear-gradient(var(--s-gold), var(--s-gold));
+  background-size:
+    24px 16px,
+    24px 16px,
+    24px 16px,
+    100% 1px;
+  background-repeat: repeat-x, repeat-x, repeat-x, no-repeat;
+  background-position:
+    0 0,
+    0 0,
+    0 0,
+    0 2px;
+}
+html[data-area="shop"][data-decor="toran"] .vj-toran {
+  display: block;
+}
+
+/* Scattered petals behind the hero. */
+.vj-petals {
+  background-image:
+    radial-gradient(
+      7px 3.5px at 30% 40%,
+      color-mix(in srgb, var(--s-festive) 40%, transparent) 96%,
+      transparent
+    ),
+    radial-gradient(
+      5px 3px at 72% 78%,
+      color-mix(in srgb, var(--s-festive) 32%, transparent) 96%,
+      transparent
+    );
+  background-size:
+    150px 130px,
+    190px 170px;
+}
+
+/* Hero photo in a jharokha arch with a fine inner line. */
+.vj-arch {
+  position: relative;
+  aspect-ratio: 4 / 4.7;
+  max-width: 100%;
+  border-radius: 44% 44% 4px 4px;
+  overflow: hidden;
+  background: var(--s-deep);
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--s-deep) 22%, transparent);
+}
+.vj-arch::after {
+  content: "";
+  position: absolute;
+  inset: 12px;
+  border: 1px solid rgb(251 246 238 / 0.4);
+  border-radius: 44% 44% 2px 2px;
+  pointer-events: none;
+}
+.vj-arch img {
+  transition: transform 1s;
+}
+.vj-archwrap:hover .vj-arch img {
+  transform: scale(1.035);
+}
+.vj-vnote {
+  position: absolute;
+  right: 0;
+  top: 24%;
+  writing-mode: vertical-rl;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+@media (max-width: 640px) {
+  .vj-vnote {
+    font-size: 8px;
+    letter-spacing: 0.16em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vj-arch img {
+    transition: none;
+  }
+  .vj-archwrap:hover .vj-arch img {
+    transform: none;
+  }
+}
+
+/* ───── Shop: category tiles on a display model (Admin → Categories → Tile) ───── */
+
+.vj-tile {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  max-width: 100%;
+  border-radius: 48% 48% 3px 3px;
+  overflow: hidden;
+  background: var(--s-tile);
+  border: 1px solid var(--s-line);
+  isolation: isolate;
+}
+.vj-model {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  transform-origin: var(--ox) var(--oy);
+  transition:
+    transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.55s;
+}
+/* The product photo starts as a speck where the piece sits and grows to fill the tile. */
+.vj-tile .vj-zoom {
+  pointer-events: none;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(0.14);
+  transform-origin: var(--ox) var(--oy);
+  transition:
+    transform 0.75s cubic-bezier(0.2, 0.7, 0.2, 1),
+    opacity 0.3s;
+  border-radius: inherit;
+}
+/* No model: the plain category photo, with a gentle zoom on hover. */
+.vj-tile.plain .vj-zoom {
+  opacity: 1;
+  transform: none;
+  transition: transform 0.6s;
+}
+@media (hover: hover) {
+  .vj-cat:hover .vj-zoom {
+    opacity: 1;
+    transform: none;
+  }
+  .vj-cat:hover .vj-model {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+  .vj-cat:hover .vj-tile.plain .vj-zoom {
+    transform: scale(1.04);
+  }
+}
+.vj-cat:focus-visible .vj-zoom,
+.vj-cat.is-zoom .vj-zoom {
+  opacity: 1;
+  transform: none;
+}
+.vj-cat:focus-visible .vj-model,
+.vj-cat.is-zoom .vj-model {
+  transform: scale(2.6);
+  opacity: 0;
+}
+.vj-cat:focus-visible .vj-tile {
+  outline: 2px solid var(--s-gold);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .vj-model,
+  .vj-tile .vj-zoom {
+    transition: opacity 0.2s;
+  }
+  .vj-cat:hover .vj-model,
+  .vj-cat:focus-visible .vj-model,
+  .vj-cat.is-zoom .vj-model {
+    transform: none;
+  }
+}
+
+/* ───── Shop: popup (Admin → Appearance → Popup) ───── */
+
+.vj-pop {
+  container: popc / inline-size;
+  width: min(900px, calc(100% - 32px));
+  max-width: none;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--s-ink);
+  overflow: visible;
+}
+.vj-pop[open] {
+  animation: vj-pop-in 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+/* Focus goes to the first field inside; the dialog box itself needs no ring. */
+.vj-pop:focus,
+.vj-pop:focus-visible {
+  outline: none;
+}
+.vj-pop::backdrop {
+  background: rgb(22 8 12 / 0.62);
+  backdrop-filter: blur(3px);
+}
+@keyframes vj-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+}
+.vj-pop-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  background: var(--s-alt);
+  color: var(--s-ink);
+  border-radius: 6px;
+  box-shadow: 0 40px 90px -30px rgb(0 0 0 / 0.65);
+  line-height: 1.55;
+  font-family: var(--font-body);
+}
+.vj-pop-media {
+  position: relative;
+  background: var(--s-deep);
+  padding: 30px 34px 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 22px;
+}
+.vj-pop-media::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--s-gold), transparent);
+}
+.vj-pop-arch {
+  align-self: end;
+  position: relative;
+  min-height: 300px;
+  height: 100%;
+  border-radius: 999px 999px 0 0;
+  overflow: hidden;
+  background: var(--s-brand);
+}
+.vj-pop-arch img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vj-pop-arch::after {
+  content: "";
+  position: absolute;
+  inset: 10px 10px 0;
+  border: 1px solid color-mix(in srgb, var(--s-goldlight) 70%, transparent);
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+  pointer-events: none;
+}
+.vj-pop-body {
+  position: relative;
+  padding: 46px 44px 30px;
+  display: grid;
+  gap: 14px;
+  align-content: center;
+  min-width: 0;
+}
+.vj-pop-h {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(34px, 6cqi, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: var(--s-head);
+  margin: 0;
+  text-wrap: balance;
+  padding-right: 28px;
+}
+.vj-pop-x {
+  position: absolute;
+  z-index: 2;
+  top: 14px;
+  right: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--s-line);
+  background: var(--s-card);
+  color: var(--s-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.vj-pop-x:focus-visible {
+  outline: 2px solid var(--s-gold);
+  outline-offset: 2px;
+}
+@container popc (max-width: 640px) {
+  .vj-pop-card {
+    grid-template-columns: 1fr;
+  }
+  .vj-pop-media {
+    padding: 18px 20px 0;
+    gap: 14px;
+  }
+  .vj-pop-arch {
+    min-height: 0;
+    height: 150px;
+  }
+  .vj-pop-body {
+    padding: 24px 20px 20px;
+    gap: 12px;
+  }
+  .vj-pop-h {
+    font-size: 34px;
+    padding-right: 0;
+  }
+  .vj-pop-x {
+    top: 12px;
+    right: 12px;
+    background: color-mix(in srgb, var(--s-card) 92%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vj-pop[open] {
+    animation: none;
+  }
+}
+.vj-pop-preview {
+  container: popc / inline-size;
+}

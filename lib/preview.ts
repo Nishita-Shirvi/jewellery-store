@@ -9,7 +9,7 @@ import { env } from "@/lib/env";
  */
 export const PREVIEW_HOURS = 48;
 
-export type PreviewKind = "collection" | "page" | "home";
+export type PreviewKind = "collection" | "page" | "home" | "theme";
 
 function sign(kind: PreviewKind, id: string, expires: number): string {
   return createHmac("sha256", env.AUTH_SECRET)
