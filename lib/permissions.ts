@@ -17,7 +17,8 @@ export const PERMISSIONS = {
   "jobs.manage": "See and retry failed background jobs",
   "support.manage": "Read and answer customer support tickets",
   "faqs.manage": "Edit help-centre FAQs and canned replies",
-  "content.manage": "Homepage, announcement bar, collections and editable pages",
+  "content.manage":
+    "Homepage, announcement bar, collections, editable pages and Appearance (festival themes)",
   "system.view": "System health: uptime, background jobs, alerts and errors",
   "switches.manage": "Pause checkout, COD, coupons or recommendations (kill switches)",
   "accounting.manage": "Reconciliation, GST reports, bulk product import/export",
@@ -89,6 +90,7 @@ export const PAGE_PERMISSIONS: { href: string; label: string; permission: Permis
   { href: "/admin/categories", label: "Categories", permission: "products.view" },
   { href: "/admin/rates", label: "Gold rates", permission: "products.view" },
   { href: "/admin/content", label: "Content", permission: "content.manage" },
+  { href: "/admin/appearance", label: "Appearance", permission: "content.manage" },
   { href: "/admin/settings", label: "Showroom", permission: "content.manage" },
   { href: "/admin/coupons", label: "Coupons", permission: "coupons.manage" },
   { href: "/admin/reviews", label: "Reviews", permission: "reviews.moderate" },

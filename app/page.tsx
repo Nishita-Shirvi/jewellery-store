@@ -19,6 +19,9 @@ import { getHomeReviews } from "@/services/review.service";
 import { HomeSections } from "@/components/merch/home-sections";
 import { getLiveHomeSections } from "@/services/merch.service";
 import { checkPreviewToken } from "@/lib/preview";
+import { themeCss } from "@/lib/theme";
+import { ThemeHero } from "@/components/home/theme-hero";
+import { getAppearanceSafe, getLiveTheme } from "@/services/appearance.service";
 import { RecoRow } from "@/components/reco/reco-row";
 
 const OCCASION_TEXT: Record<OccasionTag, string> = {
@@ -54,29 +57,67 @@ const TRUST = [
 ];
 
 /**
- * Home: the sections built in Admin → Content when any are live (Phase 24); otherwise the
- * built-in homepage below. A content problem never takes the homepage down.
+ * Home: the live festival theme's hero (Admin → Appearance) on top, then the sections built in
+ * Admin → Content when any are live (Phase 24), otherwise the built-in homepage below. A Content
+ * hero section, when there is one, replaces the theme hero. A content problem never takes the
+ * homepage down.
+ *
+ * Staff can preview a theme before its dates with a signed link from Admin → Appearance
+ * (?theme=<id>&preview=<token>): its colours and hero show on this page only.
  */
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{ preview?: string; theme?: string }>;
 }) {
-  const preview = checkPreviewToken("home", "home", (await searchParams).preview);
-  const sections = await getLiveHomeSections(new Date(), { preview }).catch(() => []);
-  if (sections.length > 0)
-    return (
-      <>
-        {preview && (
+  const params = await searchParams;
+  const previewTheme =
+    params.theme && checkPreviewToken("theme", params.theme, params.preview)
+      ? (await getAppearanceSafe()).themes.find((t) => t.id === params.theme)
+      : undefined;
+  const preview = !previewTheme && checkPreviewToken("home", "home", params.preview);
+  const [sections, liveTheme] = await Promise.all([
+    getLiveHomeSections(new Date(), { preview }).catch(() => []),
+    getLiveTheme(),
+  ]);
+  const theme = previewTheme ?? liveTheme;
+  const contentHero = sections.some((s) => s.kind === "HERO");
+  return (
+    <>
+      {previewTheme && (
+        <>
+          <style
+            dangerouslySetInnerHTML={{
+              // The previewed theme's colours and decoration replace today's on this page.
+              __html:
+                themeCss(previewTheme.colors) +
+                `html[data-area="shop"] .vj-toran{display:${previewTheme.decor === "toran" ? "block" : "none"}}`,
+            }}
+          />
           <p role="status" className="bg-amber-50 p-3 text-center text-sm text-amber-900">
-            Homepage preview — showing drafts and scheduled sections too. Customers see only
-            what&apos;s live.
+            Preview of the &ldquo;{previewTheme.name}&rdquo; theme (colours and the top of this
+            page). Customers see it{" "}
+            {previewTheme.isDefault
+              ? "when no festival theme is live"
+              : `from ${previewTheme.from} to ${previewTheme.until}`}
+            .
           </p>
-        )}
-        <HomeSections sections={sections} />
-      </>
-    );
-  return <DefaultHome />;
+        </>
+      )}
+      {preview && (
+        <p role="status" className="bg-amber-50 p-3 text-center text-sm text-amber-900">
+          Homepage preview — showing drafts and scheduled sections too. Customers see only
+          what&apos;s live.
+        </p>
+      )}
+      {!contentHero && <ThemeHero theme={theme} />}
+      {sections.length > 0 ? (
+        <HomeSections sections={sections} hasPageHeading={!contentHero} />
+      ) : (
+        <DefaultHome />
+      )}
+    </>
+  );
 }
 
 async function DefaultHome() {
@@ -88,42 +129,6 @@ async function DefaultHome() {
 
   return (
     <div>
-      {/* Hero: velvet band, headline left, kundan necklace framed in a jharokha arch */}
-      <section className="bg-brand text-on">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-[1.1fr_1fr] md:py-20">
-          <div className="max-w-xl">
-            <h1 className="text-4xl leading-[1.1] md:text-6xl">Jewellery made to be handed down</h1>
-            <p className="text-on/85 mt-5 max-w-md text-base leading-relaxed">
-              Temple, kundan and diamond pieces in hallmarked gold and sterling silver. Bought
-              online, delivered insured, kept for generations.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" className="bg-btn2 text-btn2fg hover:bg-btn2/90">
-                <Link href="/products">Browse jewellery</Link>
-              </Button>
-              <Button
-                asChild
-                size="lg"
-                variant="outline"
-                className="border-gilt text-on bg-transparent hover:bg-white/10 hover:text-white"
-              >
-                <Link href="/products?category=necklaces-pendants">See bridal necklaces</Link>
-              </Button>
-            </div>
-          </div>
-          <div className="arch border-gilt/60 relative mx-auto aspect-[4/5] w-full max-w-sm border bg-black">
-            <Image
-              src="/images/editorial/kundan-necklace.jpg"
-              alt="Kundan necklace with matching jhumka earrings"
-              fill
-              priority
-              sizes="(min-width: 768px) 384px, 90vw"
-              className="object-cover"
-            />
-          </div>
-        </div>
-      </section>
-
       <div className="mx-auto max-w-6xl px-4">
         {/* Categories as a row of arches */}
         {categories.length > 0 && (
