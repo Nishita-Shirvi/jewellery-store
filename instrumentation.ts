@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { SENTRY_DATA_COLLECTION } from "./lib/sentry-privacy";
 
 /** Runs once when the server starts. Sentry is switched on only when SENTRY_DSN is set. */
 export async function register() {
@@ -17,7 +18,7 @@ export async function register() {
     // release introduced a problem (and "resolved in next release" works).
     release: process.env.VERCEL_GIT_COMMIT_SHA,
     tracesSampleRate: sampleRate(process.env.SENTRY_TRACES_SAMPLE_RATE),
-    sendDefaultPii: false, // never send customer emails/IPs to Sentry
+    dataCollection: SENTRY_DATA_COLLECTION, // never send customer data (emails, IPs, cookies) to Sentry
   });
 }
 
