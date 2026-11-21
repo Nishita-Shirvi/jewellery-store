@@ -8,9 +8,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
   const first = user.name?.split(" ")[0];
   return (
     <div>
-      <div className="border-border border-b bg-gradient-to-b from-[#f6eee9] to-[var(--background)]">
+      <div className="border-border from-alt border-b bg-gradient-to-b to-[var(--background)]">
         <div className="mx-auto max-w-6xl px-4 py-6">
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#7d5512] uppercase">
+          <p className="text-eyebrow text-xs font-semibold tracking-[0.18em] uppercase">
             Your account
           </p>
           <p className="mt-1 text-2xl" style={{ fontFamily: "var(--font-display)" }}>

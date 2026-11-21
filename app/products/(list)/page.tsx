@@ -80,7 +80,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
 
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-10 md:grid-cols-[230px_1fr]">
         <aside className="md:sticky md:top-24 md:self-start">
-          <div className="border-border rounded-lg border bg-white/60 p-5">
+          <div className="border-border bg-card rounded-lg border p-5">
             <h2 className="mb-4 text-lg">Refine</h2>
             <CatalogFilters query={query} categories={categories} />
           </div>

@@ -28,7 +28,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "border-border border-b bg-gradient-to-b from-[#f6eee9] to-[var(--background)]",
+        "border-border from-alt border-b bg-gradient-to-b to-[var(--background)]",
         className,
       )}
     >
@@ -44,7 +44,7 @@ export function PageHeader({
                   >
                     {c.label}
                   </Link>
-                  <span aria-hidden="true" className="text-[#c9a45c]">
+                  <span aria-hidden="true" className="text-gilt">
                     /
                   </span>
                 </li>
@@ -55,7 +55,7 @@ export function PageHeader({
         <div className="mt-3 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             {eyebrow && (
-              <p className="mb-1 text-xs font-semibold tracking-[0.18em] text-[#7d5512] uppercase">
+              <p className="text-eyebrow mb-1 text-xs font-semibold tracking-[0.18em] uppercase">
                 {eyebrow}
               </p>
             )}
@@ -80,7 +80,7 @@ export function Ornament({ className }: { className?: string }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 120 12"
-      className={cn("h-3 w-28 text-[#c9a45c]", className)}
+      className={cn("text-gilt h-3 w-28", className)}
       fill="none"
     >
       <path d="M0 6h48M72 6h48" stroke="currentColor" strokeWidth="1" />

@@ -1,5 +1,24 @@
 # Changelog
 
+## New shop look, dark mode and festival themes — 2026-11-21
+
+Needs the migration `20261121090000_category_tile` (adds `Category.tile`; applied automatically on production deploys). Customer pages only; admin keeps its look.
+
+### Added
+
+- **New look** for every customer page: Cormorant Garamond headings and Karla text (self-hosted), a wordmark header with a categories row, rate bar under the header, product cards with gold prices ("BIS hallmarked" only on pieces with an HUID) and a four-column footer with the showroom address from Admin → Showroom.
+- **Dark mode** with a sun/moon button in the header, remembered per shopper (cookie `vj_mode`); otherwise the shop follows the device, or the default set in Admin → Appearance.
+- **Admin → Appearance** (needs `content.manage`): festival themes with dates (India time), seven colours with **Default colours**, festive decoration (toran or petals), the top of the home page (photo in an arch or a full-width background video) and an offer line. Preview links for staff. See `Docs/ADMIN_GUIDE.md` → Appearance.
+- **Home page** in the new layout: trust bar, category tiles, the wedding and festive edits with every occasion, featured pieces, the style advisor band, reviews and a "Prefer to see it in person?" band with Book a visit and WhatsApp.
+- **Category tiles on a display model** (velvet bust, head or hand, in the theme colours): the hover (or tap) zoom grows the product photo out of where the piece sits. Admin → Categories → **Home-page tile**: upload a product photo, its background is removed in the browser (no paid service), then drag, size and turn it on the model; or use your own model photo. Sample tiles from stock photos (`public/images/tiles/`) show until then.
+- **Popup** (Admin → Appearance → Popup, needs `content.manage`, off by default): a picture, words and one action: book a private showroom visit (saved to Admin → Visits), join the newsletter (double opt-in, consent source "popup"), sign in, or a button to a page. Dates, home page or all shop pages, opening delay or exit intent, and how often it shows again (per browser; a new save shows it again). Never on cart, checkout, sign-in, account or admin pages. A native dialog: focus stays inside; Esc, the close button or the backdrop close it.
+- Videos upload straight from the browser to Cloudinary with a signed ticket (MP4/WebM only, `[images] max_video_mb`, default 25). The CSP now allows `https://api.cloudinary.com` for this.
+
+### Changed
+
+- The announcement bar highlights words between `*stars*` in gold.
+- The built-in home page starts with the live theme's hero instead of the fixed maroon band.
+
 ## Storefront: gold rates, occasions, showroom visits — 2026-11-19
 
 Needs the migration `20261119090000_storefront_rates_visits` (applied automatically on production deploys). After deploying: enter today's rates (Admin → Gold rates) and the showroom details (Admin → Showroom) — see `Docs/GO_LIVE_CHECKLIST.md` and `Docs/ADMIN_GUIDE.md`.

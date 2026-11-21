@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { availableStock } from "@/services/inventory.service";
 import { searchProductScores } from "@/services/search.service";
 import { materialSummary } from "@/lib/jewellery";
+import { sampleTile } from "@/lib/tiles";
+import { readTile } from "@/lib/validation/tiles";
 import { variantJewellery } from "@/lib/variants";
 import { percentOff } from "@/lib/merch";
 import { occasionFromSlug } from "@/lib/storefront";
@@ -34,6 +36,7 @@ export const cardSelect = {
   purity: true,
   metalColour: true,
   netWeightMg: true,
+  huid: true,
 } satisfies Prisma.ProductSelect;
 
 type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
@@ -57,6 +60,7 @@ export function toCard(row: CardRow): ProductCardData {
     inStock: availableStock(row) > 0,
     reviewCount: row.reviewCount,
     ratingAvgX100: row.ratingAvgX100,
+    hallmarked: Boolean(row.huid),
   };
 }
 
@@ -141,7 +145,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v4"],
+  ["catalog:list:v5"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -155,7 +159,7 @@ export const getFeaturedProducts = unstable_cache(
     });
     return rows.map(toCard);
   },
-  ["catalog:featured:v2"],
+  ["catalog:featured:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -168,17 +172,24 @@ export const getCategories = unstable_cache(
         name: true,
         slug: true,
         image: true,
+        tile: true,
         _count: { select: { products: { where: { isActive: true } } } },
       },
     });
-    return rows.map((row) => ({
-      name: row.name,
-      slug: row.slug,
-      image: row.image ?? FALLBACK_IMAGE,
-      productCount: row._count.products,
-    }));
+    return rows.map((row) => {
+      // The admin's own tile; else the sample tile for its name; "No model" = the plain photo.
+      const own = row.tile === null ? null : readTile(row.tile);
+      const tile = own ? (own.model === "none" ? null : own) : sampleTile(row);
+      return {
+        name: row.name,
+        slug: row.slug,
+        image: row.image ?? FALLBACK_IMAGE,
+        productCount: row._count.products,
+        tile,
+      };
+    });
   },
-  ["catalog:categories"],
+  ["catalog:categories:v2"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 

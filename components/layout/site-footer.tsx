@@ -2,7 +2,9 @@ import Link from "next/link";
 import { getBusiness } from "@/lib/business";
 import { config } from "@/lib/config";
 import { getCategories } from "@/services/catalog.service";
+import { getStorefrontSettings } from "@/services/storefront.service";
 import { NewsletterForm } from "@/components/marketing/marketing-forms";
+import { Wordmark } from "@/components/layout/wordmark";
 import { NEWSLETTER_CONSENT_TEXT } from "@/services/marketing.service";
 
 const help = [
@@ -17,23 +19,27 @@ const help = [
   { href: "/terms", label: "Terms" },
 ];
 
+const heading = "text-goldlight mb-3 text-[11px] font-bold tracking-[0.18em] uppercase";
+const link = "hover:text-goldlight hover:underline underline-offset-4";
+
 export async function SiteFooter() {
   const business = getBusiness();
-  const categories = await getCategories();
+  const [categories, showroom] = await Promise.all([
+    getCategories(),
+    getStorefrontSettings().catch(() => null),
+  ]);
   const year = new Date().getFullYear();
 
   return (
-    <footer className="bg-primary text-primary-foreground mt-auto">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 md:grid-cols-[1.4fr_1fr_1fr]">
+    <footer className="bg-deep text-on mt-auto">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1.2fr]">
         <div className="max-w-sm space-y-3">
-          <p className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
-            {business.storeName}
-          </p>
-          <p className="text-sm text-[#e9d9dc]">
+          <Wordmark />
+          <p className="pt-2 text-sm opacity-90">
             Hallmarked gold, sterling silver and certified diamonds, packed in tamper-proof boxes
             and insured until they reach you.
           </p>
-          <p className="text-sm text-[#e9d9dc]">
+          <p className="text-sm opacity-90">
             {business.email}
             <br />
             {business.phone}
@@ -43,37 +49,57 @@ export async function SiteFooter() {
           </div>
         </div>
         <nav aria-label="Shop">
-          <p className="mb-3 text-sm font-semibold">Shop</p>
-          <ul className="space-y-2 text-sm text-[#e9d9dc]">
+          <p className={heading}>Shop</p>
+          <ul className="space-y-2 text-sm opacity-90">
             {categories.map((c) => (
               <li key={c.slug}>
-                <Link href={`/collections/${c.slug}`} className="hover:text-white hover:underline">
+                <Link href={`/collections/${c.slug}`} className={link}>
                   {c.name}
                 </Link>
               </li>
             ))}
             <li>
-              <Link href="/products" className="hover:text-white hover:underline">
+              <Link href="/products" className={link}>
                 All jewellery
               </Link>
             </li>
           </ul>
         </nav>
         <nav aria-label="Store policies">
-          <p className="mb-3 text-sm font-semibold">Help</p>
-          <ul className="space-y-2 text-sm text-[#e9d9dc]">
+          <p className={heading}>Help</p>
+          <ul className="space-y-2 text-sm opacity-90">
             {help.map((l) => (
               <li key={l.href}>
-                <Link href={l.href} className="hover:text-white hover:underline">
+                <Link href={l.href} className={link}>
                   {l.label}
                 </Link>
               </li>
             ))}
           </ul>
         </nav>
+        {showroom?.showroomAddress && (
+          <div>
+            <p className={heading}>The showroom</p>
+            <address className="space-y-2 text-sm whitespace-pre-line not-italic opacity-90">
+              {showroom.showroomAddress}
+            </address>
+            {showroom.hours && <p className="mt-2 text-sm opacity-90">{showroom.hours}</p>}
+            {showroom.phone && <p className="mt-2 text-sm opacity-90">{showroom.phone}</p>}
+            {showroom.mapUrl && (
+              <a
+                href={showroom.mapUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${link} mt-2 inline-block text-sm underline`}
+              >
+                Open in Google Maps
+              </a>
+            )}
+          </div>
+        )}
       </div>
-      <div className="border-t border-white/15">
-        <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-[#d8c3c8]">
+      <div className="border-gilt/30 border-t">
+        <p className="mx-auto max-w-7xl px-4 py-5 text-xs opacity-80">
           © {year} {business.legalName}. GSTIN {business.gstin}. Grievance officer:{" "}
           {business.grievanceName}, {business.grievanceEmail}.
         </p>
