@@ -53,18 +53,11 @@ function CallToAction({ s, variant }: { s: LiveSection; variant?: "light" }) {
 }
 
 /** The homepage built in Admin → Content (Phase 24), in the owner's order. */
-export function HomeSections({
-  sections,
-  hasPageHeading = false,
-}: {
-  sections: LiveSection[];
-  /** The page already has its h1 (the theme hero above). */
-  hasPageHeading?: boolean;
-}) {
+export function HomeSections({ sections }: { sections: LiveSection[] }) {
   const firstHero = sections.findIndex((s) => s.kind === "HERO");
   return (
     <div>
-      {firstHero === -1 && !hasPageHeading && (
+      {firstHero === -1 && (
         <h1 className="sr-only">Hallmarked gold, silver and diamond jewellery</h1>
       )}
       {sections.map((s, i) => {

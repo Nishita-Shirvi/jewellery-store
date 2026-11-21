@@ -5,8 +5,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { Analytics } from "@/components/analytics/analytics";
 import { publicEnv } from "@/lib/env";
-import { MODE_COOKIE, parseMode, shopTokens, themeCss } from "@/lib/theme";
-import { getAppearanceSafe, getLiveTheme } from "@/services/appearance.service";
+import { DEFAULT_COLORS, MODE_COOKIE, parseMode, shopTokens, themeCss } from "@/lib/theme";
 import "@fontsource/marcellus/400.css";
 import "@fontsource-variable/figtree";
 import "@fontsource/cormorant-garamond/latin-500.css";
@@ -32,34 +31,25 @@ export const metadata: Metadata = {
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
-export async function generateViewport(): Promise<Viewport> {
-  const { colors } = await getLiveTheme();
-  return {
-    width: "device-width",
-    initialScale: 1,
-    themeColor: [
-      { media: "(prefers-color-scheme: light)", color: shopTokens(colors, "light").brand },
-      { media: "(prefers-color-scheme: dark)", color: shopTokens(colors, "dark").brand },
-    ],
-  };
-}
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: shopTokens(DEFAULT_COLORS, "light").brand },
+    { media: "(prefers-color-scheme: dark)", color: shopTokens(DEFAULT_COLORS, "dark").brand },
+  ],
+};
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // Admin pages keep the admin look; every other page gets the shop look (AreaSync keeps this
-  // right after in-app navigation). Colours and decoration come from the live festival theme
-  // (Admin → Appearance). Light/dark: the shopper's sun/moon choice, else the admin's default.
+  // right after in-app navigation). The shopper's light/dark choice comes from the sun/moon
+  // button's cookie, else follows their device.
   const admin = (await headers()).has(ADMIN_PATH_HEADER);
-  const [appearance, theme] = await Promise.all([getAppearanceSafe(), getLiveTheme()]);
-  const mode = parseMode((await cookies()).get(MODE_COOKIE)?.value) ?? appearance.defaultMode;
+  const mode = parseMode((await cookies()).get(MODE_COOKIE)?.value) ?? "system";
   return (
-    <html
-      lang="en-IN"
-      data-area={admin ? "admin" : "shop"}
-      data-mode={mode}
-      data-decor={theme.decor}
-    >
+    <html lang="en-IN" data-area={admin ? "admin" : "shop"} data-mode={mode}>
       <head>
-        <style id="shop-theme" dangerouslySetInnerHTML={{ __html: themeCss(theme.colors) }} />
+        <style id="shop-theme" dangerouslySetInnerHTML={{ __html: themeCss(DEFAULT_COLORS) }} />
       </head>
       <body className="flex min-h-dvh flex-col antialiased">
         <AreaSync />

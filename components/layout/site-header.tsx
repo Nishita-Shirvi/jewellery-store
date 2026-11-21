@@ -74,7 +74,6 @@ export async function SiteHeader() {
           ))}
         </nav>
       </div>
-      <div className="vj-toran" aria-hidden="true" />
       <RateStrip />
     </header>
   );

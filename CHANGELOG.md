@@ -1,21 +1,5 @@
 # Changelog
 
-## New shop look, dark mode and festival themes — 2026-11-21
-
-No migration. Customer pages only; admin keeps its look.
-
-### Added
-
-- **New look** for every customer page: Cormorant Garamond headings and Karla text (self-hosted), a wordmark header with a categories row, rate bar under the header, product cards with gold prices ("BIS hallmarked" only on pieces with an HUID) and a four-column footer with the showroom address from Admin → Showroom.
-- **Dark mode** with a sun/moon button in the header, remembered per shopper (cookie `vj_mode`); otherwise the shop follows the device, or the default set in Admin → Appearance.
-- **Admin → Appearance** (needs `content.manage`): festival themes with dates (India time), seven colours with **Default colours**, festive decoration (toran or petals), the top of the home page (photo in an arch or a full-width background video) and an offer line. Preview links for staff. See `Docs/ADMIN_GUIDE.md` → Appearance.
-- Videos upload straight from the browser to Cloudinary with a signed ticket (MP4/WebM only, `[images] max_video_mb`, default 25). The CSP now allows `https://api.cloudinary.com` for this.
-
-### Changed
-
-- The announcement bar highlights words between `*stars*` in gold.
-- The built-in home page starts with the live theme's hero instead of the fixed maroon band.
-
 ## Storefront: gold rates, occasions, showroom visits — 2026-11-19
 
 Needs the migration `20261119090000_storefront_rates_visits` (applied automatically on production deploys). After deploying: enter today's rates (Admin → Gold rates) and the showroom details (Admin → Showroom) — see `Docs/GO_LIVE_CHECKLIST.md` and `Docs/ADMIN_GUIDE.md`.
