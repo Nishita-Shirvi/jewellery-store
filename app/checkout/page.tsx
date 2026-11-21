@@ -79,7 +79,7 @@ export default async function CheckoutPage() {
         />
 
         <aside
-          className="border-border h-fit overflow-hidden rounded-lg border bg-white/70 lg:sticky lg:top-24"
+          className="border-border bg-card h-fit overflow-hidden rounded-lg border lg:sticky lg:top-24"
           aria-label="Order summary"
         >
           <div className="bg-primary text-primary-foreground px-5 py-3">

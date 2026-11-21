@@ -146,7 +146,7 @@ export const getBoughtTogether = memo(
         .slice(0, limit)
         .map(toRecoCard);
     },
-    ["reco:bought-together:v1"],
+    ["reco:bought-together:v2"],
     { tags: [RECO_TAG, CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );
@@ -173,7 +173,7 @@ export const getSimilar = memo(
       });
       return rankSimilar(target, candidates.filter(inStock), limit).map(toRecoCard);
     },
-    ["reco:similar:v1"],
+    ["reco:similar:v2"],
     { tags: [RECO_TAG, CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );
@@ -205,7 +205,7 @@ export const getTrending = memo(
       }
       return picked.slice(0, limit).map(toRecoCard);
     },
-    ["reco:trending:v1"],
+    ["reco:trending:v2"],
     { tags: [RECO_TAG, CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );
@@ -224,7 +224,7 @@ export const getRecentlyViewed = memo(
       const bySlug = new Map(rows.map((r) => [r.slug, r]));
       return wanted.flatMap((s) => (bySlug.has(s) ? [toRecoCard(bySlug.get(s)!)] : []));
     },
-    ["reco:recent:v1"],
+    ["reco:recent:v2"],
     { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );
@@ -248,7 +248,7 @@ export const getFreeShippingUpsell = memo(
         limit,
       ).map(toRecoCard);
     },
-    ["reco:upsell:v1"],
+    ["reco:upsell:v2"],
     { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );
@@ -278,7 +278,7 @@ export const getCartBoughtTogether = memo(
         .slice(0, limit)
         .map(toRecoCard);
     },
-    ["reco:cart-bought-together:v1"],
+    ["reco:cart-bought-together:v2"],
     { tags: [RECO_TAG, CATALOG_TAG], revalidate: CACHE_SECONDS },
   ),
 );

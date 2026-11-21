@@ -1,44 +1,40 @@
 import Link from "next/link";
 import { LogOut, Shield, User } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { logoutAction } from "@/app/(auth)/actions";
 import type { SessionUser } from "@/lib/auth-guards";
 
-/** Placeholder signed-in controls (a proper dropdown comes with the final design). */
+const pill =
+  "hover:bg-on/10 focus-visible:ring-gilt inline-flex h-8 items-center gap-1.5 rounded-full px-1.5 text-sm sm:h-9 sm:px-2.5 outline-none focus-visible:ring-2 [&_svg]:size-[18px] [&_svg]:shrink-0";
+
+/** Sign-in / account controls in the shop header (on the brand-colour bar). */
 export function UserMenu({ user }: { user: SessionUser | null }) {
   if (!user) {
     return (
-      <Button asChild variant="outline" size="sm">
-        <Link href="/login">
-          <User />
-          <span className="max-[380px]:sr-only">Log in</span>
-        </Link>
-      </Button>
+      <Link href="/login" className={`${pill} border-gilt/55 border`}>
+        <User aria-hidden="true" />
+        <span className="whitespace-nowrap max-sm:sr-only">Log in</span>
+      </Link>
     );
   }
 
   const firstName = user.name?.split(" ")[0] ?? "Account";
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {user.role === "ADMIN" && (
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/admin">
-            <Shield />
-            <span className="hidden sm:inline">Admin</span>
-          </Link>
-        </Button>
-      )}
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/account">
-          <User />
-          <span className="sr-only sm:not-sr-only sm:max-w-24 sm:truncate">{firstName}</span>
+        <Link href="/admin" className={pill}>
+          <Shield aria-hidden="true" />
+          <span className="hidden sm:inline">Admin</span>
         </Link>
-      </Button>
+      )}
+      <Link href="/account" className={pill}>
+        <User aria-hidden="true" />
+        <span className="sr-only sm:not-sr-only sm:max-w-24 sm:truncate">{firstName}</span>
+      </Link>
       <form action={logoutAction}>
-        <Button type="submit" variant="ghost" size="icon" aria-label="Log out">
-          <LogOut />
-        </Button>
+        <button type="submit" aria-label="Log out" className={pill}>
+          <LogOut aria-hidden="true" />
+        </button>
       </form>
     </div>
   );

@@ -29,7 +29,7 @@ export async function RateStrip() {
 
   if (shown.length === 0) {
     return (
-      <p className="bg-primary text-primary-foreground px-4 py-1.5 text-center text-xs">
+      <p className="bg-alt border-line text-foreground border-b px-4 py-2 text-center text-xs sm:text-[13px]">
         {announcement}
       </p>
     );
@@ -37,21 +37,23 @@ export async function RateStrip() {
 
   const newest = shown.reduce((a, b) => (a.updatedAt > b.updatedAt ? a : b));
   return (
-    <div className="bg-primary text-primary-foreground text-xs">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-0.5 px-4 py-1.5 md:justify-between">
-        <p aria-label="Today's metal rates">
-          <span className="mr-2 font-medium text-[#e8c987]">Today&apos;s rate</span>
-          {shown.map((r, i) => (
+    <div className="bg-alt border-line text-foreground border-b text-xs sm:text-[13px]">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-6 gap-y-0.5 px-4 py-2 tabular-nums md:justify-between">
+        <p aria-label="Today's metal rates" className="flex flex-wrap justify-center gap-x-5">
+          <span className="text-eyebrow text-[11px] font-bold tracking-[0.16em] uppercase sm:text-xs">
+            Today&apos;s rate
+          </span>
+          {shown.map((r) => (
             <span key={r.purity}>
-              {i > 0 && <span aria-hidden="true"> · </span>}
-              {purityLabel[r.purity]} {formatINR(r.ratePerGramInPaise)}/g
+              <strong className="font-bold">{purityLabel[r.purity]}</strong>{" "}
+              {formatINR(r.ratePerGramInPaise)}/g
             </span>
           ))}
-          <span className="ml-2 opacity-75">
+          <span className="text-muted-foreground">
             (updated {updatedFmt.format(new Date(newest.updatedAt))})
           </span>
         </p>
-        <p className="hidden opacity-90 md:block">{announcement}</p>
+        <p className="text-muted-foreground hidden md:block">{announcement}</p>
       </div>
     </div>
   );

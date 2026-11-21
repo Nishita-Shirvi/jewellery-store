@@ -34,6 +34,7 @@ export const cardSelect = {
   purity: true,
   metalColour: true,
   netWeightMg: true,
+  huid: true,
 } satisfies Prisma.ProductSelect;
 
 type CardRow = Prisma.ProductGetPayload<{ select: typeof cardSelect }>;
@@ -57,6 +58,7 @@ export function toCard(row: CardRow): ProductCardData {
     inStock: availableStock(row) > 0,
     reviewCount: row.reviewCount,
     ratingAvgX100: row.ratingAvgX100,
+    hallmarked: Boolean(row.huid),
   };
 }
 
@@ -141,7 +143,7 @@ export const listProducts = unstable_cache(
       pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
     };
   },
-  ["catalog:list:v4"],
+  ["catalog:list:v5"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 
@@ -155,7 +157,7 @@ export const getFeaturedProducts = unstable_cache(
     });
     return rows.map(toCard);
   },
-  ["catalog:featured:v2"],
+  ["catalog:featured:v3"],
   { tags: [CATALOG_TAG], revalidate: CACHE_SECONDS },
 );
 

@@ -68,7 +68,7 @@ export default async function CartPage() {
           {cart.items.map((item) => (
             <li
               key={item.variantId}
-              className="border-border flex gap-4 rounded-lg border bg-white/60 p-4"
+              className="border-border bg-card flex gap-4 rounded-lg border p-4"
             >
               <Link
                 href={`/products/${item.slug}`}
@@ -118,7 +118,7 @@ export default async function CartPage() {
         </ul>
 
         <aside
-          className="border-border h-fit overflow-hidden rounded-lg border bg-white/70 lg:sticky lg:top-24"
+          className="border-border bg-card h-fit overflow-hidden rounded-lg border lg:sticky lg:top-24"
           aria-label="Order summary"
         >
           <div className="bg-primary text-primary-foreground px-5 py-3">

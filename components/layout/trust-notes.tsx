@@ -33,7 +33,7 @@ export function TrustNotes({
     <ul className={cn("grid gap-3 text-sm", compact ? "" : "sm:grid-cols-2", className)}>
       {items.map(({ icon: Icon, title, text }) => (
         <li key={title} className="flex items-start gap-3">
-          <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-[#8a6420]" />
+          <Icon aria-hidden="true" className="text-gold mt-0.5 size-4 shrink-0" />
           <span>
             <span className="font-medium">{title}</span>
             <span className="text-muted-foreground block text-xs">{text}</span>
@@ -76,7 +76,7 @@ export function FreeShippingMeter({
         aria-valuenow={pct}
       >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-[#c9a45c] to-[#a87a28] transition-[width] motion-reduce:transition-none"
+          className="from-gilt to-gold h-full rounded-full bg-gradient-to-r transition-[width] motion-reduce:transition-none"
           style={{ width: `${pct}%` }}
         />
       </div>
