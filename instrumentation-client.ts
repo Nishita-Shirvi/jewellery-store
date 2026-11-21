@@ -2,6 +2,8 @@
  * Browser error tracking. Sentry is loaded lazily and only when NEXT_PUBLIC_SENTRY_DSN is set,
  * so it can never delay or break the store's own JavaScript.
  */
+import { SENTRY_DATA_COLLECTION } from "./lib/sentry-privacy";
+
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
 if (dsn) {
@@ -13,7 +15,7 @@ if (dsn) {
           environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
           release: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,
           tracesSampleRate: 0.1,
-          sendDefaultPii: false,
+          dataCollection: SENTRY_DATA_COLLECTION,
         }),
       )
       .catch(() => {});
