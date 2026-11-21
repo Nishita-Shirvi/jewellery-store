@@ -1,30 +1,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  ArrowRight,
   BadgeCheck,
   CalendarDays,
-  IndianRupee,
-  MessageCircle,
+  PackageCheck,
   RotateCcw,
-  Truck,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
+import { ProductImage } from "@/components/catalog/product-image";
 import { ProductGrid } from "@/components/catalog/product-grid";
+import { Button } from "@/components/ui/button";
 import { Stars } from "@/components/reviews/stars";
 import { config } from "@/lib/config";
 import { OCCASIONS, type OccasionTag } from "@/lib/storefront";
-import { whatsappLink } from "@/lib/support";
 import { getCategories, getFeaturedProducts } from "@/services/catalog.service";
 import { getHomeReviews } from "@/services/review.service";
 import { HomeSections } from "@/components/merch/home-sections";
 import { getLiveHomeSections } from "@/services/merch.service";
 import { checkPreviewToken } from "@/lib/preview";
 import { themeCss } from "@/lib/theme";
-import { cn } from "@/lib/utils";
-import { CategoryTiles } from "@/components/home/category-tiles";
-import { Emphasised, ThemeHero } from "@/components/home/theme-hero";
+import { ThemeHero } from "@/components/home/theme-hero";
 import { getAppearanceSafe, getLiveTheme } from "@/services/appearance.service";
-import { whatsappNumber } from "@/services/storefront.service";
 import { RecoRow } from "@/components/reco/reco-row";
 
 const OCCASION_TEXT: Record<OccasionTag, string> = {
@@ -37,69 +34,27 @@ const OCCASION_TEXT: Record<OccasionTag, string> = {
 };
 
 const TRUST = [
-  { icon: BadgeCheck, text: "BIS hallmarked gold" },
-  { icon: IndianRupee, text: "Priced at today's gold rate" },
-  { icon: Truck, text: "Insured, tracked delivery" },
-  { icon: RotateCcw, text: "Easy returns" },
-];
-
-const EDITS = [
   {
-    href: "/products?occasion=bridal",
-    image: "/images/editorial/bridal-set.jpg",
-    alt: "Gold bridal necklace and earrings on red silk",
-    eyebrow: "The wedding edit",
-    title: "For all your *forevers.*",
-    link: "Explore bridal",
+    icon: BadgeCheck,
+    title: "BIS hallmarked gold",
+    text: "Every gold piece carries its hallmark and HUID.",
   },
   {
-    href: "/products?occasion=festive",
-    image: "/images/editorial/bangles.jpg",
-    alt: "A pair of kundan bangles with ruby and green stones",
-    eyebrow: "The festive edit",
-    title: "Little luxuries. *Entirely yours.*",
-    link: "Discover festive pieces",
+    icon: PackageCheck,
+    title: "Insured delivery",
+    text: "Tamper-proof packing, insured until it's in your hands.",
+  },
+  {
+    icon: RotateCcw,
+    title: "Easy returns",
+    text: "Changed your mind? Return eligible pieces after delivery.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Secure payments",
+    text: "UPI, cards and netbanking through Razorpay.",
   },
 ];
-
-const eyebrow = "text-eyebrow block text-[11px] font-bold tracking-[0.2em] uppercase";
-const sectionTitle = "text-head mt-2.5 text-[clamp(2rem,4.4vw,3.4rem)] leading-[1.05]";
-const btn =
-  "inline-flex items-center gap-2.5 border px-5 py-4 text-[11.5px] font-bold tracking-[0.15em] uppercase outline-none focus-visible:ring-2 focus-visible:ring-gilt focus-visible:ring-offset-2 [&_svg]:size-4";
-
-function SectionHead({
-  id,
-  kicker,
-  title,
-  children,
-  link,
-}: {
-  id: string;
-  kicker: string;
-  title: string;
-  children?: React.ReactNode;
-  link?: { href: string; label: string };
-}) {
-  return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-x-5 gap-y-3">
-      <div>
-        <span className={eyebrow}>{kicker}</span>
-        <h2 id={id} className={sectionTitle}>
-          <Emphasised text={title} emClass="text-em" />
-        </h2>
-        {children}
-      </div>
-      {link && (
-        <Link
-          href={link.href}
-          className="text-eyebrow inline-flex items-center gap-1.5 text-[13px] font-semibold tracking-wide underline-offset-4 hover:underline"
-        >
-          {link.label} <ArrowRight className="size-4" aria-hidden="true" />
-        </Link>
-      )}
-    </div>
-  );
-}
 
 /**
  * Home: the live festival theme's hero (Admin → Appearance) on top, then the sections built in
@@ -166,213 +121,179 @@ export default async function HomePage({
 }
 
 async function DefaultHome() {
-  const [categories, featured, reviews, whatsapp] = await Promise.all([
+  const [categories, featured, reviews] = await Promise.all([
     getCategories(),
     getFeaturedProducts(config.storefront.featured_count),
     getHomeReviews(config.storefront.home_reviews),
-    whatsappNumber().catch(() => ""),
   ]);
-  const chat = whatsapp
-    ? whatsappLink(whatsapp, "Hello! I'd like to see some pieces at the showroom.")
-    : null;
 
   return (
     <div>
-      {/* Why buy here */}
-      <section aria-label="Why buy from us" className="bg-deep text-on border-gilt/40 border-y">
-        <ul className="mx-auto grid max-w-7xl grid-cols-2 gap-x-6 gap-y-4 px-4 py-5 text-xs sm:text-[13.5px] lg:grid-cols-4">
-          {TRUST.map(({ icon: Icon, text }) => (
-            <li key={text} className="flex items-center gap-2.5 lg:justify-center">
-              <Icon className="text-goldlight size-5 shrink-0" aria-hidden="true" />
-              {text}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {categories.length > 0 && (
-        <section
-          aria-labelledby="categories-heading"
-          className="mx-auto max-w-7xl px-4 py-14 md:py-[72px]"
-        >
-          <SectionHead
-            id="categories-heading"
-            kicker="Gold, in every expression"
-            title="Find your kind of *beautiful.*"
-            link={{ href: "/products", label: "All jewellery" }}
-          >
-            <p className="text-muted-foreground mt-2.5 text-sm">
-              Each piece is shown on our display model.{" "}
-              <span className="pointer-coarse:hidden">Hover</span>
-              <span className="hidden pointer-coarse:inline">Tap</span> to see it up close.
-            </p>
-          </SectionHead>
-          <CategoryTiles categories={categories} />
-        </section>
-      )}
-
-      {/* Shop by occasion: two big edits, then every occasion */}
-      <section aria-labelledby="occasion-heading" className="bg-alt">
-        <div className="mx-auto max-w-7xl px-4 py-14 md:py-[72px]">
-          <SectionHead
-            id="occasion-heading"
-            kicker="For every version of you"
-            title="A moment. A mood. *A memory.*"
-          >
-            <p className="text-muted-foreground mt-2.5 text-sm">
-              Shop by occasion: bridal, festive, daily wear and more.
-            </p>
-          </SectionHead>
-          <div className="grid gap-5 md:grid-cols-[1.15fr_1fr] md:gap-6">
-            {EDITS.map((e, i) => (
-              <Link
-                key={e.href}
-                href={e.href}
-                className="group bg-deep focus-visible:ring-gilt relative block min-h-[380px] overflow-hidden outline-none focus-visible:ring-2 md:min-h-[440px]"
-              >
-                <Image
-                  src={e.image}
-                  alt={e.alt}
-                  fill
-                  sizes="(min-width: 768px) 50vw, 100vw"
-                  className="object-cover transition-transform duration-1000 group-hover:scale-[1.04] motion-reduce:transition-none"
-                />
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 bg-[linear-gradient(0deg,rgba(30,8,16,.92)_0%,rgba(30,8,16,.72)_42%,rgba(30,8,16,.1)_85%)]"
-                />
-                <div className="absolute inset-x-6 bottom-7 text-[#fbf6ee] sm:inset-x-8 sm:bottom-9">
-                  <span className="text-goldlight block text-[10px] font-bold tracking-[0.2em] uppercase">
-                    {e.eyebrow}
-                  </span>
-                  <p
-                    className={cn(
-                      "mt-4 mb-5 leading-[1.02]",
-                      i === 0 ? "text-[40px] sm:text-[52px]" : "text-[40px] sm:text-[46px]",
-                    )}
-                    style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
+      <div className="mx-auto max-w-6xl px-4">
+        {/* Categories as a row of arches */}
+        {categories.length > 0 && (
+          <section aria-labelledby="categories-heading" className="py-16">
+            <h2 id="categories-heading" className="text-3xl">
+              Shop by category
+            </h2>
+            <ul className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4">
+              {categories.map((category) => (
+                <li key={category.slug}>
+                  <Link
+                    href={`/collections/${category.slug}`}
+                    className="group focus-visible:ring-ring block rounded-md outline-none focus-visible:ring-2"
                   >
-                    <Emphasised text={e.title} emClass="text-goldlight" />
-                  </p>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase">
-                    {e.link} <ArrowRight className="size-4" aria-hidden="true" />
-                  </span>
-                </div>
+                    <div className="arch border-border bg-muted border">
+                      <ProductImage
+                        src={category.image}
+                        alt=""
+                        className="transition-transform duration-500 group-hover:scale-[1.04] motion-reduce:transition-none"
+                      />
+                    </div>
+                    <span
+                      className="mt-3 block text-center text-lg"
+                      style={{ fontFamily: "var(--font-display)" }}
+                    >
+                      {category.name}
+                    </span>
+                    <span className="text-muted-foreground block text-center text-xs">
+                      {category.productCount} pieces
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {/* Editorial: bridal + festive */}
+        <section aria-label="Collections" className="grid gap-5 md:grid-cols-2">
+          <Link
+            href="/products?category=necklaces-pendants"
+            className="group relative block overflow-hidden rounded-md bg-black"
+          >
+            <Image
+              src="/images/editorial/bridal-set.jpg"
+              alt="Gold bridal necklace and earrings on red silk"
+              width={714}
+              height={420}
+              className="aspect-[4/3] w-full object-cover opacity-90 transition-opacity group-hover:opacity-100"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-6 text-white">
+              <p className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
+                For the wedding
+              </p>
+              <p className="mt-1 text-sm text-white/85">
+                Necklace sets, mangalsutras and temple jewellery
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/products?category=bangles-bracelets"
+            className="group relative block overflow-hidden rounded-md bg-[#8c8c8c]"
+          >
+            <Image
+              src="/images/editorial/bangles.jpg"
+              alt="A pair of kundan bangles with ruby and green stones"
+              width={742}
+              height={497}
+              className="aspect-[4/3] w-full object-cover opacity-95 transition-opacity group-hover:opacity-100"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-6 text-white">
+              <p className="text-2xl" style={{ fontFamily: "var(--font-display)" }}>
+                For every festival
+              </p>
+              <p className="mt-1 text-sm text-white/85">Kundan bangles, kadas and bracelets</p>
+            </div>
+          </Link>
+        </section>
+
+        {/* Shop by occasion (product tags; same tags as the occasion collections) */}
+        <section aria-labelledby="occasion-heading" className="pt-16">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="occasion-heading" className="text-3xl">
+              Shop by occasion
+            </h2>
+            {config.features.style_advisor && (
+              <Link
+                href="/style-advisor"
+                className="inline-flex items-center gap-1.5 text-sm underline underline-offset-4"
+              >
+                <Sparkles className="text-gold size-4" aria-hidden="true" /> Not sure? Try the style
+                advisor
               </Link>
-            ))}
+            )}
           </div>
           <ul className="mt-8 grid grid-cols-2 gap-3 md:grid-cols-3">
             {OCCASIONS.map((o) => (
               <li key={o.tag}>
                 <Link
                   href={`/products?occasion=${o.tag}`}
-                  className="group border-line hover:border-gilt bg-card block h-full border p-4 transition-colors sm:p-5"
+                  className="group border-border hover:border-gold bg-background block h-full rounded-md border p-5 transition-colors"
                 >
-                  <span
-                    className="text-head block text-xl"
-                    style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
-                  >
+                  <span className="block text-xl" style={{ fontFamily: "var(--font-display)" }}>
                     {o.label}
                   </span>
                   <span className="text-muted-foreground mt-1 block text-sm">
                     {OCCASION_TEXT[o.tag]}
                   </span>
+                  <span className="text-primary mt-3 inline-block text-xs font-medium group-hover:underline">
+                    Explore →
+                  </span>
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        {featured.length > 0 && (
+          <section aria-labelledby="featured-heading" className="py-16">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <h2 id="featured-heading" className="text-3xl">
+                Featured pieces
+              </h2>
+              <Link href="/products" className="text-sm underline underline-offset-4">
+                View all jewellery
+              </Link>
+            </div>
+            <div className="mt-8">
+              <ProductGrid products={featured} />
+            </div>
+          </section>
+        )}
+        <RecoRow widget="trending" query="w=trending" />
+      </div>
+
+      {/* Why buy here */}
+      <section aria-labelledby="trust-heading" className="border-border bg-accent border-y">
+        <div className="mx-auto max-w-6xl px-4 py-12">
+          <h2 id="trust-heading" className="sr-only">
+            Why buy from us
+          </h2>
+          <ul className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {TRUST.map(({ icon: Icon, title, text }) => (
+              <li key={title} className="flex gap-3">
+                <Icon className="text-gold mt-0.5 size-6 shrink-0" aria-hidden="true" />
+                <div>
+                  <p className="font-semibold">{title}</p>
+                  <p className="text-muted-foreground mt-1 text-sm">{text}</p>
+                </div>
               </li>
             ))}
           </ul>
         </div>
       </section>
 
-      {featured.length > 0 && (
-        <section
-          aria-labelledby="featured-heading"
-          className="mx-auto max-w-7xl px-4 py-14 md:py-[72px]"
-        >
-          <SectionHead
-            id="featured-heading"
-            kicker="The considered edit"
-            title="Featured pieces"
-            link={{ href: "/products", label: "View all jewellery" }}
-          />
-          <ProductGrid products={featured} />
-        </section>
-      )}
-      <div className="mx-auto max-w-7xl px-4">
-        <RecoRow widget="trending" query="w=trending" />
-      </div>
-
-      {/* The art of craftsmanship: style advisor, or diamonds when the advisor is off */}
-      <section className="bg-brand text-on grid md:grid-cols-2">
-        <Image
-          src="/images/editorial/solitaire-rings.jpg"
-          alt="Two diamond solitaire rings"
-          width={712}
-          height={260}
-          className="h-full max-h-[320px] w-full object-cover md:max-h-[560px]"
-        />
-        <div className="self-center px-4 py-12 sm:px-10 md:py-16 lg:px-16">
-          <span className="text-goldlight block text-[11px] font-bold tracking-[0.2em] uppercase">
-            The art of craftsmanship
-          </span>
-          {config.features.style_advisor ? (
-            <>
-              <h2 className="mt-2.5 text-[clamp(2rem,4.4vw,3.4rem)] leading-[1.05] text-[#fbf6ee]">
-                A little tradition.{" "}
-                <em className="text-goldlight font-normal">Entirely your own.</em>
-              </h2>
-              <p className="mt-4 max-w-[42ch] text-[17px] leading-[1.75] opacity-95">
-                Answer a few quick questions and the style advisor suggests pieces for your look,
-                occasion and budget.
-              </p>
-              <div className="mt-7">
-                <Link href="/style-advisor" className={cn(btn, "bg-btn2 text-btn2fg border-btn2")}>
-                  Find your personal edit <ArrowRight aria-hidden="true" />
-                </Link>
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 className="mt-2.5 text-[clamp(2rem,4.4vw,3.4rem)] leading-[1.05] text-[#fbf6ee]">
-                Solitaires that say it <em className="text-goldlight font-normal">simply.</em>
-              </h2>
-              <p className="mt-4 max-w-[42ch] text-[17px] leading-[1.75] opacity-95">
-                Lab-grown and natural diamonds set in 18K white, yellow and rose gold. Every stone
-                comes with its certificate.
-              </p>
-              <div className="mt-7">
-                <Link
-                  href="/products?category=rings"
-                  className={cn(btn, "bg-btn2 text-btn2fg border-btn2")}
-                >
-                  Shop rings <ArrowRight aria-hidden="true" />
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-
       {reviews.length > 0 && (
-        <section
-          aria-labelledby="reviews-heading"
-          className="mx-auto max-w-7xl px-4 py-14 md:py-[72px]"
-        >
-          <SectionHead
-            id="reviews-heading"
-            kicker="In their words"
-            title="What our customers *say*"
-          />
-          <ul className="grid gap-5 md:grid-cols-3">
+        <section aria-labelledby="reviews-heading" className="mx-auto max-w-6xl px-4 pt-16">
+          <h2 id="reviews-heading" className="text-3xl">
+            What our customers say
+          </h2>
+          <ul className="mt-8 grid gap-5 md:grid-cols-3">
             {reviews.map((r) => (
-              <li key={r.id} className="bg-card border-line border p-6">
+              <li key={r.id} className="border-border rounded-md border p-5">
                 <Stars avgX100={r.rating * 100} />
-                <p
-                  className="text-head mt-3 text-xl"
-                  style={{ fontFamily: "var(--font-display)", fontWeight: 500 }}
-                >
-                  {r.title}
-                </p>
+                <p className="mt-3 font-medium">{r.title}</p>
                 <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{r.body}</p>
                 <p className="mt-4 text-xs">
                   {r.authorName} on{" "}
@@ -387,34 +308,45 @@ async function DefaultHome() {
       )}
 
       {config.features.visit_booking && (
-        <section className="bg-alt border-line border-t">
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-7 gap-y-5 px-4 py-9">
+        <section className="mx-auto max-w-6xl px-4 pt-16">
+          <div className="bg-brand text-on flex flex-col items-start gap-5 rounded-md p-8 md:flex-row md:items-center md:justify-between md:p-10">
             <div>
-              <h2 className="text-head text-[clamp(1.75rem,3.4vw,2.5rem)]">
-                Prefer to see it in person?
-              </h2>
-              <p className="text-muted-foreground mt-1">
-                Book a time and we&apos;ll have your favourites ready to try. No obligation.
+              <h2 className="text-3xl">See it before you buy</h2>
+              <p className="text-on/85 mt-2 max-w-lg text-sm">
+                Book a time at our showroom to try pieces on and get sized — no obligation.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Link href="/visit" className={cn(btn, "bg-btn text-btnfg border-btn")}>
+            <Button asChild size="lg" className="bg-btn2 text-btn2fg hover:bg-btn2/90">
+              <Link href="/visit">
                 <CalendarDays aria-hidden="true" /> Book a visit
               </Link>
-              {chat && (
-                <a
-                  href={chat}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(btn, "text-eyebrow border-current bg-transparent")}
-                >
-                  <MessageCircle aria-hidden="true" /> Ask on WhatsApp
-                </a>
-              )}
-            </div>
+            </Button>
           </div>
         </section>
       )}
+
+      {/* Diamonds band */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="bg-alt grid items-center gap-8 overflow-hidden rounded-md md:grid-cols-2">
+          <Image
+            src="/images/editorial/solitaire-rings.jpg"
+            alt="Two diamond solitaire rings"
+            width={712}
+            height={260}
+            className="h-full min-h-56 w-full object-cover"
+          />
+          <div className="p-8 md:pr-12">
+            <h2 className="text-3xl">Solitaires that say it simply</h2>
+            <p className="text-muted-foreground mt-3 max-w-md">
+              Lab-grown and natural diamonds set in 18K white, yellow and rose gold. Every stone
+              comes with its certificate.
+            </p>
+            <Button asChild className="mt-6">
+              <Link href="/products?category=rings">Shop rings</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

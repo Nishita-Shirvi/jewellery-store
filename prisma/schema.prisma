@@ -265,9 +265,6 @@ model Category {
   slug        String   @unique
   description String?
   image       String?
-  /// Home-page tile (Admin → Categories → Tile): the piece on a display model, see lib/tiles.ts.
-  /// Null = the sample tile for its name, or the plain category photo.
-  tile        Json?
   sortOrder   Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())

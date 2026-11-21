@@ -2,15 +2,13 @@
 
 ## New shop look, dark mode and festival themes — 2026-11-21
 
-Needs the migration `20261121090000_category_tile` (adds `Category.tile`; applied automatically on production deploys). Customer pages only; admin keeps its look.
+No migration. Customer pages only; admin keeps its look.
 
 ### Added
 
 - **New look** for every customer page: Cormorant Garamond headings and Karla text (self-hosted), a wordmark header with a categories row, rate bar under the header, product cards with gold prices ("BIS hallmarked" only on pieces with an HUID) and a four-column footer with the showroom address from Admin → Showroom.
 - **Dark mode** with a sun/moon button in the header, remembered per shopper (cookie `vj_mode`); otherwise the shop follows the device, or the default set in Admin → Appearance.
 - **Admin → Appearance** (needs `content.manage`): festival themes with dates (India time), seven colours with **Default colours**, festive decoration (toran or petals), the top of the home page (photo in an arch or a full-width background video) and an offer line. Preview links for staff. See `Docs/ADMIN_GUIDE.md` → Appearance.
-- **Home page** in the new layout: trust bar, category tiles, the wedding and festive edits with every occasion, featured pieces, the style advisor band, reviews and a "Prefer to see it in person?" band with Book a visit and WhatsApp.
-- **Category tiles on a display model** (velvet bust, head or hand, in the theme colours): the hover (or tap) zoom grows the product photo out of where the piece sits. Admin → Categories → **Home-page tile**: upload a product photo, its background is removed in the browser (no paid service), then drag, size and turn it on the model; or use your own model photo. Sample tiles from stock photos (`public/images/tiles/`) show until then.
 - Videos upload straight from the browser to Cloudinary with a signed ticket (MP4/WebM only, `[images] max_video_mb`, default 25). The CSP now allows `https://api.cloudinary.com` for this.
 
 ### Changed
