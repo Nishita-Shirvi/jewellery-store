@@ -10,8 +10,8 @@ import {
   saveDefaultModeAction,
   saveThemeAction,
   uploadAppearanceImageAction,
-  videoUploadTicketAction,
 } from "@/app/admin/appearance-actions";
+import { uploadVideo as sendVideo } from "@/components/admin/upload-video";
 import {
   DECORATIONS,
   THEME_PRESETS,
@@ -572,46 +572,13 @@ function HeroFields({
 
   async function uploadVideo(file: File) {
     const apply = editLater;
-    if (!/^video\/(mp4|webm)$/.test(file.type) && !/\.(mp4|webm)$/i.test(file.name)) {
-      onNotice({ ok: false, text: "Choose an MP4 or WebM video." });
-      return;
-    }
     setUploading("Uploading video…");
     try {
-      const ticket = await videoUploadTicketAction();
-      if (!ticket.ok) {
-        onNotice({ ok: false, text: ticket.error });
-        return;
-      }
-      if (file.size > ticket.maxBytes) {
-        onNotice({ ok: false, text: `Videos must be ${maxVideoMb} MB or smaller.` });
-        return;
-      }
-      const fd = new FormData();
-      for (const [k, v] of Object.entries(ticket.fields)) fd.append(k, v);
-      fd.append("file", file);
-      const url = await new Promise<string | null>((resolve) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", ticket.url);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable)
-            setUploading(`Uploading video… ${Math.round((e.loaded / e.total) * 100)}%`);
-        };
-        xhr.onload = () => {
-          try {
-            const json = JSON.parse(xhr.responseText) as { secure_url?: string };
-            resolve(xhr.status < 300 && json.secure_url ? json.secure_url : null);
-          } catch {
-            resolve(null);
-          }
-        };
-        xhr.onerror = () => resolve(null);
-        xhr.send(fd);
-      });
-      if (url) apply({ video: url, layout: "video" });
-      else onNotice({ ok: false, text: "The video didn't upload. Please try again." });
-    } catch {
-      onNotice({ ok: false, text: "The video didn't upload. Please try again." });
+      const res = await sendVideo(file, maxVideoMb, (pct) =>
+        setUploading(`Uploading video… ${pct}%`),
+      );
+      if (res.ok) apply({ video: res.url, layout: "video" });
+      else onNotice({ ok: false, text: res.error });
     } finally {
       setUploading(null);
     }

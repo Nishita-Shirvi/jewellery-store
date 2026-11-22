@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** Themes | Popup, at the top of Admin → Appearance. */
-export function AppearanceTabs({ current }: { current: "themes" | "popup" }) {
+/** Themes | Popup | Sign-in & top bar, at the top of Admin → Appearance. */
+export function AppearanceTabs({ current }: { current: "themes" | "popup" | "entrance" }) {
   const tabs = [
     { key: "themes", href: "/admin/appearance", label: "Festival themes" },
     { key: "popup", href: "/admin/appearance/popup", label: "Popup" },
+    { key: "entrance", href: "/admin/appearance/sign-in", label: "Sign-in & top bar" },
   ] as const;
   return (
     <nav aria-label="Appearance" className="border-border flex gap-1 border-b text-sm">

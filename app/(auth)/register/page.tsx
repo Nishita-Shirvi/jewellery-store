@@ -6,6 +6,7 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isGoogleAuthEnabled } from "@/lib/env";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { getEntrance } from "@/services/entrance.service";
 import { RegisterForm } from "./register-form";
 
 export const metadata: Metadata = { title: "Create an account", robots: { index: false } };
@@ -18,9 +19,10 @@ export default async function RegisterPage({
   const params = await searchParams;
   const callbackUrl = safeRedirectPath(params.callbackUrl, "/account");
   if (await getCurrentUser()) redirect(callbackUrl);
+  const entrance = await getEntrance();
 
   return (
-    <AuthCard title="Create an account">
+    <AuthCard title="Create an account" entrance={entrance}>
       {isGoogleAuthEnabled && (
         <>
           <GoogleButton callbackUrl={callbackUrl} />
