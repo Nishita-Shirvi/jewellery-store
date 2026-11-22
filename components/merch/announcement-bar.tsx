@@ -18,36 +18,47 @@ function emphasised(message: string) {
 /**
  * Thin bar above the header (Phase 24). Shows the live announcement with the highest priority;
  * scheduled ones appear and disappear on their own. When none is live, the live festival theme's
- * offer line shows instead (Admin → Appearance). Renders nothing when neither is set, and never
- * breaks the page if the database is unreachable.
+ * offer line shows instead (Admin → Appearance). On shop pages the tagline from Admin →
+ * Appearance → Sign-in & top bar sits on the left (phones show only the announcement, or the
+ * tagline when there is none). Renders nothing when none is set, and never breaks the page if the
+ * database is unreachable.
  */
-export async function AnnouncementBar() {
+export async function AnnouncementBar({ tagline = null }: { tagline?: string | null }) {
   const a =
     (await getLiveAnnouncement().catch(() => null)) ??
-    (await getLiveTheme().then((t) =>
-      t.offer ? { message: t.offer, linkUrl: null, linkLabel: null } : null,
-    ));
-  if (!a) return null;
-  const external = a.linkUrl?.startsWith("https://");
+    (await getLiveTheme()
+      .then((t) => (t.offer ? { message: t.offer, linkUrl: null, linkLabel: null } : null))
+      .catch(() => null));
+  if (!a && !tagline) return null;
+  const external = a?.linkUrl?.startsWith("https://");
   return (
     <div
       role="region"
       aria-label="Announcement"
-      className="bg-deep text-on px-4 py-2 text-center text-[12.5px] tracking-wide"
+      className="bg-deep text-on flex flex-wrap items-center justify-center gap-x-8 gap-y-1 px-4 py-2 text-center text-[12.5px] tracking-wide"
       data-testid="announcement"
     >
-      <span>{emphasised(a.message)}</span>
-      {a.linkUrl && (
-        <>
-          {" "}
-          <Link
-            href={a.linkUrl}
-            className="font-semibold underline underline-offset-4"
-            {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-          >
-            {a.linkLabel ?? "Shop now"}
-          </Link>
-        </>
+      {tagline && (
+        <span className={a ? "max-sm:hidden" : undefined} data-testid="tagline">
+          {tagline}
+        </span>
+      )}
+      {a && (
+        <span className={tagline ? "opacity-90" : undefined}>
+          {emphasised(a.message)}
+          {a.linkUrl && (
+            <>
+              {" "}
+              <Link
+                href={a.linkUrl}
+                className="font-semibold underline underline-offset-4"
+                {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+              >
+                {a.linkLabel ?? "Shop now"}
+              </Link>
+            </>
+          )}
+        </span>
       )}
     </div>
   );

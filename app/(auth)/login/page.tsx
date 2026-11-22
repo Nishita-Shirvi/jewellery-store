@@ -6,6 +6,7 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { getCurrentUser } from "@/lib/auth-guards";
 import { isGoogleAuthEnabled } from "@/lib/env";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { getEntrance } from "@/services/entrance.service";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Log in", robots: { index: false } };
@@ -26,13 +27,14 @@ export default async function LoginPage({
   const params = await searchParams;
   const callbackUrl = safeRedirectPath(params.callbackUrl, "/account");
   if (await getCurrentUser()) redirect(callbackUrl);
+  const entrance = await getEntrance();
 
   const errorMessage = params.error
     ? (ERROR_MESSAGES[params.error] ?? "Login failed. Please try again.")
     : null;
 
   return (
-    <AuthCard title="Log in">
+    <AuthCard title="Log in" entrance={entrance}>
       {errorMessage && (
         <p
           role="alert"

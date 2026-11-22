@@ -25,6 +25,8 @@ import { getCurrentUser } from "@/lib/auth-guards";
 import { todayInIndia } from "@/lib/appearance";
 import { visitDays } from "@/lib/popup";
 import { getLivePopup } from "@/services/popup.service";
+import { getEntrance } from "@/services/entrance.service";
+import { entranceTagline } from "@/lib/entrance";
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicEnv.NEXT_PUBLIC_APP_URL),
@@ -54,10 +56,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // right after in-app navigation). Colours and decoration come from the live festival theme
   // (Admin → Appearance). Light/dark: the shopper's sun/moon choice, else the admin's default.
   const admin = (await headers()).has(ADMIN_PATH_HEADER);
-  const [appearance, theme, popup] = await Promise.all([
+  const [appearance, theme, popup, entrance] = await Promise.all([
     getAppearanceSafe(),
     getLiveTheme(),
     admin ? null : getLivePopup(),
+    admin ? null : getEntrance(),
   ]);
   const signedIn = popup?.action === "signin" ? Boolean(await getCurrentUser()) : false;
   const mode = parseMode((await cookies()).get(MODE_COOKIE)?.value) ?? appearance.defaultMode;
@@ -73,7 +76,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body className="flex min-h-dvh flex-col antialiased">
         <AreaSync />
-        <AnnouncementBar />
+        <AnnouncementBar tagline={entrance ? entranceTagline(entrance) : null} />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />
