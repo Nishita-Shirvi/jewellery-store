@@ -134,7 +134,7 @@ Admin → **Appearance** (needs the Content permission). Admin pages never chang
 - **Colours**: main, gold, background, second background, text, secondary text and a festive accent. Dark mode is worked out from the same colours. A preview shows both modes, and a warning appears if text would be hard to read. **Default colours** puts back Vineet maroon, gold and ivory.
 - **Festive decoration**: none, a marigold toran under the header, or scattered petals behind the top of the home page.
 - **Top of the home page**: a photo in an arch with the text beside it, or a full-width background video. Upload a photo (or pick one of ours) and describe it. For a video, upload an MP4 or WebM (up to `[images] max_video_mb`, 25 MB; it goes straight to Cloudinary) or paste a link to one on our storage. The video plays muted on a loop; shoppers who ask for less motion or save data see the photo. Then the small line, heading (_stars_ make words italic), text, button label and the page the button opens (a page on this site, starting with `/`).
-- **Offer bar**: a line above the header while the theme is live (_stars_ show words in gold). An announcement from Content → Announcements shows instead whenever one is live.
+- **Offer bar**: a line in the top bar while the theme is live (_stars_ show words in gold), beside the tagline (see [Sign-in page and top bar](#sign-in-page-and-top-bar)). An announcement from Content → Announcements shows instead whenever one is live.
 - **Preview on the site** opens the home page with that theme's colours and top section, even before its dates (the link works for 48 hours).
 - **Light or dark for new visitors**: follow the phone's setting (default), light or dark. Shoppers can always switch with the sun/moon button in the header; the shop remembers their choice.
 
@@ -152,6 +152,18 @@ Admin → **Appearance** → **Popup** (needs the Content permission). A popup w
   - **Sign in or create an account**: not shown to shoppers who are already signed in.
   - **Just a button** to a page on this site.
 - The preview on the right updates as you type (tick **Phone width** for the phone layout).
+
+## Sign-in page and top bar
+
+Admin → **Appearance** → **Sign-in & top bar** (needs the Content permission). Both are on by default.
+
+- **Top bar**: a slim line above the header on every shop page, "A little gold. A lifetime of stories." by default. Untick **Show the tagline bar** to hide it, or change the words (up to 80 characters). A live announcement (Content → Announcements) or the theme's offer line shows beside it; phones show only the announcement, or the tagline when there is none. Admin pages never show it.
+- **Log-in and create-account pages**: our showroom clip plays muted, on a loop, behind the form. Only these two pages; forgot/reset password and the rest of the shop don't have it.
+  - Untick **Play the background video** to show only the **still picture**. Shoppers who ask their phone for less motion or to save data always see the still, and anyone can pause the video.
+  - **Your own video**: upload an MP4 or WebM (up to `[images] max_video_mb`, 25 MB; it goes straight to Cloudinary) or paste a link to one on our storage. Keep it short (10–20 seconds) and silent. Then upload a **still picture** (best: a frame from the video).
+  - **Use our showroom clip** puts the default video and still back; **Back to our defaults** resets everything on this tab.
+  - The **small line**, **heading** and **text** show beside the form on computers and tablets.
+- You're signed in, so opening /login takes you to your account: open it in a private window to see it as shoppers do.
 
 ## Home-page category tiles
 

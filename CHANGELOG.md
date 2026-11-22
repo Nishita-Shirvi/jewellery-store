@@ -1,5 +1,15 @@
 # Changelog
 
+## Sign-in video and top bar — 2026-11-22
+
+No migration (stored in `AppSetting` under the key `entrance`).
+
+### Added
+
+- **Log in and create account** play the owner's showroom clip muted and looping behind the form (`public/videos/login-bg.mp4`, still `public/images/editorial/login-poster.jpg`). Reduced motion or data saver shows the still; a pause button lets anyone stop it.
+- **Top bar** above the header on shop pages: "A little gold. A lifetime of stories.", with any live announcement or theme offer beside it (phones show one).
+- **Admin → Appearance → Sign-in & top bar** (needs `content.manage`): switch each on or off, upload or link a video and still (our site, Cloudinary or R2 only), and edit the tagline and the words beside the form. If the setting can't be read, the defaults are used. See `Docs/ADMIN_GUIDE.md` → Sign-in page and top bar.
+
 ## New shop look, dark mode and festival themes — 2026-11-21
 
 Needs the migration `20261121090000_category_tile` (adds `Category.tile`; applied automatically on production deploys). Customer pages only; admin keeps its look.

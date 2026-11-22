@@ -12,7 +12,7 @@ What each feature does from the customer's and admin's point of view. Where the 
 
 ## Gold rate and prices
 
-- **Rate strip:** the thin strip at the top of the header shows today's rates per gram (e.g. `Today's rate 22K ₹7,250/g · 24K ₹7,900/g (updated 18 Nov, 10:15 am)`) for the purities in `[pricing] strip_purities`, next to the standing `[storefront] announcement` message on wide screens. With no rates yet, or `[features] rate_strip = false`, it shows only the message. Time-limited offers go in the scheduled announcement bar (Admin → Content), which shows above the strip.
+- **Rate strip:** the thin strip at the top of the header shows today's rates per gram (e.g. `Today's rate 22K ₹7,250/g · 24K ₹7,900/g (updated 18 Nov, 10:15 am)`) for the purities in `[pricing] strip_purities`, next to the standing `[storefront] announcement` message on wide screens. With no rates yet, or `[features] rate_strip = false`, it shows only the message. Time-limited offers go in the scheduled announcement bar (Admin → Content), which shows above the header beside the tagline (Admin → Appearance → Sign-in & top bar).
 - **Two kinds of price**, chosen per product by the admin:
   - **Fixed price** — the price typed by the admin. Never changes on its own.
   - **Follows today's metal rate** (rate-linked) — `(net weight in g × today's rate for its purity + making charge + stone charge) × (1 + GST)`, rounded to the whole rupee (`lib/metal-pricing.ts`). **Every size (variant) is priced from its own net weight.** Recalculated and stored the moment an admin saves new rates (or saves the product, its options or its variants), so lists, filters, cart and checkout all read one stored price. A sale ("was") price that is no longer above the new price is removed.
