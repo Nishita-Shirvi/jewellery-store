@@ -2,6 +2,11 @@
 
 import { videoUploadTicketAction } from "@/app/admin/appearance-actions";
 
+/** MP4 or WebM, by type or (when the browser doesn't say) by name. */
+export function isVideoFile(file: File): boolean {
+  return /^video\/(mp4|webm)$/.test(file.type) || /\.(mp4|webm)$/i.test(file.name);
+}
+
 /**
  * Sends an MP4/WebM straight from the browser to our Cloudinary account with a signed ticket
  * (videos are too big to pass through our server). Shared by the theme hero and the sign-in page.
@@ -11,8 +16,7 @@ export async function uploadVideo(
   maxVideoMb: number,
   onProgress: (percent: number) => void,
 ): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
-  if (!/^video\/(mp4|webm)$/.test(file.type) && !/\.(mp4|webm)$/i.test(file.name))
-    return { ok: false, error: "Choose an MP4 or WebM video." };
+  if (!isVideoFile(file)) return { ok: false, error: "Choose an MP4 or WebM video." };
   const failed = { ok: false as const, error: "The video didn't upload. Please try again." };
   try {
     const ticket = await videoUploadTicketAction();

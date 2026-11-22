@@ -3,6 +3,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { db } from "@/lib/db";
 import { DEFAULT_ENTRANCE, type EntranceSettings } from "@/lib/entrance";
 import { logger } from "@/lib/logger";
+import { isAllowedImageUrl, isAllowedVideoUrl } from "@/lib/media";
 import { entranceSchema, storedEntranceSchema } from "@/lib/validation/entrance";
 
 /** Admin → Appearance → Sign-in & top bar, stored as one AppSetting row. */
@@ -37,7 +38,13 @@ export async function getEntrance(): Promise<EntranceSettings> {
     return DEFAULT_ENTRANCE;
   });
   if (entranceSchema.safeParse(s).success) return s;
-  return { ...s, videoUrl: DEFAULT_ENTRANCE.videoUrl, poster: DEFAULT_ENTRANCE.poster };
+  // Swap only the link that no longer passes, so a good custom video or still is kept.
+  return {
+    ...s,
+    videoUrl:
+      s.videoUrl === "" || isAllowedVideoUrl(s.videoUrl) ? s.videoUrl : DEFAULT_ENTRANCE.videoUrl,
+    poster: isAllowedImageUrl(s.poster) ? s.poster : DEFAULT_ENTRANCE.poster,
+  };
 }
 
 export async function saveEntrance(s: EntranceSettings): Promise<void> {

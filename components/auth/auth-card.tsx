@@ -34,9 +34,11 @@ export function AuthCard({
         )}
       >
         <div>
-          <p className="text-goldlight text-xs font-semibold tracking-[0.18em] uppercase">
-            {entrance ? entrance.eyebrow : "Welcome"}
-          </p>
+          {(!entrance || entrance.eyebrow) && (
+            <p className="text-goldlight text-xs font-semibold tracking-[0.18em] uppercase">
+              {entrance ? entrance.eyebrow : "Welcome"}
+            </p>
+          )}
           <p className="mt-2 text-3xl leading-tight" style={{ fontFamily: "var(--font-display)" }}>
             {entrance ? entrance.heading : "Jewellery made to be handed down"}
           </p>

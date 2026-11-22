@@ -11,7 +11,7 @@ import {
   saveThemeAction,
   uploadAppearanceImageAction,
 } from "@/app/admin/appearance-actions";
-import { uploadVideo as sendVideo } from "@/components/admin/upload-video";
+import { isVideoFile, uploadVideo as sendVideo } from "@/components/admin/upload-video";
 import {
   DECORATIONS,
   THEME_PRESETS,
@@ -572,6 +572,10 @@ function HeroFields({
 
   async function uploadVideo(file: File) {
     const apply = editLater;
+    if (!isVideoFile(file)) {
+      onNotice({ ok: false, text: "Choose an MP4 or WebM video." });
+      return;
+    }
     setUploading("Uploading video…");
     try {
       const res = await sendVideo(file, maxVideoMb, (pct) =>

@@ -18,7 +18,11 @@ function makeEntranceSchema(strict: boolean) {
             "Upload the video, or paste a link from our Cloudinary",
           )
         : link,
-      poster: strict ? link.refine((v) => isAllowedImageUrl(v), "Upload the picture again") : link,
+      poster: strict
+        ? link
+            .min(1, "Add a still picture")
+            .refine((v) => v === "" || isAllowedImageUrl(v), "Upload the picture again")
+        : link,
       eyebrow: text(40),
       heading: text(80).min(1, "Enter a heading"),
       text: text(200),

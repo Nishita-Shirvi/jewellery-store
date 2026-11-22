@@ -58,3 +58,11 @@ describe("sign-in video and top bar", () => {
     );
   });
 });
+
+describe("sign-in settings messages", () => {
+  it("an empty still asks for a picture, not a re-upload", () => {
+    const res = entranceSchema.safeParse({ ...DEFAULT_ENTRANCE, poster: "" });
+    expect(res.success).toBe(false);
+    expect(res.error!.issues.map((i) => i.message)).toEqual(["Add a still picture"]);
+  });
+});

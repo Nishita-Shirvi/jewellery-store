@@ -26,9 +26,9 @@ function emphasised(message: string) {
 export async function AnnouncementBar({ tagline = null }: { tagline?: string | null }) {
   const a =
     (await getLiveAnnouncement().catch(() => null)) ??
-    (await getLiveTheme().then((t) =>
-      t.offer ? { message: t.offer, linkUrl: null, linkLabel: null } : null,
-    ));
+    (await getLiveTheme()
+      .then((t) => (t.offer ? { message: t.offer, linkUrl: null, linkLabel: null } : null))
+      .catch(() => null));
   if (!a && !tagline) return null;
   const external = a?.linkUrl?.startsWith("https://");
   return (

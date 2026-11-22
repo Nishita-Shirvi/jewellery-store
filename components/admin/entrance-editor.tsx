@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { uploadAppearanceImageAction } from "@/app/admin/appearance-actions";
 import { saveEntranceAction } from "@/app/admin/entrance-actions";
-import { uploadVideo } from "@/components/admin/upload-video";
+import { isVideoFile, uploadVideo } from "@/components/admin/upload-video";
 import {
   DEFAULT_ENTRANCE,
   DEFAULT_POSTER,
@@ -62,6 +62,10 @@ export function EntranceEditor({
   }
 
   async function sendVideo(file: File) {
+    if (!isVideoFile(file)) {
+      setNotice({ ok: false, text: "Choose an MP4 or WebM video." });
+      return;
+    }
     setUploading("Uploading video…");
     try {
       const res = await uploadVideo(file, maxVideoMb, (pct) =>
@@ -178,8 +182,10 @@ export function EntranceEditor({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={s.videoUrl === DEFAULT_VIDEO && s.poster === DEFAULT_POSTER}
-                onClick={() => edit({ videoUrl: DEFAULT_VIDEO, poster: DEFAULT_POSTER })}
+                disabled={s.video && s.videoUrl === DEFAULT_VIDEO && s.poster === DEFAULT_POSTER}
+                onClick={() =>
+                  edit({ videoUrl: DEFAULT_VIDEO, poster: DEFAULT_POSTER, video: true })
+                }
               >
                 Use our showroom clip
               </Button>
@@ -314,9 +320,11 @@ export function EntranceEditor({
           )}
           <div className="absolute inset-0 bg-black/50" />
           <div className="absolute inset-y-6 left-6 max-w-[45%] text-[#fbf6ee]">
-            <p className="text-[10px] font-semibold tracking-[0.18em] text-[#e9cf8f] uppercase">
-              {s.eyebrow}
-            </p>
+            {s.eyebrow && (
+              <p className="text-[10px] font-semibold tracking-[0.18em] text-[#e9cf8f] uppercase">
+                {s.eyebrow}
+              </p>
+            )}
             <p className="mt-1 text-xl leading-tight" style={{ fontFamily: "var(--font-display)" }}>
               {s.heading}
             </p>

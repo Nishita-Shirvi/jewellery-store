@@ -18,6 +18,9 @@ export function AuthBackdrop({ video, poster }: { video: string | null; poster: 
 
   useEffect(() => {
     const v = ref.current;
+    // A new video starts hidden-button until it actually plays.
+    setStarted(false);
+    setPlaying(false);
     if (!v) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection
